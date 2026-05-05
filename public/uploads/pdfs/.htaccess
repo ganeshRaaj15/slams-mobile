@@ -1,0 +1,7 @@
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^index\.html$ - [L]
+    RewriteRule ^([A-Za-z0-9._-]+\.pdf)$ /document/pdf/$1 [L,QSA]
+</IfModule>

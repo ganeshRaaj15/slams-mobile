@@ -1,0 +1,388 @@
+import { useQuery } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+
+import { bootstrapRequest } from '../api/endpoints';
+import { EmptyState } from '../components/empty-state';
+import { ErrorState } from '../components/error-state';
+import { LoadingState } from '../components/loading-state';
+import { Screen } from '../components/screen';
+import { StatCard } from '../components/stat-card';
+import { getShortcutIcon } from '../constants/navigation';
+import { isOperationalRole } from '../constants/roles';
+import { useAuthStore } from '../state/auth-store';
+import { useAppTheme } from '../theme/use-app-theme';
+
+const routeMap: Record<string, string> = {
+  labs: 'Labs',
+  bookings: 'Bookings',
+  approvals: 'Approvals',
+  issues: 'Issues',
+  maintenance: 'Maintenance',
+  requests: 'Requests',
+  notifications: 'Notifications',
+  profile: 'Profile',
+  reports: 'Reports',
+  admin: 'AdminWorkspace',
+};
+
+export function HomeScreen() {
+  const theme = useAppTheme();
+  const navigation = useNavigation<any>();
+  const user = useAuthStore((state) => state.user);
+  const cardShadow = {
+    elevation: 4,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: theme.tone === 'dark' ? 0.28 : 0.08,
+    shadowRadius: 22,
+  };
+
+  const bootstrapQuery = useQuery({
+    queryKey: ['bootstrap'],
+    queryFn: bootstrapRequest,
+  });
+
+  if (bootstrapQuery.isLoading) {
+    return (
+      <Screen scroll={false}>
+        <LoadingState label="Loading dashboard..." />
+      </Screen>
+    );
+  }
+
+  if (bootstrapQuery.isError || !bootstrapQuery.data) {
+    return (
+      <Screen>
+        <ErrorState
+          message="The dashboard summary could not be loaded from the backend."
+          onRetry={() => {
+            void bootstrapQuery.refetch();
+          }}
+        />
+      </Screen>
+    );
+  }
+
+  const { summary, navigation: navItems } = bootstrapQuery.data;
+
+  return (
+    <Screen>
+      <View
+        style={[
+          styles.hero,
+          cardShadow,
+          {
+            backgroundColor: theme.colors.surfaceAccent,
+            borderColor: theme.colors.borderStrong,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.title,
+            {
+              color: theme.colors.heading,
+            },
+          ]}
+        >
+          {user?.full_name?.trim() || user?.username || 'SLAMS User'}
+        </Text>
+        <Text
+          style={[
+            styles.subtitle,
+            {
+              color: theme.colors.primary,
+            },
+          ]}
+        >
+          {summary.attention_label}
+        </Text>
+        <Text
+          style={[
+            styles.meta,
+            {
+              color: theme.colors.textMuted,
+            },
+          ]}
+        >
+          {summary.attention_meta}
+        </Text>
+      </View>
+
+      <View style={styles.statsRow}>
+        {summary.stats.map((stat) => (
+          <StatCard key={stat.id} label={stat.label} tone={stat.tone} value={stat.value} />
+        ))}
+      </View>
+
+      {summary.next_item ? (
+        <View
+          style={[
+            styles.card,
+            cardShadow,
+            {
+              backgroundColor: theme.colors.surfaceOverlay,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text
+            style={[
+            styles.sectionLabel,
+            {
+              color: theme.colors.primary,
+            },
+          ]}
+        >
+            Next item
+          </Text>
+          <Text
+            style={[
+            styles.cardTitle,
+            {
+              color: theme.colors.heading,
+            },
+          ]}
+        >
+            {summary.next_item.title}
+          </Text>
+          <Text
+            style={[
+              styles.cardSubtitle,
+              {
+                color: theme.colors.textMuted,
+              },
+            ]}
+          >
+            {summary.next_item.subtitle}
+          </Text>
+          {summary.next_item.meta ? (
+            <Text
+              style={[
+                styles.cardMeta,
+                {
+                  color: theme.colors.primary,
+                },
+              ]}
+            >
+              {summary.next_item.meta}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {navItems.length > 1 ? (
+        <View
+          style={[
+            styles.card,
+            cardShadow,
+            {
+              backgroundColor: theme.colors.surfaceOverlay,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text
+            style={[
+            styles.sectionLabel,
+            {
+              color: theme.colors.primary,
+            },
+          ]}
+        >
+            Shortcuts
+          </Text>
+          <View style={styles.shortcutsWrap}>
+            {navItems
+              .filter((item) => item.id !== 'home')
+              .map((item) => (
+                <Pressable
+                  key={item.id}
+                  onPress={() => {
+                    const routeName = routeMap[item.id];
+                    if (routeName) {
+                      navigation.navigate(routeName);
+                    }
+                  }}
+                  style={[
+                    styles.shortcut,
+                    {
+                      backgroundColor: theme.colors.surfaceMuted,
+                      borderColor: theme.colors.border,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.shortcutIconWrap,
+                      {
+                        backgroundColor: theme.colors.primarySoft,
+                      },
+                    ]}
+                  >
+                    <Ionicons color={theme.colors.primary} name={getShortcutIcon(item.id)} size={18} />
+                  </View>
+                  <Text
+                    style={[
+                      styles.shortcutText,
+                      {
+                        color: theme.colors.heading,
+                      },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </Pressable>
+              ))}
+          </View>
+        </View>
+      ) : (
+        <EmptyState
+          title="No shortcuts yet"
+          message="This role does not have any extra mobile sections configured yet."
+        />
+      )}
+
+      <View
+        style={[
+          styles.noteCard,
+          cardShadow,
+          {
+            backgroundColor: theme.colors.surfaceAccent,
+            borderColor: theme.colors.borderStrong,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.noteTitle,
+            {
+              color: theme.colors.primaryStrong,
+            },
+          ]}
+        >
+          Role summary
+        </Text>
+        <Text
+          style={[
+            styles.noteText,
+            {
+              color: theme.colors.heading,
+            },
+          ]}
+        >
+          {summary.message}
+        </Text>
+        {user?.primary_role && isOperationalRole(user.primary_role) ? (
+          <Text
+            style={[
+              styles.noteHint,
+              {
+                color: theme.colors.textMuted,
+              },
+            ]}
+          >
+            Use the shortcuts above to move quickly between the sections available to your role.
+          </Text>
+        ) : null}
+      </View>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  hero: {
+    borderRadius: 22,
+    borderWidth: 1,
+    gap: 6,
+    padding: 20,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  subtitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  meta: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  card: {
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 8,
+    padding: 16,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  cardSubtitle: {
+    fontSize: 14,
+  },
+  cardMeta: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  shortcutsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  shortcut: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    flexGrow: 1,
+    gap: 10,
+    minWidth: '46%',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  shortcutIconWrap: {
+    alignItems: 'center',
+    borderRadius: 12,
+    height: 34,
+    justifyContent: 'center',
+    width: 34,
+  },
+  shortcutText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  noteCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 8,
+    padding: 18,
+  },
+  noteTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  noteText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  noteHint: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+});

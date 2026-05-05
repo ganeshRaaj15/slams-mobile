@@ -1,0 +1,83 @@
+{
+    "name": "SLAMS Mobile",
+    "short_name": "SLAMS",
+    "description": "FKMP Smart Lab Booking System mobile app.",
+    "start_url": ".",
+    "scope": ".",
+    "display": "standalone",
+    "id": "/",
+    "background_color": "#f7faf8",
+    "theme_color": "#0f766e",
+    "orientation": "portrait",
+    "categories": ["education", "productivity", "utilities"],
+    "icons": [
+        {
+            "src": "icons/slams-mobile.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Laboratories",
+            "short_name": "Labs",
+            "url": "laboratories",
+            "icons": [
+                {
+                    "src": "icons/slams-mobile.svg",
+                    "sizes": "any",
+                    "type": "image/svg+xml"
+                }
+            ]
+        },
+        {
+            "name": "Assets",
+            "short_name": "Assets",
+            "url": "assets",
+            "icons": [
+                {
+                    "src": "icons/slams-mobile.svg",
+                    "sizes": "any",
+                    "type": "image/svg+xml"
+                }
+            ]
+        },
+        {
+            "name": "Dashboard",
+            "short_name": "Dashboard",
+            "url": "dashboard",
+            "icons": [
+                {
+                    "src": "icons/slams-mobile.svg",
+                    "sizes": "any",
+                    "type": "image/svg+xml"
+                }
+            ]
+        },
+        {
+            "name": "Notifications",
+            "short_name": "Alerts",
+            "url": "dashboard/notifications",
+            "icons": [
+                {
+                    "src": "icons/slams-mobile.svg",
+                    "sizes": "any",
+                    "type": "image/svg+xml"
+                }
+            ]
+        },
+        {
+            "name": "New External Request",
+            "short_name": "Request",
+            "url": "dashboard/external/request",
+            "icons": [
+                {
+                    "src": "icons/slams-mobile.svg",
+                    "sizes": "any",
+                    "type": "image/svg+xml"
+                }
+            ]
+        }
+    ]
+}
