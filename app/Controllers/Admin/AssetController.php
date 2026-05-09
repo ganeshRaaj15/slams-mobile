@@ -15,7 +15,7 @@ class AssetController extends BaseController
 
     public function __construct()
     {
-        helper(['auth', 'filesystem']);
+        helper(['auth', 'filesystem', 'qr']);
 
         if (! auth()->loggedIn() || ! auth()->user()->inGroup('admin')) {
             redirect()->to('/')->send();

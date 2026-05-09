@@ -648,7 +648,7 @@
 
 <!-- MODAL FOR BOOKING DETAILS -->
 <div class="modal fade" id="bookingModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white border-0 rounded-top-3">
                 <h5 class="modal-title">Booking Details - Manager Review</h5>
@@ -998,7 +998,13 @@ function updateTrendChart(type) {
 // Booking functions
 function viewBookingDetails(id) {
     currentBookingId = id;
-    const modal = new bootstrap.Modal(document.getElementById('bookingModal'));
+    const modalElement = document.getElementById('bookingModal');
+    if (window.slamsPrepareModal) {
+        window.slamsPrepareModal(modalElement);
+    } else if (modalElement && modalElement.parentElement !== document.body) {
+        document.body.appendChild(modalElement);
+    }
+    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
     
     document.getElementById('bookingDetails').innerHTML = `
         <div class="text-center py-4">

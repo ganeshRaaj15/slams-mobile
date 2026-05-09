@@ -10,6 +10,8 @@ class QrController extends BaseController
 {
     public function asset($code = null)
     {
+        helper('qr');
+
         $code = trim((string) $code);
         if ($code === '') {
             throw PageNotFoundException::forPageNotFound('Asset not found.');
@@ -50,8 +52,33 @@ class QrController extends BaseController
             $queryParams['qty'] = $qty;
         }
 
-        $query = http_build_query($queryParams);
+        $webUrl = qr_public_url('laboratories/' . $labId, $queryParams, $this->request);
 
-        return redirect()->to(site_url("/laboratories/{$labId}?{$query}"));
+        if ($open !== 1) {
+            return redirect()->to($webUrl);
+        }
+
+        $serviceId = (int) ($asset['lab_service_id'] ?? 0);
+        $userAgent = $this->request->getUserAgent();
+        $isMobile = $userAgent && $userAgent->isMobile();
+
+        if (! $isMobile || $serviceId <= 0) {
+            return redirect()->to($webUrl);
+        }
+
+        $appQuery = http_build_query([
+            'labId' => $labId,
+            'serviceId' => $serviceId,
+            'assetId' => (int) $asset['id'],
+            'qty' => $qty > 0 ? $qty : 1,
+        ]);
+
+        return view('public/qr/asset_redirect', [
+            'asset' => $asset,
+            'labId' => $labId,
+            'serviceId' => $serviceId,
+            'appUrl' => 'slamsnative://booking' . ($appQuery !== '' ? '?' . $appQuery : ''),
+            'webUrl' => $webUrl,
+        ]);
     }
 }

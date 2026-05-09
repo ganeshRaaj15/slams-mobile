@@ -293,7 +293,7 @@
 
 <!-- MODAL FOR BOOKING DETAILS -->
 <div class="modal fade" id="bookingModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Booking Details</h5>
@@ -340,7 +340,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function viewBookingDetails(id) {
     currentBookingId = id;
-    const modal = new bootstrap.Modal(document.getElementById('bookingModal'));
+    const modalElement = document.getElementById('bookingModal');
+    if (window.slamsPrepareModal) {
+        window.slamsPrepareModal(modalElement);
+    } else if (modalElement && modalElement.parentElement !== document.body) {
+        document.body.appendChild(modalElement);
+    }
+    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
     
     // Show loading
     document.getElementById('bookingDetails').innerHTML = `
@@ -367,11 +373,7 @@ function viewBookingDetails(id) {
 function displayBookingDetails(booking) {
     const container = document.getElementById('bookingDetails');
     
-    // Determine approval flow
     const isFkmp = booking.is_fkmp == 1;
-    const approvalFlow = isFkmp ? 
-        '<span class="badge bg-success">FKMP Student (PIC Final Approval)</span>' :
-        '<span class="badge bg-info">Non-FKMP Student (Requires Manager Approval)</span>';
     
     // Assets list
     let assetsHtml = '<p class="text-muted mb-0">No assets selected</p>';
@@ -430,7 +432,6 @@ function displayBookingDetails(booking) {
                         <p class="mb-2"><strong>Date:</strong> ${booking.date}</p>
                         <p class="mb-2"><strong>Time:</strong> ${booking.start_time} - ${booking.end_time}</p>
                         <p class="mb-2"><strong>Faculty:</strong> ${booking.faculty_name} ${isFkmp ? '(FKMP)' : ''}</p>
-                        <p class="mb-2"><strong>Approval Flow:</strong> ${approvalFlow}</p>
                     </div>
                 </div>
             </div>

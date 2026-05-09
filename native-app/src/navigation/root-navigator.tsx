@@ -2,7 +2,7 @@ import { NavigationContainer, DarkTheme as NavigationDarkTheme, DefaultTheme as 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { TAB_ICONS, TAB_LABELS } from '../constants/navigation';
 import { isExternalRole, isStudentRole } from '../constants/roles';
@@ -44,6 +44,31 @@ import type { MainTabParamList, RootStackParamList } from './types';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
 
+function SignOutHeaderAction() {
+  const signOut = useAuthStore((state) => state.signOut);
+  const theme = useAppTheme();
+
+  return (
+    <Pressable
+      accessibilityHint="Signs out of SLAMS Mobile"
+      accessibilityLabel="Sign out"
+      hitSlop={10}
+      onPress={() => {
+        void signOut();
+      }}
+      style={[
+        styles.headerActionButton,
+        {
+          backgroundColor: theme.colors.dangerSoft,
+          borderColor: theme.colors.border,
+        },
+      ]}
+    >
+      <Ionicons color={theme.colors.danger} name="log-out-outline" size={18} />
+    </Pressable>
+  );
+}
+
 function MainTabs() {
   const user = useAuthStore((state) => state.user);
   const theme = useAppTheme();
@@ -68,6 +93,7 @@ function MainTabs() {
             fontSize: 18,
             fontWeight: '800',
           },
+          headerRight: () => <SignOutHeaderAction />,
           tabBarHideOnKeyboard: true,
           tabBarLabel: TAB_LABELS[route.name as keyof MainTabParamList],
           tabBarActiveTintColor: theme.colors.primary,
@@ -151,7 +177,11 @@ function MainTabs() {
   );
 }
 
-export function RootNavigator() {
+type RootNavigatorProps = {
+  onReady?: () => void;
+};
+
+export function RootNavigator({ onReady }: RootNavigatorProps) {
   const status = useAuthStore((state) => state.status);
   const theme = useAppTheme();
 
@@ -177,9 +207,13 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer ref={navigationRef} theme={navigationTheme}>
+    <NavigationContainer ref={navigationRef} onReady={onReady} theme={navigationTheme}>
       {status === 'authenticated' ? (
-        <Stack.Navigator>
+        <Stack.Navigator
+          screenOptions={{
+            headerRight: () => <SignOutHeaderAction />,
+          }}
+        >
           <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
           <Stack.Screen name="LabDetail" component={LabDetailScreen} options={{ title: 'Laboratory' }} />
           <Stack.Screen name="BookingDetail" component={BookingDetailScreen} options={{ title: 'Booking Details' }} />
@@ -237,6 +271,15 @@ export function RootNavigator() {
 }
 
 const styles = StyleSheet.create({
+  headerActionButton: {
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: 'center',
+    marginRight: 2,
+    width: 36,
+  },
   tabIconWrap: {
     alignItems: 'center',
     borderRadius: 14,

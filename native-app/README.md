@@ -24,6 +24,7 @@ This folder contains the real installed-app frontend for SLAMS Mobile.
 The current native client includes:
 
 - token login, register, logout, and session restore
+- optional biometric unlock of a saved native session
 - role-aware home/dashboard summary
 - laboratory list and detail
 - full student/staff booking submission composer with PDF upload
@@ -42,12 +43,27 @@ The current native client includes:
 
 The native app still depends on the same backend and data rules as the main SLAMS web system. Push notifications require a real device plus an Expo project ID in the native environment or build config.
 
+## Android push setup
+
+The Android app package is `com.slams.nativeapp`. For Expo push notifications to work on Android, the native build must be connected to Firebase Cloud Messaging.
+
+1. In Firebase, create or reuse an Android app with the package name `com.slams.nativeapp`.
+2. Download `google-services.json`.
+3. Put that file at `native-app/google-services.json`.
+4. If you build directly with Gradle instead of letting Expo sync native config, also copy the same file to `native-app/android/app/google-services.json`.
+5. Upload the Firebase service-account JSON for FCM V1 with `eas credentials` or in the Expo dashboard.
+6. Rebuild and reinstall the Android app. An already-installed APK will not pick up Firebase config until it is rebuilt.
+
+Without that Firebase setup, the notifications screen can request permission but Expo token registration will fail and native push will stay inactive.
+
 ## Local setup
 
 1. Copy `.env.example` to `.env`.
 2. Set `EXPO_PUBLIC_API_BASE_URL` to a reachable backend URL.
 3. Set `EXPO_PUBLIC_EAS_PROJECT_ID` if you want to provide the Expo project ID explicitly for push registration.
 4. Set `EXPO_PUBLIC_APP_VARIANT`.
+
+For local development on the same LAN, `EXPO_PUBLIC_API_BASE_URL` is now treated as a preferred hint instead of a hard dependency. If the configured private IP is stale, the app will probe the current subnet and switch to the first backend that answers as `slams-mobile-api`.
 
 Examples:
 

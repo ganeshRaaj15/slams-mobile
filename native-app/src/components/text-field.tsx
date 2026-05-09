@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useAppTheme } from '../theme/use-app-theme';
@@ -6,9 +6,10 @@ import { useAppTheme } from '../theme/use-app-theme';
 type TextFieldProps = ComponentProps<typeof TextInput> & {
   label: string;
   hint?: string;
+  rightAccessory?: ReactNode;
 };
 
-export function TextField({ label, hint, style, ...props }: TextFieldProps) {
+export function TextField({ label, hint, rightAccessory, style, ...props }: TextFieldProps) {
   const theme = useAppTheme();
 
   return (
@@ -35,19 +36,23 @@ export function TextField({ label, hint, style, ...props }: TextFieldProps) {
           {hint}
         </Text>
       ) : null}
-      <TextInput
-        placeholderTextColor={theme.colors.textMuted}
-        style={[
-          styles.input,
-          {
-            backgroundColor: theme.colors.surfaceMuted,
-            borderColor: theme.colors.borderStrong,
-            color: theme.colors.text,
-          },
-          style,
-        ]}
-        {...props}
-      />
+      <View style={styles.inputWrap}>
+        <TextInput
+          placeholderTextColor={theme.colors.textMuted}
+          style={[
+            styles.input,
+            {
+              backgroundColor: theme.colors.surfaceMuted,
+              borderColor: theme.colors.borderStrong,
+              color: theme.colors.text,
+            },
+            rightAccessory ? styles.inputWithAccessory : null,
+            style,
+          ]}
+          {...props}
+        />
+        {rightAccessory ? <View style={styles.accessory}>{rightAccessory}</View> : null}
+      </View>
     </View>
   );
 }
@@ -64,11 +69,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
+  inputWrap: {
+    justifyContent: 'center',
+    position: 'relative',
+  },
   input: {
     borderRadius: 14,
     borderWidth: 1,
     fontSize: 15,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  inputWithAccessory: {
+    paddingRight: 48,
+  },
+  accessory: {
+    bottom: 0,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 12,
+    top: 0,
   },
 });

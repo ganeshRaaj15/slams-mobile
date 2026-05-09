@@ -78,7 +78,7 @@ export function ApprovalDetailScreen() {
     try {
       await openProtectedPdf(booking.pdf_url, `approval-${booking.id}.pdf`);
     } catch (error) {
-      setDocumentError(readErrorMessage(error, 'The supporting PDF could not be opened.'));
+      setDocumentError(readErrorMessage(error, 'The document could not be opened.'));
     } finally {
       setDocumentBusy(false);
     }
@@ -102,9 +102,6 @@ export function ApprovalDetailScreen() {
         <Text style={[styles.bodyText, { color: theme.colors.text }]}>{booking.activity}</Text>
         <Text style={[styles.bodyText, { color: theme.colors.textMuted }]}>
           Faculty: {booking.faculty_name || 'Unknown'}
-        </Text>
-        <Text style={[styles.bodyText, { color: theme.colors.textMuted }]}>
-          Approval flow: {booking.approval_flow}
         </Text>
       </View>
 
@@ -161,7 +158,7 @@ export function ApprovalDetailScreen() {
           >
             <Text style={[styles.innerTitle, { color: theme.colors.text }]}>{asset.name}</Text>
             <Text style={[styles.innerText, { color: theme.colors.textMuted }]}>
-              {asset.asset_code || 'No code'}  |  Qty {asset.quantity_used}
+              Quantity needed: {asset.quantity_used}
             </Text>
             {asset.model ? (
               <Text style={[styles.innerText, { color: theme.colors.textMuted }]}>Model: {asset.model}</Text>
@@ -202,9 +199,9 @@ export function ApprovalDetailScreen() {
             },
           ]}
         >
-          <Text style={[styles.noteTitle, { color: theme.colors.primary }]}>Supporting PDF attached</Text>
+          <Text style={[styles.noteTitle, { color: theme.colors.primary }]}>Supporting document attached</Text>
           <Text style={[styles.noteText, { color: theme.colors.text }]}>
-            Open the protected applicant PDF in the device document viewer without exposing a public download link.
+            Open the supporting document in your device viewer when you need to review it.
           </Text>
           <Pressable
             disabled={documentBusy}
@@ -219,7 +216,7 @@ export function ApprovalDetailScreen() {
               },
             ]}
           >
-            <Text style={styles.documentButtonText}>{documentBusy ? 'Opening...' : 'Open Protected PDF'}</Text>
+            <Text style={styles.documentButtonText}>{documentBusy ? 'Opening...' : 'Open Document'}</Text>
           </Pressable>
           {documentError ? (
             <Text style={[styles.documentError, { color: theme.colors.danger }]}>{documentError}</Text>

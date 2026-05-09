@@ -4,7 +4,13 @@ export type RootStackParamList = {
   Main: undefined;
   LabDetail: { labId: number };
   BookingDetail: { bookingId: number };
-  BookingComposer: { labId: number };
+  BookingComposer: {
+    labId: number;
+    preselectedServiceId?: number;
+    preselectedAssetId?: number;
+    preselectedAssetQty?: number;
+    source?: 'manual' | 'qr';
+  };
   ApprovalDetail: { bookingId: number };
   ExternalRequestReviewDetail: { requestId: number };
   MaintenanceForm: { maintenanceId?: number };

@@ -16,7 +16,7 @@ class App extends BaseConfig
      *
      * E.g., http://example.com/
      */
-    public string $baseURL = 'http://localhost:8080/';
+    public string $baseURL = 'http://192.168.0.95/slams-mobile/public/';
 
     /**
      * Allowed Hostnames in the Site URL other than the hostname in the baseURL.
@@ -29,7 +29,22 @@ class App extends BaseConfig
      *
      * @var list<string>
      */
-    public array $allowedHostnames = [];
+    public array $allowedHostnames = [
+        'localhost',
+        '127.0.0.1',
+        '192.168.0.95',
+        'slams-mobile.test',
+    ];
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        $this->allowedHostnames = array_values(array_unique(array_merge(
+            $this->allowedHostnames,
+            $this->discoverLocalHostnames(),
+        )));
+    }
 
     /**
      * --------------------------------------------------------------------------
@@ -199,6 +214,109 @@ class App extends BaseConfig
      * @see http://www.w3.org/TR/CSP/
      */
     public bool $CSPEnabled = false;
+
+    /**
+     * @return list<string>
+     */
+    private function discoverLocalHostnames(): array
+    {
+        $hosts = [];
+
+        $baseHost = parse_url($this->baseURL, PHP_URL_HOST);
+        if (is_string($baseHost)) {
+            $baseHost = $this->normalizeHost($baseHost);
+
+            if ($baseHost !== '' && $this->isLocalDevelopmentHost($baseHost)) {
+                $hosts[] = $baseHost;
+            }
+        }
+
+        foreach (['HTTP_HOST', 'SERVER_NAME', 'SERVER_ADDR', 'LOCAL_ADDR'] as $serverKey) {
+            $serverValue = $_SERVER[$serverKey] ?? null;
+            if (! is_string($serverValue) || $serverValue === '') {
+                continue;
+            }
+
+            $host = $this->normalizeHost($serverValue);
+            if ($host !== '' && $this->isLocalDevelopmentHost($host)) {
+                $hosts[] = $host;
+            }
+        }
+
+        $machineName = gethostname();
+        if (is_string($machineName) && $machineName !== '') {
+            $resolvedHosts = gethostbynamel($machineName) ?: [];
+
+            foreach ($resolvedHosts as $resolvedHost) {
+                $host = $this->normalizeHost($resolvedHost);
+                if ($host !== '' && $this->isLocalDevelopmentHost($host)) {
+                    $hosts[] = $host;
+                }
+            }
+        }
+
+        return array_values(array_unique($hosts));
+    }
+
+    private function normalizeHost(string $host): string
+    {
+        $host = strtolower(trim($host));
+
+        if ($host === '') {
+            return '';
+        }
+
+        if ($host[0] === '[') {
+            $closingBracket = strpos($host, ']');
+
+            if ($closingBracket !== false) {
+                return substr($host, 1, $closingBracket - 1);
+            }
+        }
+
+        if (substr_count($host, ':') === 1 && filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) === false) {
+            [$host] = explode(':', $host, 2);
+        }
+
+        return $host;
+    }
+
+    private function isLocalDevelopmentHost(string $host): bool
+    {
+        if (in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+            return true;
+        }
+
+        if (str_ends_with($host, '.test')) {
+            return true;
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+            return false;
+        }
+
+        return $this->isPrivateOrLoopbackIpv4($host);
+    }
+
+    private function isPrivateOrLoopbackIpv4(string $host): bool
+    {
+        if (
+            str_starts_with($host, '10.')
+            || str_starts_with($host, '127.')
+            || str_starts_with($host, '169.254.')
+            || str_starts_with($host, '192.168.')
+        ) {
+            return true;
+        }
+
+        if (! preg_match('/^172\.(\d{1,3})\./', $host, $matches)) {
+            return false;
+        }
+
+        $secondOctet = (int) $matches[1];
+
+        return $secondOctet >= 16 && $secondOctet <= 31;
+    }
 }
 
 

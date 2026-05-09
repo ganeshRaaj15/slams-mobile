@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { PermissionsAndroid, Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
@@ -8,6 +8,10 @@ import {
   registerNativePushTokenRequest,
   unregisterNativePushTokenRequest,
 } from '../api/endpoints';
+import {
+  hasPromptedForNativePushPermission,
+  markNativePushPermissionPrompted,
+} from './push-registration-state';
 
 const PUSH_TOKEN_KEY = 'slams-native-expo-push-token';
 
@@ -40,6 +44,16 @@ function projectId() {
   return envProjectId || extra || easConfig || '';
 }
 
+function readPushSetupErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message.trim() : String(error ?? '').trim();
+
+  if (/Default FirebaseApp is not initialized/i.test(message)) {
+    return 'Android push is not configured in this build yet. Add the Firebase google-services.json for com.slams.nativeapp, rebuild the app, and try enabling push again.';
+  }
+
+  return message || 'Native push could not be enabled on this device.';
+}
+
 async function ensureAndroidChannel() {
   if (Platform.OS !== 'android') {
     return;
@@ -53,13 +67,44 @@ async function ensureAndroidChannel() {
   });
 }
 
-export async function readNativePushPermissionStatus() {
+function usesAndroidRuntimeNotificationPermission() {
+  return Platform.OS === 'android' && typeof Platform.Version === 'number' && Platform.Version >= 33;
+}
+
+async function readNotificationPermissionStatus() {
+  if (usesAndroidRuntimeNotificationPermission()) {
+    const granted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+    return granted ? 'granted' : 'denied';
+  }
+
   const permission = await Notifications.getPermissionsAsync();
   return permission.status;
 }
 
+async function requestNotificationPermissionStatus() {
+  if (usesAndroidRuntimeNotificationPermission()) {
+    const result = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+    return result === PermissionsAndroid.RESULTS.GRANTED ? 'granted' : 'denied';
+  }
+
+  return (await Notifications.requestPermissionsAsync()).status;
+}
+
+export async function readNativePushPermissionStatus() {
+  return readNotificationPermissionStatus();
+}
+
 export async function clearStoredNativePushToken() {
   await SecureStore.deleteItemAsync(PUSH_TOKEN_KEY);
+}
+
+export async function shouldPromptForNativePushPermission() {
+  const status = await readNotificationPermissionStatus();
+  if (status === 'granted') {
+    return false;
+  }
+
+  return !await hasPromptedForNativePushPermission();
 }
 
 export async function unregisterNativePushRegistration() {
@@ -85,11 +130,14 @@ export async function syncNativePushRegistration({ prompt = false }: { prompt?: 
     };
   }
 
-  const currentPermissions = await Notifications.getPermissionsAsync();
-  let finalStatus = currentPermissions.status;
+  let finalStatus = await readNotificationPermissionStatus();
 
   if (finalStatus !== 'granted' && prompt) {
-    finalStatus = (await Notifications.requestPermissionsAsync()).status;
+    finalStatus = await requestNotificationPermissionStatus();
+
+    if (finalStatus === 'granted' || finalStatus === 'denied') {
+      await markNativePushPermissionPrompted();
+    }
   }
 
   if (finalStatus !== 'granted') {
@@ -112,11 +160,20 @@ export async function syncNativePushRegistration({ prompt = false }: { prompt?: 
     };
   }
 
-  const expoPushToken = (
-    await Notifications.getExpoPushTokenAsync({
-      projectId: resolvedProjectId,
-    })
-  ).data;
+  let expoPushToken = '';
+  try {
+    expoPushToken = (
+      await Notifications.getExpoPushTokenAsync({
+        projectId: resolvedProjectId,
+      })
+    ).data;
+  } catch (error) {
+    return {
+      enabled: false,
+      message: readPushSetupErrorMessage(error),
+      permission: finalStatus,
+    };
+  }
 
   await registerNativePushTokenRequest({
     expo_push_token: expoPushToken,

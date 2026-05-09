@@ -41,7 +41,9 @@
 }
 </style>
 
-<?php $assetCount = is_array($assets ?? null) ? count($assets) : 0; ?>
+<?php
+$assetCount = is_array($assets ?? null) ? count($assets) : 0;
+?>
 
 <div class="container-fluid qr-page">
     <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4 no-print">
@@ -74,7 +76,7 @@
             <?php foreach ($assets as $asset): ?>
                 <?php
                 $qrCode = $asset['asset_code'] ?: ('AST-' . str_pad((string) $asset['id'], 4, '0', STR_PAD_LEFT));
-                $qrUrl = site_url('qr/asset/' . rawurlencode($qrCode)) . '?open=1';
+                $qrUrl = qr_public_url('qr/asset/' . rawurlencode($qrCode), ['open' => 1]);
                 $labLabel = trim(($asset['lab_name'] ?? 'Unknown Lab') . (!empty($asset['lab_room']) ? ' | Room ' . $asset['lab_room'] : ''));
                 ?>
                 <div class="qr-label">

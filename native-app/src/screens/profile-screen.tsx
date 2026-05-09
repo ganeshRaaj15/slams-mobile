@@ -1,24 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
-import { getProfileWorkspaceRequest, updateProfileRequest } from '../api/endpoints';
-import { API_BASE_URL } from '../config/env';
+import { getNativePushStatusRequest, getProfileWorkspaceRequest, updateProfileRequest } from '../api/endpoints';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
 import { Screen } from '../components/screen';
 import { SelectionModal } from '../components/selection-modal';
 import { TextField } from '../components/text-field';
+import { syncNativePushRegistration, unregisterNativePushRegistration } from '../notifications/native-push';
 import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
 import { readErrorMessage } from '../utils/error-message';
 
 export function ProfileScreen() {
   const theme = useAppTheme();
-  const signOut = useAuthStore((state) => state.signOut);
   const bootstrap = useAuthStore((state) => state.bootstrap);
+  const biometric = useAuthStore((state) => state.biometric);
+  const refreshBiometricState = useAuthStore((state) => state.refreshBiometricState);
+  const setBiometricPreference = useAuthStore((state) => state.setBiometricPreference);
   const queryClient = useQueryClient();
   const [facultyModalOpen, setFacultyModalOpen] = useState(false);
   const [username, setUsername] = useState('');
@@ -33,12 +35,19 @@ export function ProfileScreen() {
     name: string;
     mimeType: string;
   } | null>(null);
+  const [biometricPending, setBiometricPending] = useState(false);
+  const [pushPending, setPushPending] = useState(false);
   const [localMessage, setLocalMessage] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const profileQuery = useQuery({
     queryKey: ['profile-workspace'],
     queryFn: getProfileWorkspaceRequest,
+  });
+
+  const nativePushQuery = useQuery({
+    queryKey: ['native-push'],
+    queryFn: getNativePushStatusRequest,
   });
 
   const saveMutation = useMutation({
@@ -71,6 +80,10 @@ export function ProfileScreen() {
     setEmail(user.email ?? '');
     setFacultyId(user.faculty_id ?? null);
   }, [profileQuery.data]);
+
+  useEffect(() => {
+    void refreshBiometricState().catch(() => undefined);
+  }, [refreshBiometricState]);
 
   if (profileQuery.isLoading) {
     return (
@@ -139,6 +152,69 @@ export function ProfileScreen() {
     });
   }
 
+  async function handleBiometricToggle(enabled: boolean) {
+    setLocalMessage(null);
+    setLocalError(null);
+    setBiometricPending(true);
+
+    try {
+      await setBiometricPreference(enabled);
+      setLocalMessage(enabled ? 'Biometric login enabled for this device.' : 'Biometric login disabled for this device.');
+    } catch (error: unknown) {
+      setLocalError(
+        readErrorMessage(
+          error,
+          enabled ? 'Biometric login could not be enabled.' : 'Biometric login could not be updated.',
+        ),
+      );
+    } finally {
+      setBiometricPending(false);
+    }
+  }
+
+  async function handlePushToggle(enabled: boolean) {
+    setPushPending(true);
+
+    try {
+      if (enabled) {
+        const result = await syncNativePushRegistration({ prompt: true });
+        await nativePushQuery.refetch();
+
+        if (result.enabled) {
+          Alert.alert(
+            'Push notifications enabled',
+            'This device will receive SLAMS alerts while you remain signed in.',
+          );
+        } else {
+          Alert.alert('Push notifications unavailable', result.message);
+        }
+
+        return;
+      }
+
+      await unregisterNativePushRegistration();
+      await nativePushQuery.refetch();
+      Alert.alert(
+        'Push notifications disabled',
+        'This device will stop receiving SLAMS alerts until you enable push again.',
+      );
+    } catch (error: unknown) {
+      Alert.alert(
+        'Push notifications unavailable',
+        readErrorMessage(
+          error,
+          enabled
+            ? 'Native push could not be enabled on this device.'
+            : 'Native push could not be disabled on this device.',
+        ),
+      );
+    } finally {
+      setPushPending(false);
+    }
+  }
+
+  const hasNativePush = (nativePushQuery.data?.active_tokens ?? 0) > 0;
+
   return (
     <Screen>
       <View
@@ -171,23 +247,7 @@ export function ProfileScreen() {
             <Text style={[styles.name, { color: theme.colors.text }]}>{user.full_name || user.username}</Text>
             <Text style={[styles.role, { color: theme.colors.primary }]}>{user.primary_role.toUpperCase()}</Text>
             <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{user.email}</Text>
-            <Text style={[styles.meta, { color: theme.colors.textMuted }]}>Roles: {user.roles.join(', ')}</Text>
           </View>
-        </View>
-
-        <View
-          style={[
-            styles.noteCard,
-            {
-              backgroundColor: theme.colors.surfaceMuted,
-            },
-          ]}
-        >
-          <Text style={[styles.noteTitle, { color: theme.colors.text }]}>Connection</Text>
-          <Text style={[styles.noteText, { color: theme.colors.textMuted }]}>API Base URL: {API_BASE_URL}</Text>
-          <Text style={[styles.noteText, { color: theme.colors.textMuted }]}>
-            Dashboard path: {user.dashboard_path}
-          </Text>
         </View>
       </View>
 
@@ -290,19 +350,112 @@ export function ProfileScreen() {
         />
       )}
 
-      <Pressable
-        onPress={() => {
-          void signOut();
-        }}
+      <View
         style={[
-          styles.signOutButton,
+          styles.card,
           {
-            backgroundColor: theme.colors.dangerSoft,
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
           },
         ]}
       >
-        <Text style={[styles.signOutText, { color: theme.colors.danger }]}>Sign Out</Text>
-      </Pressable>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Biometric Login</Text>
+        <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
+          Use Face ID, fingerprint, or the device biometric prompt to unlock the saved SLAMS session on this device.
+        </Text>
+        {biometric.isSupported ? (
+          <>
+            <View style={styles.switchRow}>
+              <View style={styles.switchCopy}>
+                <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>Enable on this device</Text>
+                <Text style={[styles.switchHint, { color: theme.colors.textMuted }]}>
+                  Requires one successful sign-in and stores the session in protected device storage.
+                </Text>
+              </View>
+              <Switch
+                disabled={biometricPending}
+                onValueChange={(value) => {
+                  void handleBiometricToggle(value);
+                }}
+                value={biometric.isEnabled}
+              />
+            </View>
+            <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
+              {biometric.isReady
+                ? 'Biometric sign-in is ready on this device.'
+                : biometric.isEnabled
+                  ? 'Biometric login is enabled and will be ready after the current session is saved again.'
+                  : 'Biometric login is currently disabled.'}
+            </Text>
+          </>
+        ) : (
+          <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
+            This device does not currently expose a supported biometric method to the app.
+          </Text>
+        )}
+      </View>
+
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Push Notifications</Text>
+        <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
+          Receive booking and approval alerts on this device while you remain signed in.
+        </Text>
+        <View style={styles.switchRow}>
+          <View style={styles.switchCopy}>
+            <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>Enable on this device</Text>
+            <Text style={[styles.switchHint, { color: theme.colors.textMuted }]}>
+              Turn this off to stop device notifications from SLAMS on this phone.
+            </Text>
+          </View>
+          <Switch
+            disabled={pushPending || nativePushQuery.isLoading}
+            onValueChange={(value) => {
+              void handlePushToggle(value);
+            }}
+            value={hasNativePush}
+          />
+        </View>
+
+        {nativePushQuery.data?.devices?.length ? (
+          <View style={styles.deviceList}>
+            <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>Registered devices</Text>
+            {nativePushQuery.data.devices.map((device) => (
+              <View
+                key={device.id}
+                style={[
+                  styles.deviceRow,
+                  {
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+              >
+                <View style={styles.deviceCopy}>
+                  <Text style={[styles.deviceTitle, { color: theme.colors.text }]}>
+                    {device.device_name || 'SLAMS Mobile Device'} ({device.platform || 'unknown'})
+                  </Text>
+                  <Text style={[styles.deviceMeta, { color: theme.colors.textMuted }]}>
+                    {device.is_active ? 'Active' : 'Inactive'}
+                    {device.last_used_at ? ` - Last confirmed ${device.last_used_at}` : ''}
+                  </Text>
+                  {device.last_error_message ? (
+                    <Text style={[styles.deviceError, { color: theme.colors.warning }]}>
+                      {device.is_active ? 'Last delivery issue' : 'Inactive reason'}: {device.last_error_message}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </View>
 
       <SelectionModal
         onClose={() => {
@@ -371,19 +524,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  noteCard: {
-    borderRadius: 14,
-    gap: 4,
-    padding: 12,
-  },
-  noteTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  noteText: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
   card: {
     borderRadius: 18,
     borderWidth: 1,
@@ -410,6 +550,42 @@ const styles = StyleSheet.create({
   selectorText: {
     fontSize: 15,
   },
+  switchRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  switchCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  switchHint: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  deviceList: {
+    gap: 10,
+    paddingTop: 4,
+  },
+  deviceRow: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 10,
+  },
+  deviceCopy: {
+    gap: 4,
+  },
+  deviceTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  deviceMeta: {
+    fontSize: 12,
+  },
+  deviceError: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
   primaryButton: {
     alignItems: 'center',
     borderRadius: 14,
@@ -432,14 +608,5 @@ const styles = StyleSheet.create({
   feedback: {
     fontSize: 13,
     lineHeight: 18,
-  },
-  signOutButton: {
-    alignItems: 'center',
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  signOutText: {
-    fontSize: 15,
-    fontWeight: '800',
   },
 });

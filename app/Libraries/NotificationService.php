@@ -40,7 +40,9 @@ class NotificationService
             return;
         }
 
+        $emailContext = $this->bookingEmailContext($context);
         $studentLink = '/dashboard/student?focus_booking=' . (int) $context['id'];
+        $studentActionUrl = $this->studentBookingActionUrl((int) $context['id']);
         $approvalLink = '/dashboard/approvals?focus_booking=' . (int) $context['id'];
         $picPendingCount = $this->pendingPicCountForEmail((string) ($context['pic_email'] ?? ''));
 
@@ -56,7 +58,9 @@ class NotificationService
             $this->emailTemplate('Booking Request Submitted', [
                 'Your booking request has been successfully sent to the PIC for review.',
                 $this->bookingDetailBlock($context),
-            ], site_url($studentLink), 'Open Booking Details')
+            ], $studentActionUrl, 'Open Booking Details'),
+            null,
+            $emailContext
         );
 
         $this->sendEmail(
@@ -66,7 +70,9 @@ class NotificationService
                 'A booking request has been submitted and is waiting for your review as PIC.',
                 'You currently have ' . $picPendingCount . ' booking request(s) requiring your attention.',
                 $this->bookingDetailBlock($context),
-            ], site_url($approvalLink), 'Open Approval Queue')
+            ], site_url($approvalLink), 'Open Approval Queue'),
+            null,
+            $emailContext
         );
     }
 
@@ -77,7 +83,9 @@ class NotificationService
             return;
         }
 
+        $emailContext = $this->bookingEmailContext($context);
         $studentLink = '/dashboard/student?focus_booking=' . (int) $context['id'];
+        $studentActionUrl = $this->studentBookingActionUrl((int) $context['id']);
         $approvalLink = '/dashboard/approvals?focus_booking=' . (int) $context['id'];
         $managerPendingCount = $this->pendingManagerCount();
 
@@ -93,7 +101,9 @@ class NotificationService
             $this->emailTemplate('PIC Approved Your Booking', [
                 'Your booking request has been approved by the PIC and is now waiting for Lab Manager approval.',
                 $this->bookingDetailBlock($context),
-            ], site_url($studentLink), 'Open Booking Details')
+            ], $studentActionUrl, 'Open Booking Details'),
+            null,
+            $emailContext
         );
 
         $managerEmails = array_merge([$this->settingValue('system.lab_manager_email')], $this->emailsForUserIds($this->groupUserIds('manager')));
@@ -104,7 +114,9 @@ class NotificationService
                 'A non-FKMP booking request has been approved by the PIC and is now waiting for Lab Manager approval.',
                 'There are currently ' . $managerPendingCount . ' booking request(s) requiring your attention.',
                 $this->bookingDetailBlock($context),
-            ], site_url($approvalLink), 'Open Approval Queue')
+            ], site_url($approvalLink), 'Open Approval Queue'),
+            null,
+            $emailContext
         );
     }
 
@@ -115,6 +127,7 @@ class NotificationService
             return;
         }
 
+        $emailContext = $this->bookingEmailContext($context);
         $studentLink = '/dashboard/student?focus_booking=' . (int) $context['id'];
         $calendarUrl = $this->googleCalendarLink($context);
         $message = 'Your booking request for ' . $this->bookingDescriptor($context) . ' has been approved.';
@@ -129,7 +142,8 @@ class NotificationService
                 $this->bookingDetailBlock($context),
                 'You can add this booking to your calendar using the attached calendar invite, or use the Google Calendar button below.',
             ], $calendarUrl, 'Add To Google Calendar'),
-            $this->calendarAttachment($context)
+            $this->calendarAttachment($context),
+            $emailContext
         );
     }
 
@@ -140,7 +154,9 @@ class NotificationService
             return;
         }
 
+        $emailContext = $this->bookingEmailContext($context);
         $studentLink = '/dashboard/student?focus_booking=' . (int) $context['id'];
+        $studentActionUrl = $this->studentBookingActionUrl((int) $context['id']);
         $label = $rejectedBy !== '' ? ' by ' . $rejectedBy : '';
         $message = 'Your booking request for ' . $this->bookingDescriptor($context) . ' has been rejected' . $label . '.';
 
@@ -152,7 +168,9 @@ class NotificationService
             $this->emailTemplate('Booking Rejected', [
                 $message,
                 $this->bookingDetailBlock($context),
-            ], site_url($studentLink), 'Open Booking Details')
+            ], $studentActionUrl, 'Open Booking Details'),
+            null,
+            $emailContext
         );
     }
 
@@ -163,6 +181,7 @@ class NotificationService
             return;
         }
 
+        $emailContext = $this->bookingEmailContext($context);
         $studentLink = '/dashboard/student?focus_booking=' . (int) $context['id'];
         $calendarUrl = $this->googleCalendarLink($context);
         $message = 'Reminder: your approved booking for ' . $this->bookingDescriptor($context) . ' is coming up soon.';
@@ -179,7 +198,8 @@ class NotificationService
                 $this->bookingDetailBlock($context),
                 'The calendar invite is attached again for your phone, tablet, or computer calendar.',
             ], $calendarUrl, 'Add To Google Calendar'),
-            $this->calendarAttachment($context)
+            $this->calendarAttachment($context),
+            $emailContext
         );
     }
 
@@ -627,6 +647,20 @@ class NotificationService
             'Time: ' . ($context['start_time'] ?? '-') . ' - ' . ($context['end_time'] ?? '-'),
             'Activity: ' . ($context['activity'] ?? '-'),
         ]);
+    }
+
+    protected function bookingEmailContext(array $context): array
+    {
+        return [
+            'notification_type' => 'booking',
+            'entity_type' => 'booking',
+            'entity_id' => (int) ($context['id'] ?? 0),
+        ];
+    }
+
+    protected function studentBookingActionUrl(int $bookingId): string
+    {
+        return site_url('open/booking/' . max($bookingId, 0));
     }
 
     protected function googleCalendarLink(array $context): string

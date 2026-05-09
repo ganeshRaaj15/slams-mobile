@@ -96,6 +96,33 @@
         });
     }
 
+    function ensureModalRoot(modalOrSelector) {
+        const modal = typeof modalOrSelector === "string"
+            ? document.querySelector(modalOrSelector)
+            : modalOrSelector;
+
+        if (!(modal instanceof HTMLElement) || !modal.classList.contains("modal")) {
+            return modal;
+        }
+
+        if (document.body && modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+
+        return modal;
+    }
+
+    function hoistStaticModals() {
+        document.querySelectorAll([
+            ".slams-main .modal",
+            ".content-area .modal",
+            ".admin-layout .modal",
+            ".technician-layout .modal"
+        ].join(",")).forEach(function (modal) {
+            ensureModalRoot(modal);
+        });
+    }
+
     function initReveal() {
         const candidates = document.querySelectorAll([
             ".dashboard-header",
@@ -179,6 +206,9 @@
         bindThemeToggle();
         bindSidebar();
         bindNavbar();
+        hoistStaticModals();
         initReveal();
     });
+
+    window.slamsPrepareModal = ensureModalRoot;
 })();

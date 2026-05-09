@@ -29,10 +29,12 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+*firebase-adminsdk*.json
 
 # local env files
 .env
 .env*.local
+credentials.json
 
 # QA artifacts
 .qa-logs/
@@ -46,6 +48,7 @@ yarn-error.*
 # Android native project source is versioned; ignore only generated/machine-local files
 /android/.gradle/
 /android/build/
+/android/keystore.properties
 /android/local.properties
 /android/app/build/
 /android/app/.cxx/

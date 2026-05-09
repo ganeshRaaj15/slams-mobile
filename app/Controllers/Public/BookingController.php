@@ -72,6 +72,23 @@ class BookingController extends BaseController
         return $time;
     }
 
+    protected function findMatchingSlotDefinition(string $startTime, string $endTime): ?array
+    {
+        $start = $this->normalizeTime($startTime);
+        $end = $this->normalizeTime($endTime);
+
+        foreach ($this->getSlotDefinitions() as $slot) {
+            if (
+                $this->normalizeTime((string) ($slot['start'] ?? '')) === $start
+                && $this->normalizeTime((string) ($slot['end'] ?? '')) === $end
+            ) {
+                return $slot;
+            }
+        }
+
+        return null;
+    }
+
     /*
     |--------------------------------------------------------------------------
     | ASSET STRING PARSER "1:2,5:1" => [1=>2,5=>1]
@@ -239,7 +256,8 @@ class BookingController extends BaseController
         $slotDefs = $this->getSlotDefinitions();
 
         $dates = $db->table('bookings')
-            ->select('DISTINCT date')
+            ->select('date')
+            ->distinct()
             ->where('lab_id', $labId)
             ->where('date >=', $today)
             ->whereIn('status', ['PENDING', 'APPROVED'])
@@ -404,6 +422,13 @@ class BookingController extends BaseController
             ]);
         }
 
+        if ($this->findMatchingSlotDefinition($start, $end) === null) {
+            return $this->response->setJSON([
+                'conflict' => true,
+                'reason'   => 'Please choose one of the configured booking sessions for this laboratory.',
+            ]);
+        }
+
         $today = date('Y-m-d');
         $now   = date('H:i:s');
 
@@ -501,6 +526,13 @@ class BookingController extends BaseController
             return $this->response->setJSON([
                 'status'  => 'error',
                 'message' => 'End time must be later than start time.'
+            ]);
+        }
+
+        if ($this->findMatchingSlotDefinition($startTime, $endTime) === null) {
+            return $this->response->setJSON([
+                'status'  => 'error',
+                'message' => 'Please choose one of the configured booking sessions for this laboratory.',
             ]);
         }
 

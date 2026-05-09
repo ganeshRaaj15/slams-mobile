@@ -50,7 +50,7 @@ class NativeAuthController extends BaseController
             'password' => (string) ($payload['password'] ?? ''),
         ];
 
-        $result = auth()->attempt($credentials);
+        $result = auth('session')->check($credentials);
         if (! $result->isOK()) {
             return $this->response
                 ->setStatusCode(401)
@@ -60,7 +60,7 @@ class NativeAuthController extends BaseController
                 ]);
         }
 
-        $user = auth()->user();
+        $user = $result->extraInfo();
         if (! $user instanceof User) {
             return $this->response
                 ->setStatusCode(500)

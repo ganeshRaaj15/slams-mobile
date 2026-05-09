@@ -16,6 +16,7 @@ use App\Controllers\Public\AssetBrowseController;
 use App\Controllers\Public\DocumentController;
 use App\Controllers\Public\ChatbotController;
 use App\Controllers\Public\QrController;
+use App\Controllers\Public\AppLinkController;
 use App\Controllers\Api\NativeAuthController;
 use App\Controllers\Api\NativeBootstrapController;
 use App\Controllers\Api\NativeLaboratoryController;
@@ -24,6 +25,7 @@ use App\Controllers\Api\NativeNotificationController;
 use App\Controllers\Api\NativeExternalRequestController;
 use App\Controllers\Api\NativeExternalRequestReviewController;
 use App\Controllers\Api\NativeReferenceController;
+use App\Controllers\Api\NativeHealthController;
 use App\Controllers\Api\NativeApprovalQueueController;
 use App\Controllers\Api\NativePushController;
 use App\Controllers\Api\NativeIssueReportController;
@@ -76,12 +78,14 @@ use App\Controllers\Technician\MaintenanceController;
 
 $routes->get('/', [HomeController::class, 'index']);
 $routes->get('/contact', [HomeController::class, 'contact']);
+$routes->get('open/booking/(:num)', [AppLinkController::class, 'booking/$1']);
 
 // ====================================================================
 // NATIVE APP API ROUTES
 // ====================================================================
 
 $routes->group('api/native', static function ($routes) {
+    $routes->get('health', [NativeHealthController::class, 'show']);
     $routes->post('auth/token', [NativeAuthController::class, 'token']);
     $routes->post('auth/register', [NativeAuthController::class, 'register']);
 

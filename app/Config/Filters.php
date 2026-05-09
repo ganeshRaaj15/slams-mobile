@@ -23,6 +23,15 @@ use CodeIgniter\Shield\Filters\PermissionFilter;
 
 class Filters extends BaseFilters
 {
+    public function __construct()
+    {
+        $debugUiEnabled = filter_var((string) env('app.debugUiEnabled', '0'), FILTER_VALIDATE_BOOLEAN);
+
+        if (! $debugUiEnabled) {
+            unset($this->globals['after']['toolbar']);
+        }
+    }
+
     /**
      * Configures aliases for Filter classes to
      * make reading things nicer and simpler.

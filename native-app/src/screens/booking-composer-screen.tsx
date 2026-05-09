@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -19,6 +19,7 @@ import { PickerField } from '../components/picker-field';
 import { Screen } from '../components/screen';
 import { SelectionModal } from '../components/selection-modal';
 import { TextField } from '../components/text-field';
+import { isStudentRole } from '../constants/roles';
 import type { BookingApplicantInput } from '../types/api';
 import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
@@ -31,6 +32,8 @@ type SelectedAssetState = {
   quantity: string;
 };
 
+const DEVICE_CLOCK_REFRESH_MS = 30000;
+
 function emptyApplicant(emailDomainLabel?: string): BookingApplicantInput {
   return {
     name: '',
@@ -41,14 +44,79 @@ function emptyApplicant(emailDomainLabel?: string): BookingApplicantInput {
   };
 }
 
+function readSlotErrorMessage(error: unknown) {
+  const message = readErrorMessage(error, 'Could not verify slot availability.');
+
+  if (/network error|network request failed|failed to fetch/i.test(message)) {
+    return 'Could not reach the backend to verify slot availability right now. You can keep filling the form, and the server will still run a final availability check when you submit.';
+  }
+
+  return message;
+}
+
+function twoDigits(value: number) {
+  return value.toString().padStart(2, '0');
+}
+
+function localDayStart(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function parseLocalDate(dateValue: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateValue.trim());
+  if (!match) {
+    return null;
+  }
+
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 0, 0, 0, 0);
+}
+
+function parseLocalDateTime(dateValue: string, timeValue: string) {
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateValue.trim());
+  const timeMatch = /^(\d{2}):(\d{2})$/.exec(timeValue.trim());
+  if (!dateMatch || !timeMatch) {
+    return null;
+  }
+
+  return new Date(
+    Number(dateMatch[1]),
+    Number(dateMatch[2]) - 1,
+    Number(dateMatch[3]),
+    Number(timeMatch[1]),
+    Number(timeMatch[2]),
+    0,
+    0,
+  );
+}
+
+function isPastBookingDate(dateValue: string, now: Date) {
+  const date = parseLocalDate(dateValue);
+  return date ? date < localDayStart(now) : false;
+}
+
+function isPastBookingSlot(dateValue: string, endTimeValue: string, now: Date) {
+  if (isPastBookingDate(dateValue, now)) {
+    return true;
+  }
+
+  const endAt = parseLocalDateTime(dateValue, endTimeValue);
+  return endAt ? endAt <= now : false;
+}
+
 export function BookingComposerScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RootStackParamList, 'BookingComposer'>>();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const qrPrefillAppliedRef = useRef(false);
+  const preselectedServiceId = route.params?.preselectedServiceId ?? null;
+  const preselectedAssetId = route.params?.preselectedAssetId ?? null;
+  const preselectedAssetQty = Math.max(route.params?.preselectedAssetQty ?? 1, 1);
 
-  const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
+  const [selectedServiceId, setSelectedServiceId] = useState<number | null>(preselectedServiceId);
   const [selectedAssets, setSelectedAssets] = useState<Record<number, SelectedAssetState>>({});
   const [applicants, setApplicants] = useState<BookingApplicantInput[]>([
     {
@@ -63,6 +131,7 @@ export function BookingComposerScreen() {
   const [selectedDate, setSelectedDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [deviceNow, setDeviceNow] = useState(() => new Date());
   const [supervisorName, setSupervisorName] = useState('');
   const [supervisorEmail, setSupervisorEmail] = useState('');
   const [supervisorPhone, setSupervisorPhone] = useState('');
@@ -91,6 +160,33 @@ export function BookingComposerScreen() {
     () => labQuery.data?.lab.services.find((service) => service.id === selectedServiceId) ?? null,
     [labQuery.data?.lab.services, selectedServiceId],
   );
+
+  const deviceToday = useMemo(() => {
+    const next = new Date(deviceNow);
+    next.setHours(12, 0, 0, 0);
+    return next;
+  }, [deviceNow]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDeviceNow(new Date());
+    }, DEVICE_CLOCK_REFRESH_MS);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!labQuery.data?.lab || !preselectedServiceId) {
+      return;
+    }
+
+    const hasMatchingService = labQuery.data.lab.services.some((service) => service.id === preselectedServiceId);
+    if (!hasMatchingService) {
+      setErrorMessage('The service linked to this QR code is no longer available. Choose another service.');
+    }
+  }, [labQuery.data?.lab, preselectedServiceId]);
 
   const availableServiceAssets = useMemo(() => {
     if (!labQuery.data?.lab || !selectedServiceId) {
@@ -125,6 +221,56 @@ export function BookingComposerScreen() {
     setSelectedAssets(nextState);
   }, [availableServiceAssets, selectedServiceId]);
 
+  useEffect(() => {
+    qrPrefillAppliedRef.current = false;
+  }, [preselectedAssetId, preselectedAssetQty, preselectedServiceId, route.params.labId]);
+
+  useEffect(() => {
+    if (!labQuery.data?.lab || !preselectedAssetId || !selectedServiceId || qrPrefillAppliedRef.current) {
+      return;
+    }
+
+    if (preselectedServiceId && selectedServiceId !== preselectedServiceId) {
+      return;
+    }
+
+    const selectedAsset = labQuery.data.lab.assets.find((asset) => asset.id === preselectedAssetId);
+    if (!selectedAsset) {
+      setErrorMessage('The equipment linked to this QR code could not be found in this laboratory.');
+      qrPrefillAppliedRef.current = true;
+      return;
+    }
+
+    if ((selectedAsset.lab_service_id ?? 0) !== selectedServiceId) {
+      setErrorMessage('The equipment linked to this QR code is no longer attached to the selected service.');
+      qrPrefillAppliedRef.current = true;
+      return;
+    }
+
+    const status = selectedAsset.status.toLowerCase();
+    if (selectedAsset.quantity <= 0 || status === 'maintenance' || status === 'faulty') {
+      setErrorMessage('The equipment linked to this QR code is not currently available for booking.');
+      qrPrefillAppliedRef.current = true;
+      return;
+    }
+
+    setSelectedAssets((current) => ({
+      ...current,
+      [selectedAsset.id]: {
+        checked: true,
+        quantity: String(Math.min(preselectedAssetQty, selectedAsset.quantity)),
+      },
+    }));
+
+    qrPrefillAppliedRef.current = true;
+  }, [
+    labQuery.data?.lab,
+    preselectedAssetId,
+    preselectedAssetQty,
+    preselectedServiceId,
+    selectedServiceId,
+  ]);
+
   const assetSelectionString = useMemo(() => {
     return Object.entries(selectedAssets)
       .filter(([, asset]) => asset.checked && Number(asset.quantity || 0) > 0)
@@ -152,25 +298,89 @@ export function BookingComposerScreen() {
     enabled: Boolean(selectedServiceId && assetSelectionString && selectedDate),
   });
 
+  const recommendedSlots = useMemo(() => {
+    return (recommendedSlotsQuery.data?.slots ?? []).filter(
+      (slot) => !isPastBookingSlot(slot.date, slot.end, deviceNow),
+    );
+  }, [deviceNow, recommendedSlotsQuery.data?.slots]);
+
+  const selectedDaySlots = useMemo(() => {
+    return (selectedDaySlotsQuery.data?.slots ?? []).map((slot) => {
+      if (!selectedDate || !isPastBookingSlot(selectedDate, slot.end, deviceNow)) {
+        return slot;
+      }
+
+      return {
+        ...slot,
+        can_book: false,
+        reason: 'Slot is already in the past.',
+      };
+    });
+  }, [deviceNow, selectedDate, selectedDaySlotsQuery.data?.slots]);
+
+  useEffect(() => {
+    if (!selectedDate) {
+      return;
+    }
+
+    if (isPastBookingDate(selectedDate, deviceNow)) {
+      setSelectedDate('');
+      setStartTime('');
+      setEndTime('');
+      setSlotMessage({
+        tone: 'warning',
+        text: 'The previously selected booking date has already passed on this device. Please choose a new date.',
+      });
+      return;
+    }
+
+    if (startTime && endTime && isPastBookingSlot(selectedDate, endTime, deviceNow)) {
+      setStartTime('');
+      setEndTime('');
+      setSlotMessage({
+        tone: 'warning',
+        text: 'The previously selected booking session has already ended on this device. Please choose another session.',
+      });
+    }
+  }, [deviceNow, endTime, selectedDate, startTime]);
+
+  useEffect(() => {
+    if (!selectedDate || !startTime || !endTime || selectedDaySlotsQuery.isLoading) {
+      return;
+    }
+
+    const matchingSlot = selectedDaySlots.find((slot) => slot.start === startTime && slot.end === endTime);
+    if (!matchingSlot || matchingSlot.can_book) {
+      return;
+    }
+
+    setStartTime('');
+    setEndTime('');
+    setSlotMessage({
+      tone: 'warning',
+      text: matchingSlot.reason || 'The selected booking session is no longer available. Please choose another session.',
+    });
+  }, [endTime, selectedDate, selectedDaySlots, selectedDaySlotsQuery.isLoading, startTime]);
+
   const slotCheckMutation = useMutation({
     mutationFn: checkBookingSlotRequest,
     onSuccess: (data) => {
       if (data.conflict) {
         setSlotMessage({
           tone: 'warning',
-          text: data.reason || 'Selected slot is not available.',
+          text: data.reason || 'Selected booking session is not available.',
         });
       } else {
         setSlotMessage({
           tone: 'success',
-          text: 'Selected slot is available.',
+          text: 'Selected booking session is available.',
         });
       }
     },
     onError: (error: unknown) => {
       setSlotMessage({
         tone: 'warning',
-        text: readErrorMessage(error, 'Could not verify slot availability.'),
+        text: readSlotErrorMessage(error),
       });
     },
   });
@@ -180,7 +390,7 @@ export function BookingComposerScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['bookings'] });
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
-      navigation.navigate('Main', { screen: 'Bookings' });
+      navigation.navigate('Main', { screen: isStudentRole(user?.primary_role ?? '') ? 'Bookings' : 'Home' });
     },
     onError: (error: unknown) => {
       setErrorMessage(readErrorMessage(error, 'Could not submit booking.'));
@@ -219,6 +429,13 @@ export function BookingComposerScreen() {
     label: service.service_name,
     subtitle: [service.field_name, service.equipment_models].filter(Boolean).join('  |  '),
   }));
+  const slotLookupErrorMessage = selectedDaySlotsQuery.isError
+    ? readSlotErrorMessage(selectedDaySlotsQuery.error)
+    : recommendedSlotsQuery.isError
+      ? readSlotErrorMessage(recommendedSlotsQuery.error)
+      : null;
+  const selectedSessionSummary =
+    selectedDate && startTime && endTime ? `${formatDateLabel(selectedDate)}  |  ${startTime}-${endTime}` : null;
 
   async function pickPdf() {
     const result = await DocumentPicker.getDocumentAsync({
@@ -282,8 +499,23 @@ export function BookingComposerScreen() {
     }));
   }
 
+  function selectBookingSession(dateValue: string, startValue: string, endValue: string) {
+    setSelectedDate(dateValue);
+    setStartTime(startValue);
+    setEndTime(endValue);
+    setSlotMessage(null);
+  }
+
   async function verifySlotBeforeSubmit() {
     if (!selectedServiceId || !selectedDate || !startTime || !endTime || !assetSelectionString) {
+      return false;
+    }
+
+    if (isPastBookingSlot(selectedDate, endTime, deviceNow)) {
+      setSlotMessage({
+        tone: 'warning',
+        text: 'Selected booking session is already in the past on this device. Please choose another session.',
+      });
       return false;
     }
 
@@ -311,7 +543,7 @@ export function BookingComposerScreen() {
       return;
     }
     if (!selectedDate || !startTime || !endTime) {
-      setErrorMessage('Date, start time, and end time are required.');
+      setErrorMessage('Choose a booking date and one of the available sessions.');
       return;
     }
     if (startTime >= endTime) {
@@ -342,7 +574,7 @@ export function BookingComposerScreen() {
 
     const slotOkay = await verifySlotBeforeSubmit();
     if (!slotOkay) {
-      setErrorMessage('Selected slot is not available. Choose another time before submitting.');
+      setErrorMessage('Selected booking session is not available. Choose another session before submitting.');
       return;
     }
 
@@ -376,7 +608,9 @@ export function BookingComposerScreen() {
         <Text style={[styles.title, { color: theme.colors.text }]}>{lab.name}</Text>
         <Text style={[styles.subtitle, { color: theme.colors.primary }]}>{lab.room}</Text>
         <Text style={[styles.description, { color: theme.colors.textMuted }]}>
-          Choose a service, confirm linked equipment, validate a slot, then submit the full booking package.
+          {route.params?.source === 'qr'
+            ? 'QR scan detected. Review the linked service and equipment, choose an available booking session, then submit the booking package.'
+            : 'Choose a service, confirm linked equipment, select an available booking session, then submit the full booking package.'}
         </Text>
       </View>
 
@@ -638,106 +872,189 @@ export function BookingComposerScreen() {
           },
         ]}
       >
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>4. Slot Selection</Text>
-        {recommendedSlotsQuery.data?.slots?.length ? (
-          <View style={styles.choiceWrap}>
-            {recommendedSlotsQuery.data.slots.map((slot) => (
-              <Pressable
-                key={`${slot.date}-${slot.start}-${slot.end}`}
-                onPress={() => {
-                  setSelectedDate(slot.date);
-                  setStartTime(slot.start);
-                  setEndTime(slot.end);
-                  setSlotMessage(null);
-                }}
-                style={[
-                  styles.choiceChip,
-                  {
-                    backgroundColor: theme.colors.primarySoft,
-                  },
-                ]}
-              >
-                <Text style={[styles.choiceText, { color: theme.colors.primary }]}>
-                  {formatDateLabel(slot.date)} {slot.start}-{slot.end}
-                </Text>
-              </Pressable>
-            ))}
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>4. Booking Session</Text>
+        {recommendedSlots.length ? (
+          <>
+            <Text style={[styles.helperText, { color: theme.colors.textMuted }]}>
+              Recommended next sessions based on the current service and equipment selection.
+            </Text>
+            <View style={styles.choiceWrap}>
+              {recommendedSlots.map((slot) => {
+                const selected = selectedDate === slot.date && startTime === slot.start && endTime === slot.end;
+
+                return (
+                  <Pressable
+                    key={`${slot.date}-${slot.start}-${slot.end}`}
+                    onPress={() => {
+                      selectBookingSession(slot.date, slot.start, slot.end);
+                    }}
+                    style={[
+                      styles.choiceChip,
+                      {
+                        backgroundColor: selected ? theme.colors.primary : theme.colors.primarySoft,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.choiceText,
+                        {
+                          color: selected ? '#ffffff' : theme.colors.primary,
+                        },
+                      ]}
+                    >
+                      {slot.label || `${slot.start}-${slot.end}`}  |  {formatDateLabel(slot.date)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
+
+        {slotLookupErrorMessage ? (
+          <View
+            style={[
+              styles.statusCard,
+              {
+                backgroundColor: theme.colors.warningSoft,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusText,
+                {
+                  color: theme.colors.warning,
+                },
+              ]}
+            >
+              {slotLookupErrorMessage}
+            </Text>
           </View>
         ) : null}
 
         <PickerField
           label="Date"
+          minimumDate={deviceToday}
           mode="date"
-          onChangeValue={setSelectedDate}
+          onChangeValue={(value) => {
+            setSelectedDate(value);
+            setStartTime('');
+            setEndTime('');
+            setSlotMessage(null);
+          }}
           placeholder="Select booking date"
           value={selectedDate}
         />
-        <PickerField
-          label="Start Time"
-          mode="time"
-          onChangeValue={setStartTime}
-          placeholder="Select start time"
-          value={startTime}
-        />
-        <PickerField
-          label="End Time"
-          mode="time"
-          onChangeValue={setEndTime}
-          placeholder="Select end time"
-          value={endTime}
-        />
 
-        {selectedDate && selectedDaySlotsQuery.data?.slots?.length ? (
+        {selectedSessionSummary ? (
           <View
             style={[
-              styles.daySlotCard,
+              styles.infoCard,
               {
-                backgroundColor: theme.colors.surfaceMuted,
+                backgroundColor: theme.colors.primarySoft,
               },
             ]}
           >
-            <Text style={[styles.daySlotTitle, { color: theme.colors.text }]}>
-              {formatDateLabel(selectedDate)} available slots
-            </Text>
-            {selectedDaySlotsQuery.data.slots.map((slot) => (
-              <Text
-                key={`${slot.label}-${slot.start}-${slot.end}`}
-                style={[
-                  styles.daySlotText,
-                  {
-                    color: slot.can_book ? theme.colors.success : theme.colors.textMuted,
-                  },
-                ]}
-              >
-                {slot.start}-{slot.end}  |  {slot.can_book ? 'Available' : slot.reason || 'Unavailable'}
-              </Text>
-            ))}
+            <Text style={[styles.infoTitle, { color: theme.colors.primary }]}>Selected session</Text>
+            <Text style={[styles.infoText, { color: theme.colors.text }]}>{selectedSessionSummary}</Text>
           </View>
         ) : null}
 
-        <Pressable
-          disabled={slotCheckMutation.isPending || !selectedServiceId || !assetSelectionString}
-          onPress={() => {
-            setErrorMessage(null);
-            void slotCheckMutation.mutate({
-              lab_id: lab.id,
-              service_id: selectedServiceId!,
-              date: selectedDate,
-              start_time: startTime,
-              end_time: endTime,
-              asset_selection: assetSelectionString,
-            });
-          }}
-          style={[
-            styles.secondaryButton,
-            {
-              backgroundColor: theme.colors.surfaceMuted,
-              opacity: slotCheckMutation.isPending || !selectedServiceId || !assetSelectionString ? 0.6 : 1,
-            },
-          ]}
-        >
-          <Text style={[styles.secondaryButtonText, { color: theme.colors.text }]}>Check Slot Availability</Text>
-        </Pressable>
+        {selectedDate ? (
+          selectedDaySlotsQuery.isLoading ? (
+            <View
+              style={[
+                styles.daySlotCard,
+                {
+                  backgroundColor: theme.colors.surfaceMuted,
+                },
+              ]}
+            >
+              <Text style={[styles.daySlotText, { color: theme.colors.textMuted }]}>
+                Loading available sessions...
+              </Text>
+            </View>
+          ) : selectedDaySlots.length ? (
+            <View
+              style={[
+                styles.daySlotCard,
+                {
+                  backgroundColor: theme.colors.surfaceMuted,
+                },
+              ]}
+            >
+              <Text style={[styles.daySlotTitle, { color: theme.colors.text }]}>
+                {formatDateLabel(selectedDate)} booking sessions
+              </Text>
+              <View style={styles.choiceWrap}>
+                {selectedDaySlots.map((slot) => {
+                  const selected = startTime === slot.start && endTime === slot.end;
+
+                  return (
+                    <Pressable
+                      key={`${slot.label}-${slot.start}-${slot.end}`}
+                      disabled={!slot.can_book}
+                      onPress={() => {
+                        selectBookingSession(selectedDate, slot.start, slot.end);
+                      }}
+                      style={[
+                        styles.choiceChip,
+                        {
+                          backgroundColor: selected
+                            ? theme.colors.primary
+                            : slot.can_book
+                              ? theme.colors.successSoft
+                              : theme.colors.surface,
+                          opacity: slot.can_book ? 1 : 0.65,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.choiceText,
+                          {
+                            color: selected
+                              ? '#ffffff'
+                              : slot.can_book
+                                ? theme.colors.success
+                                : theme.colors.textMuted,
+                          },
+                        ]}
+                      >
+                        {slot.label || `${slot.start}-${slot.end}`}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.slotMetaText,
+                          {
+                            color: selected ? 'rgba(255,255,255,0.88)' : theme.colors.textMuted,
+                          },
+                        ]}
+                      >
+                        {slot.can_book ? `${slot.start}-${slot.end}` : slot.reason || 'Unavailable'}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ) : (
+            <View
+              style={[
+                styles.daySlotCard,
+                {
+                  backgroundColor: theme.colors.surfaceMuted,
+                },
+              ]}
+            >
+              <Text style={[styles.daySlotText, { color: theme.colors.textMuted }]}>
+                No booking sessions are available for this date with the current equipment selection.
+              </Text>
+            </View>
+          )
+        ) : null}
 
         {slotMessage ? (
           <View
@@ -916,6 +1233,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  helperText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
   infoCard: {
     borderRadius: 14,
     gap: 6,
@@ -1016,6 +1337,11 @@ const styles = StyleSheet.create({
   daySlotText: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  slotMetaText: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 4,
   },
   statusCard: {
     borderRadius: 14,

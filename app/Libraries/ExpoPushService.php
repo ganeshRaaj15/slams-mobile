@@ -9,6 +9,10 @@ use Config\Services;
 class ExpoPushService
 {
     private const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+    private const CA_BUNDLE_CANDIDATES = [
+        'C:\\laragon\\etc\\ssl\\cacert.pem',
+        'C:\\laragon\\etc\\apps\\phpmyadmin\\vendor\\composer\\ca-bundle\\res\\cacert.pem',
+    ];
 
     private NativePushTokenModel $tokenModel;
     private CURLRequest $http;
@@ -16,20 +20,17 @@ class ExpoPushService
     public function __construct(?NativePushTokenModel $tokenModel = null, ?CURLRequest $http = null)
     {
         $this->tokenModel = $tokenModel ?? new NativePushTokenModel();
-        $this->http = $http ?? Services::curlrequest([
-            'timeout' => 10,
-            'http_errors' => false,
-        ]);
+        $this->http = $http ?? Services::curlrequest($this->curlOptions());
     }
 
-    public function registerToken(int $userId, string $expoPushToken, string $platform = 'unknown', ?string $deviceName = null): void
+    public function registerToken(int $userId, string $expoPushToken, string $platform = 'unknown', ?string $deviceName = null, ?int $accessTokenId = null): void
     {
         $expoPushToken = trim($expoPushToken);
         if (! $this->isValidExpoPushToken($expoPushToken)) {
             throw new \InvalidArgumentException('A valid Expo push token is required.');
         }
 
-        $this->tokenModel->upsertForUser($userId, $expoPushToken, $platform, $deviceName);
+        $this->tokenModel->upsertForUser($userId, $expoPushToken, $platform, $deviceName, $accessTokenId);
     }
 
     public function unregisterToken(int $userId, ?string $expoPushToken = null): void
@@ -40,6 +41,11 @@ class ExpoPushService
     public function activeTokenCount(int $userId): int
     {
         return $this->tokenModel->activeCountForUser($userId);
+    }
+
+    public function devicesForUser(int $userId): array
+    {
+        return $this->tokenModel->listForUser($userId);
     }
 
     public function notifyUsers(array $userIds, array $payload): void
@@ -135,5 +141,44 @@ class ExpoPushService
         }
 
         return preg_match('/^Expo(?:nent)?PushToken\\[[A-Za-z0-9_-]+\\]$/', $expoPushToken) === 1;
+    }
+
+    private function curlOptions(): array
+    {
+        $options = [
+            'timeout' => 10,
+            'http_errors' => false,
+        ];
+
+        $caBundle = $this->resolveCaBundle();
+        if ($caBundle !== null) {
+            $options['verify'] = $caBundle;
+        }
+
+        return $options;
+    }
+
+    private function resolveCaBundle(): ?string
+    {
+        $candidates = array_filter([
+            ini_get('curl.cainfo') ?: null,
+            ini_get('openssl.cafile') ?: null,
+            ROOTPATH . 'vendor' . DIRECTORY_SEPARATOR . 'composer' . DIRECTORY_SEPARATOR . 'ca-bundle' . DIRECTORY_SEPARATOR . 'res' . DIRECTORY_SEPARATOR . 'cacert.pem',
+            dirname(PHP_BINARY, 3) . DIRECTORY_SEPARATOR . 'etc' . DIRECTORY_SEPARATOR . 'ssl' . DIRECTORY_SEPARATOR . 'cacert.pem',
+            ...self::CA_BUNDLE_CANDIDATES,
+        ]);
+
+        foreach ($candidates as $candidate) {
+            $path = is_string($candidate) ? trim($candidate) : '';
+            if ($path === '') {
+                continue;
+            }
+
+            if (is_file($path) && is_readable($path)) {
+                return $path;
+            }
+        }
+
+        return null;
     }
 }

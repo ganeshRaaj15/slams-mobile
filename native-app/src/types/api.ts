@@ -536,6 +536,16 @@ export type MaintenanceDetailResponse = {
 
 export type NativePushStatus = {
   active_tokens: number;
+  devices: Array<{
+    id: number;
+    platform: string;
+    device_name: string;
+    is_active: boolean;
+    last_used_at: string;
+    last_error_at: string;
+    last_error_message: string;
+    updated_at: string;
+  }>;
 };
 
 export type AdminSettingsWorkspace = {

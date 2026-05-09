@@ -75,16 +75,7 @@ export function openNotificationItem(notification: NotificationItem, role?: stri
 }
 
 export function openNotificationResponse(response: NotificationResponse, role?: string) {
-  const data = response.notification.request.content.data ?? {};
-  resolveTarget(
-    {
-      url: typeof data.url === 'string' ? data.url : '',
-      entityType: typeof data.entityType === 'string' ? data.entityType : '',
-      entityId:
-        typeof data.entityId === 'number' || typeof data.entityId === 'string'
-          ? data.entityId
-          : null,
-    },
-    role,
-  )();
+  void response;
+  void role;
+  navigateToTab('Notifications');
 }

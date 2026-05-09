@@ -464,7 +464,13 @@ document.querySelectorAll(".booking-row").forEach(row => {
     row.addEventListener("click", function () {
 
         const id = this.dataset.id;
-        const modal = new bootstrap.Modal(document.getElementById("bookingDetailsModal"));
+        const modalElement = document.getElementById("bookingDetailsModal");
+        if (window.slamsPrepareModal) {
+            window.slamsPrepareModal(modalElement);
+        } else if (modalElement && modalElement.parentElement !== document.body) {
+            document.body.appendChild(modalElement);
+        }
+        const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
         const body = document.getElementById("bookingDetailsBody");
 
         body.innerHTML = "<p class='text-center text-muted'>Loading...</p>";

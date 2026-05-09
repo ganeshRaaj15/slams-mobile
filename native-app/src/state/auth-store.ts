@@ -3,6 +3,14 @@ import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
 import { loginRequest, logoutRequest, meRequest, registerRequest } from '../api/endpoints';
+import {
+  clearBiometricSession,
+  getBiometricPreferenceEnabled,
+  loadBiometricState,
+  readBiometricSessionToken,
+  saveBiometricSessionToken,
+  type BiometricState,
+} from '../auth/biometric-session';
 import { setApiAccessToken, setUnauthorizedHandler } from '../api/client';
 import {
   clearStoredNativePushToken,
@@ -15,13 +23,21 @@ const TOKEN_KEY = 'slams-native-access-token';
 
 type AuthStatus = 'booting' | 'authenticated' | 'unauthenticated';
 
+const defaultBiometricState: BiometricState = {
+  isSupported: false,
+  isEnabled: false,
+  isReady: false,
+};
+
 type AuthState = {
   status: AuthStatus;
   token: string | null;
   user: NativeUser | null;
   error: string | null;
+  biometric: BiometricState;
   bootstrap: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithBiometrics: () => Promise<void>;
   signUp: (payload: {
     username: string;
     email: string;
@@ -30,6 +46,8 @@ type AuthState = {
   }) => Promise<void>;
   signOut: () => Promise<void>;
   clearLocalSession: (message?: string) => Promise<void>;
+  refreshBiometricState: () => Promise<void>;
+  setBiometricPreference: (enabled: boolean) => Promise<void>;
 };
 
 function deviceName() {
@@ -47,12 +65,46 @@ function deviceName() {
   return 'SLAMS Mobile Device';
 }
 
+async function persistSessionToken(token: string) {
+  const biometricEnabled = await getBiometricPreferenceEnabled();
+
+  if (biometricEnabled) {
+    try {
+      await saveBiometricSessionToken(token);
+      await SecureStore.deleteItemAsync(TOKEN_KEY);
+      return loadBiometricState();
+    } catch (_error) {
+      await clearBiometricSession({ clearPreference: true });
+    }
+  }
+
+  await SecureStore.setItemAsync(TOKEN_KEY, token);
+  await clearBiometricSession();
+
+  return loadBiometricState();
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   status: 'booting',
   token: null,
   user: null,
   error: null,
+  biometric: defaultBiometricState,
   bootstrap: async () => {
+    const biometric = await loadBiometricState();
+
+    if (biometric.isEnabled) {
+      setApiAccessToken(null);
+      set({
+        status: 'unauthenticated',
+        token: null,
+        user: null,
+        error: null,
+        biometric,
+      });
+      return;
+    }
+
     const storedToken = await SecureStore.getItemAsync(TOKEN_KEY);
 
     if (!storedToken) {
@@ -62,6 +114,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         token: null,
         user: null,
         error: null,
+        biometric,
       });
       return;
     }
@@ -75,6 +128,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         token: storedToken,
         user: response.user,
         error: null,
+        biometric,
       });
     } catch (_error) {
       await SecureStore.deleteItemAsync(TOKEN_KEY);
@@ -84,6 +138,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         token: null,
         user: null,
         error: 'Your session expired. Please sign in again.',
+        biometric,
       });
     }
   },
@@ -97,7 +152,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         device_name: deviceName(),
       });
 
-      await SecureStore.setItemAsync(TOKEN_KEY, response.token);
+      const biometric = await persistSessionToken(response.token);
       setApiAccessToken(response.token);
 
       set({
@@ -105,6 +160,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         token: response.token,
         user: response.user,
         error: null,
+        biometric,
       });
     } catch (error: unknown) {
       const message = readErrorMessage(error, 'Unable to sign in with those credentials.');
@@ -114,6 +170,60 @@ export const useAuthStore = create<AuthState>((set) => ({
         token: null,
         user: null,
         error: message,
+      });
+
+      throw error;
+    }
+  },
+  signInWithBiometrics: async () => {
+    set({ error: null });
+
+    try {
+      const token = await readBiometricSessionToken();
+
+      if (!token) {
+        await clearBiometricSession();
+
+        set({
+          status: 'unauthenticated',
+          token: null,
+          user: null,
+          error: 'Biometric sign-in is no longer available. Please sign in with your email and password.',
+          biometric: await loadBiometricState(),
+        });
+        return;
+      }
+
+      setApiAccessToken(token);
+
+      try {
+        const response = await meRequest();
+        set({
+          status: 'authenticated',
+          token,
+          user: response.user,
+          error: null,
+          biometric: await loadBiometricState(),
+        });
+      } catch (_error) {
+        await clearBiometricSession();
+        setApiAccessToken(null);
+        set({
+          status: 'unauthenticated',
+          token: null,
+          user: null,
+          error: 'Your saved biometric session expired. Please sign in again.',
+          biometric: await loadBiometricState(),
+        });
+      }
+    } catch (error: unknown) {
+      setApiAccessToken(null);
+      set({
+        status: 'unauthenticated',
+        token: null,
+        user: null,
+        error: readErrorMessage(error, 'Biometric verification did not complete.'),
+        biometric: await loadBiometricState(),
       });
 
       throw error;
@@ -130,7 +240,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         device_name: deviceName(),
       });
 
-      await SecureStore.setItemAsync(TOKEN_KEY, response.token);
+      const biometric = await persistSessionToken(response.token);
       setApiAccessToken(response.token);
 
       set({
@@ -138,6 +248,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         token: response.token,
         user: response.user,
         error: null,
+        biometric,
       });
     } catch (error: unknown) {
       const message = readErrorMessage(error, 'Unable to create that account.');
@@ -153,32 +264,75 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
   signOut: async () => {
+    const biometric = await loadBiometricState();
+    const preserveBiometricSession = biometric.isEnabled && biometric.isReady;
+
     await unregisterNativePushRegistration();
 
-    try {
-      await logoutRequest();
-    } catch (_error) {
-      // Ignore logout transport errors and clear the local session anyway.
+    if (!preserveBiometricSession) {
+      try {
+        await logoutRequest();
+      } catch (_error) {
+        // Ignore logout transport errors and clear the local session anyway.
+      }
     }
 
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    if (!preserveBiometricSession) {
+      await clearBiometricSession();
+    }
     setApiAccessToken(null);
     set({
       status: 'unauthenticated',
       token: null,
       user: null,
       error: null,
+      biometric,
     });
   },
   clearLocalSession: async (message) => {
     await clearStoredNativePushToken();
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await clearBiometricSession();
     setApiAccessToken(null);
     set({
       status: 'unauthenticated',
       token: null,
       user: null,
       error: message ?? 'Your session expired. Please sign in again.',
+      biometric: await loadBiometricState(),
+    });
+  },
+  refreshBiometricState: async () => {
+    set({
+      biometric: await loadBiometricState(),
+    });
+  },
+  setBiometricPreference: async (enabled) => {
+    if (!enabled) {
+      const currentToken = useAuthStore.getState().token;
+
+      if (currentToken) {
+        await SecureStore.setItemAsync(TOKEN_KEY, currentToken);
+      }
+
+      await clearBiometricSession({ clearPreference: true });
+      set({
+        biometric: await loadBiometricState(),
+      });
+      return;
+    }
+
+    const currentToken = useAuthStore.getState().token;
+
+    if (!currentToken) {
+      throw new Error('Sign in before enabling biometric login.');
+    }
+
+    await saveBiometricSessionToken(currentToken);
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    set({
+      biometric: await loadBiometricState(),
     });
   },
 }));

@@ -14,6 +14,7 @@ type PickerFieldProps = {
   onChangeValue: (value: string) => void;
   hint?: string;
   allowClear?: boolean;
+  minimumDate?: Date;
 };
 
 function twoDigits(value: number) {
@@ -60,6 +61,7 @@ export function PickerField({
   onChangeValue,
   hint,
   allowClear = false,
+  minimumDate,
 }: PickerFieldProps) {
   const theme = useAppTheme();
   const [visible, setVisible] = useState(false);
@@ -152,6 +154,7 @@ export function PickerField({
         >
           <DateTimePicker
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            minimumDate={minimumDate}
             mode={mode}
             onChange={handleChange}
             value={pickerValue}

@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
-  getNativePushStatusRequest,
   listNotificationsRequest,
   markAllNotificationsReadRequest,
   markNotificationReadRequest,
@@ -13,31 +11,17 @@ import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
 import { Screen } from '../components/screen';
 import { openNotificationItem } from '../notifications/notification-target';
-import {
-  readNativePushPermissionStatus,
-  syncNativePushRegistration,
-  unregisterNativePushRegistration,
-} from '../notifications/native-push';
 import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
-import { readErrorMessage } from '../utils/error-message';
 
 export function NotificationsScreen() {
   const theme = useAppTheme();
   const queryClient = useQueryClient();
   const role = useAuthStore((state) => state.user?.primary_role ?? 'student');
-  const [pushMessage, setPushMessage] = useState<string | null>(null);
-  const [pushPermission, setPushPermission] = useState('undetermined');
-  const [pushBusy, setPushBusy] = useState(false);
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications'],
     queryFn: () => listNotificationsRequest(),
-  });
-
-  const nativePushQuery = useQuery({
-    queryKey: ['native-push'],
-    queryFn: getNativePushStatusRequest,
   });
 
   const markOneMutation = useMutation({
@@ -55,21 +39,6 @@ export function NotificationsScreen() {
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },
   });
-
-  useEffect(() => {
-    void readNativePushPermissionStatus().then((status) => {
-      setPushPermission(status);
-
-      if (status === 'granted') {
-        void syncNativePushRegistration({ prompt: false })
-          .then((result) => {
-            setPushMessage(result.message);
-            void queryClient.invalidateQueries({ queryKey: ['native-push'] });
-          })
-          .catch(() => undefined);
-      }
-    });
-  }, [queryClient]);
 
   if (notificationsQuery.isLoading) {
     return (
@@ -92,33 +61,6 @@ export function NotificationsScreen() {
     );
   }
 
-  async function enablePush() {
-    setPushBusy(true);
-    try {
-      const result = await syncNativePushRegistration({ prompt: true });
-      setPushPermission(result.permission);
-      setPushMessage(result.message);
-      await queryClient.invalidateQueries({ queryKey: ['native-push'] });
-    } catch (error) {
-      setPushMessage(readErrorMessage(error, 'Native push could not be enabled on this device.'));
-    } finally {
-      setPushBusy(false);
-    }
-  }
-
-  async function disablePush() {
-    setPushBusy(true);
-    try {
-      await unregisterNativePushRegistration();
-      setPushMessage('Native push notifications were disabled on this device.');
-      await queryClient.invalidateQueries({ queryKey: ['native-push'] });
-    } finally {
-      setPushBusy(false);
-    }
-  }
-
-  const hasNativePush = (nativePushQuery.data?.active_tokens ?? 0) > 0;
-
   return (
     <Screen>
       <View
@@ -135,32 +77,8 @@ export function NotificationsScreen() {
           <Text style={[styles.topValue, { color: theme.colors.primary }]}>
             {notificationsQuery.data.unread_count}
           </Text>
-          <Text style={[styles.pushMeta, { color: theme.colors.textMuted }]}>
-            Native push: {hasNativePush ? 'Enabled' : 'Not active'}
-          </Text>
         </View>
         <View style={styles.topActions}>
-          <Pressable
-            disabled={pushBusy}
-            onPress={() => {
-              if (hasNativePush) {
-                void disablePush();
-                return;
-              }
-
-              void enablePush();
-            }}
-            style={[
-              styles.markAllButton,
-              {
-                backgroundColor: hasNativePush ? theme.colors.surfaceMuted : theme.colors.primarySoft,
-              },
-            ]}
-          >
-            <Text style={[styles.markAllText, { color: hasNativePush ? theme.colors.text : theme.colors.primary }]}>
-              {pushBusy ? 'Updating...' : hasNativePush ? 'Disable Push' : 'Enable Push'}
-            </Text>
-          </Pressable>
           <Pressable
             disabled={markAllMutation.isPending || notificationsQuery.data.unread_count === 0}
             onPress={() => {
@@ -178,24 +96,6 @@ export function NotificationsScreen() {
           </Pressable>
         </View>
       </View>
-
-      {pushMessage ? (
-        <View
-          style={[
-            styles.pushNotice,
-            {
-              backgroundColor: theme.colors.surfaceMuted,
-            },
-          ]}
-        >
-          <Text style={[styles.pushNoticeText, { color: theme.colors.text }]}>
-            {pushMessage}
-          </Text>
-          <Text style={[styles.pushMeta, { color: theme.colors.textMuted }]}>
-            Permission: {pushPermission}
-          </Text>
-        </View>
-      ) : null}
 
       {notificationsQuery.data.notifications.length === 0 ? (
         <EmptyState
@@ -274,18 +174,6 @@ const styles = StyleSheet.create({
   markAllText: {
     fontSize: 13,
     fontWeight: '800',
-  },
-  pushNotice: {
-    borderRadius: 16,
-    gap: 4,
-    padding: 14,
-  },
-  pushNoticeText: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  pushMeta: {
-    fontSize: 12,
   },
   card: {
     borderRadius: 18,

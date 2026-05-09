@@ -1,4 +1,5 @@
 import { api } from './client';
+import { File as ExpoFile } from 'expo-file-system';
 import type {
   AdminSettingsWorkspace,
   AdminAssetDetailResponse,
@@ -33,12 +34,26 @@ import type {
   RecommendedSlot,
 } from '../types/api';
 import { getApiAccessToken } from './client';
-import { API_BASE_URL } from '../config/env';
+import { fetchApi } from './fetch';
 
 type ApiEnvelope<T> = {
   status: 'success' | 'error';
   message?: string;
 } & T;
+
+type UploadAsset = {
+  uri: string;
+  name: string;
+  mimeType: string;
+};
+
+function appendUploadAsset(formData: FormData, fieldName: string, asset: UploadAsset | null | undefined) {
+  if (!asset?.uri) {
+    return;
+  }
+
+  formData.append(fieldName, new ExpoFile(asset.uri), asset.name);
+}
 
 export async function loginRequest(payload: {
   email: string;
@@ -106,14 +121,10 @@ export async function updateProfileRequest(payload: {
   formData.append('password_confirm', payload.password_confirm ?? '');
 
   if (payload.profile_photo) {
-    formData.append('profile_photo', {
-      uri: payload.profile_photo.uri,
-      name: payload.profile_photo.name,
-      type: payload.profile_photo.mimeType,
-    } as any);
+    appendUploadAsset(formData, 'profile_photo', payload.profile_photo);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/native/profile`, {
+  const response = await fetchApi('/api/native/profile', {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -244,19 +255,34 @@ export async function checkBookingSlotRequest(payload: {
   end_time: string;
   asset_selection: string;
 }) {
-  const formData = new FormData();
-  formData.append('lab_id', String(payload.lab_id));
-  formData.append('service_id', String(payload.service_id));
-  formData.append('date', payload.date);
-  formData.append('start_time', payload.start_time);
-  formData.append('end_time', payload.end_time);
-  formData.append('asset_selection', payload.asset_selection);
+  const body = new URLSearchParams({
+    lab_id: String(payload.lab_id),
+    service_id: String(payload.service_id),
+    date: payload.date,
+    start_time: payload.start_time,
+    end_time: payload.end_time,
+    asset_selection: payload.asset_selection,
+  }).toString();
 
-  const response = await api.post<ApiEnvelope<{ conflict: boolean; reason?: string }>>(
-    '/api/native/bookings/check-slot',
-    formData,
-  );
-  return response.data;
+  const response = await fetchApi('/api/native/bookings/check-slot', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+    },
+    body,
+  });
+
+  const data = (await response.json()) as { conflict: boolean; reason?: string };
+  if (!response.ok) {
+    throw new Error(
+      typeof data.reason === 'string' && data.reason.trim() !== ''
+        ? data.reason
+        : 'Slot availability check failed.',
+    );
+  }
+
+  return data;
 }
 
 export async function listBookingsRequest(status?: string) {
@@ -320,13 +346,9 @@ export async function submitBookingRequest(payload: {
     formData.append('applicant_faculty[]', String(applicant.faculty_id ?? ''));
   });
 
-  formData.append('pdf', {
-    uri: payload.pdf.uri,
-    name: payload.pdf.name,
-    type: payload.pdf.mimeType,
-  } as any);
+  appendUploadAsset(formData, 'pdf', payload.pdf);
 
-  const response = await fetch(`${API_BASE_URL}/api/native/bookings/submit`, {
+  const response = await fetchApi('/api/native/bookings/submit', {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -510,22 +532,14 @@ export async function createAdminLabRequest(payload: {
   formData.append('remove_pic_image', payload.remove_pic_image ? '1' : '0');
 
   if (payload.image) {
-    formData.append('image', {
-      uri: payload.image.uri,
-      name: payload.image.name,
-      type: payload.image.mimeType,
-    } as any);
+    appendUploadAsset(formData, 'image', payload.image);
   }
 
   if (payload.pic_image) {
-    formData.append('pic_image', {
-      uri: payload.pic_image.uri,
-      name: payload.pic_image.name,
-      type: payload.pic_image.mimeType,
-    } as any);
+    appendUploadAsset(formData, 'pic_image', payload.pic_image);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/native/admin/labs`, {
+  const response = await fetchApi('/api/native/admin/labs', {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -565,22 +579,14 @@ export async function updateAdminLabRequest(
   formData.append('remove_pic_image', payload.remove_pic_image ? '1' : '0');
 
   if (payload.image) {
-    formData.append('image', {
-      uri: payload.image.uri,
-      name: payload.image.name,
-      type: payload.image.mimeType,
-    } as any);
+    appendUploadAsset(formData, 'image', payload.image);
   }
 
   if (payload.pic_image) {
-    formData.append('pic_image', {
-      uri: payload.pic_image.uri,
-      name: payload.pic_image.name,
-      type: payload.pic_image.mimeType,
-    } as any);
+    appendUploadAsset(formData, 'pic_image', payload.pic_image);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/native/admin/labs/${labId}`, {
+  const response = await fetchApi(`/api/native/admin/labs/${labId}`, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -655,14 +661,10 @@ export async function createAdminAssetRequest(payload: {
   formData.append('specifications', payload.specifications);
 
   if (payload.image) {
-    formData.append('image', {
-      uri: payload.image.uri,
-      name: payload.image.name,
-      type: payload.image.mimeType,
-    } as any);
+    appendUploadAsset(formData, 'image', payload.image);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/native/admin/assets`, {
+  const response = await fetchApi('/api/native/admin/assets', {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -702,14 +704,10 @@ export async function updateAdminAssetRequest(
   formData.append('specifications', payload.specifications);
 
   if (payload.image) {
-    formData.append('image', {
-      uri: payload.image.uri,
-      name: payload.image.name,
-      type: payload.image.mimeType,
-    } as any);
+    appendUploadAsset(formData, 'image', payload.image);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/native/admin/assets/${assetId}`, {
+  const response = await fetchApi(`/api/native/admin/assets/${assetId}`, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -909,14 +907,10 @@ export async function createIssueReportRequest(payload: {
   formData.append('unit_reference', payload.unit_reference ?? '');
 
   if (payload.report_photo) {
-    formData.append('report_photo', {
-      uri: payload.report_photo.uri,
-      name: payload.report_photo.name,
-      type: payload.report_photo.mimeType,
-    } as any);
+    appendUploadAsset(formData, 'report_photo', payload.report_photo);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/native/issues`, {
+  const response = await fetchApi('/api/native/issues', {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -1010,14 +1004,10 @@ export async function updateMaintenanceRequest(
   formData.append('transition', payload.transition ?? '');
 
   if (payload.completion_photo) {
-    formData.append('completion_photo', {
-      uri: payload.completion_photo.uri,
-      name: payload.completion_photo.name,
-      type: payload.completion_photo.mimeType,
-    } as any);
+    appendUploadAsset(formData, 'completion_photo', payload.completion_photo);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/native/maintenance/${maintenanceId}`, {
+  const response = await fetchApi(`/api/native/maintenance/${maintenanceId}`, {
     method: 'POST',
     headers: {
       Accept: 'application/json',

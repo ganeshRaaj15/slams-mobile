@@ -237,7 +237,6 @@ export function ReportsScreen() {
               <Text style={[styles.innerMeta, { color: theme.colors.textMuted }]}>
                 {formatDateTimeRange(booking.date, booking.start_time, booking.end_time)}
               </Text>
-              <Text style={[styles.innerMeta, { color: theme.colors.primary }]}>Flow: {booking.approval_flow}</Text>
               <StatusPill status={booking.status} />
             </View>
           ))

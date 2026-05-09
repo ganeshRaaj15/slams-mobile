@@ -11,6 +11,10 @@ use App\Models\SettingsModel;
 
 class SettingsController extends BaseController
 {
+    private const HIDDEN_GENERAL_SETTINGS = [
+        'booking_slots',
+    ];
+
     protected $settings;
     protected StudentRoleService $studentRoleService;
 
@@ -55,6 +59,10 @@ class SettingsController extends BaseController
         }
 
         foreach ($storedSettings as $key => $row) {
+            if (in_array($key, self::HIDDEN_GENERAL_SETTINGS, true)) {
+                continue;
+            }
+
             if (! isset($settings[$key])) {
                 $settings[$key] = $row;
             }

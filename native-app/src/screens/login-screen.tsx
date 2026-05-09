@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
@@ -13,7 +14,9 @@ export function LoginScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const signIn = useAuthStore((state) => state.signIn);
+  const signInWithBiometrics = useAuthStore((state) => state.signInWithBiometrics);
   const authError = useAuthStore((state) => state.error);
+  const biometric = useAuthStore((state) => state.biometric);
   const cardShadow = {
     elevation: 5,
     shadowColor: theme.colors.shadow,
@@ -24,7 +27,9 @@ export function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [biometricSubmitting, setBiometricSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const onSubmit = async () => {
@@ -41,6 +46,18 @@ export function LoginScreen() {
       // Error state is stored centrally.
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const onBiometricSubmit = async () => {
+    try {
+      setLocalError(null);
+      setBiometricSubmitting(true);
+      await signInWithBiometrics();
+    } catch (_error) {
+      // Error state is stored centrally.
+    } finally {
+      setBiometricSubmitting(false);
     }
   };
 
@@ -98,6 +115,52 @@ export function LoginScreen() {
           },
         ]}
       >
+        {biometric.isReady ? (
+          <Pressable
+            disabled={submitting || biometricSubmitting}
+            onPress={onBiometricSubmit}
+            style={[
+              styles.biometricButton,
+              {
+                backgroundColor: theme.colors.primarySoft,
+                borderColor: theme.colors.borderStrong,
+                opacity: submitting || biometricSubmitting ? 0.7 : 1,
+              },
+            ]}
+          >
+            {biometricSubmitting ? (
+              <ActivityIndicator color={theme.colors.primary} />
+            ) : (
+              <>
+                <Ionicons color={theme.colors.primary} name="scan-outline" size={18} />
+                <Text
+                  style={[
+                    styles.biometricButtonText,
+                    {
+                      color: theme.colors.primary,
+                    },
+                  ]}
+                >
+                  Unlock with Biometrics
+                </Text>
+              </>
+            )}
+          </Pressable>
+        ) : null}
+
+        {biometric.isEnabled && !biometric.isReady ? (
+          <Text
+            style={[
+              styles.hint,
+              {
+                color: theme.colors.textMuted,
+              },
+            ]}
+          >
+            Biometric login is enabled for this device, but the saved session needs one successful password sign-in before it can be used again.
+          </Text>
+        ) : null}
+
         <TextField
           autoCapitalize="none"
           autoCorrect={false}
@@ -111,7 +174,24 @@ export function LoginScreen() {
           label="Password"
           onChangeText={setPassword}
           placeholder="Enter your password"
-          secureTextEntry
+          rightAccessory={
+            <Pressable
+              accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => {
+                setPasswordVisible((current) => !current);
+              }}
+              style={styles.passwordToggle}
+            >
+              <Ionicons
+                color={theme.colors.textMuted}
+                name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+              />
+            </Pressable>
+          }
+          secureTextEntry={!passwordVisible}
           value={password}
         />
 
@@ -211,9 +291,30 @@ const styles = StyleSheet.create({
     gap: 14,
     padding: 20,
   },
+  biometricButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  biometricButtonText: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
   error: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  hint: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  passwordToggle: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   button: {
     alignItems: 'center',

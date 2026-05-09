@@ -129,7 +129,7 @@ $unitsInMaintenance = array_sum(array_map(static fn($asset) => (int) ($asset['ma
                                 <td class="text-center">
                                     <?php
                                     $qrCode = $asset['asset_code'] ?: ('AST-' . str_pad((string) $asset['id'], 4, '0', STR_PAD_LEFT));
-                                    $qrUrl = site_url('qr/asset/' . rawurlencode($qrCode)) . '?open=1';
+                                    $qrUrl = qr_public_url('qr/asset/' . rawurlencode($qrCode), ['open' => 1]);
                                     $labLabel = trim(($asset['lab_name'] ?? 'Unknown Lab') . (!empty($asset['lab_room']) ? ' | Room ' . $asset['lab_room'] : ''));
                                     ?>
                                     <div class="d-inline-flex gap-1">
@@ -170,16 +170,7 @@ $unitsInMaintenance = array_sum(array_map(static fn($asset) => (int) ($asset['ma
                         <div class="fw-semibold" id="qrAssetName">-</div>
                         <div class="text-muted small" id="qrAssetCode">-</div>
                         <div class="text-muted small" id="qrAssetLab">-</div>
-
-                        <div class="mt-3">
-                            <div class="qr-meta-label mb-1">QR Link</div>
-                            <div class="input-group">
-                                <input type="text" id="qrLink" class="form-control form-control-sm qr-link-input" readonly>
-                                <button class="btn btn-outline-secondary btn-sm" type="button" id="copyQrLink">Copy</button>
-                                <a class="btn btn-outline-primary btn-sm" id="openQrLink" target="_blank" rel="noopener">Open</a>
-                            </div>
-                            <div class="small text-muted mt-2">Scan the QR code to open the booking wizard for this equipment.</div>
-                        </div>
+                        <div class="small text-muted mt-3">Scan the QR code to open the booking wizard for this equipment.</div>
                     </div>
                 </div>
             </div>
@@ -222,8 +213,6 @@ function openQrModal(button) {
     const lab = button.dataset.assetLab || '-';
 
     const preview = document.getElementById('qrPreview');
-    const linkInput = document.getElementById('qrLink');
-    const openLink = document.getElementById('openQrLink');
     const printSheet = document.getElementById('printQrSheet');
 
     if (preview) {
@@ -236,12 +225,6 @@ function openQrModal(button) {
         });
     }
 
-    if (linkInput) {
-        linkInput.value = url;
-    }
-    if (openLink) {
-        openLink.href = url;
-    }
     if (printSheet) {
         printSheet.href = `/admin/assets/qr-labels?q=${encodeURIComponent(code)}`;
     }
@@ -268,24 +251,6 @@ function openQrModal(button) {
         qrModalInstance.show();
     }
 }
-
-document.addEventListener('DOMContentLoaded', function() {
-    const copyBtn = document.getElementById('copyQrLink');
-    if (copyBtn) {
-        copyBtn.addEventListener('click', function() {
-            const linkInput = document.getElementById('qrLink');
-            if (!linkInput) return;
-            const text = linkInput.value;
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(text);
-                return;
-            }
-            linkInput.select();
-            linkInput.setSelectionRange(0, 99999);
-            document.execCommand('copy');
-        });
-    }
-});
 </script>
 
 <?= $this->endSection() ?>

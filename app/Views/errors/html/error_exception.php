@@ -2,6 +2,58 @@
 use CodeIgniter\HTTP\Header;
 use CodeIgniter\CodeIgniter;
 
+$showDebugDetails = filter_var((string) env('app.debugUiEnabled', '0'), FILTER_VALIDATE_BOOLEAN);
+
+if (! $showDebugDetails) {
+    ?>
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex">
+    <title>Something went wrong</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: #f8fafc;
+            color: #0f172a;
+            font-family: Arial, sans-serif;
+        }
+        .card {
+            width: min(100%, 520px);
+            padding: 28px;
+            border-radius: 20px;
+            background: #ffffff;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+        }
+        h1 {
+            margin: 0 0 12px;
+            font-size: 28px;
+        }
+        p {
+            margin: 0;
+            line-height: 1.6;
+            color: #475569;
+        }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <h1>Something went wrong</h1>
+        <p>SLAMS could not complete this request. Please try again or contact the administrator if the problem continues.</p>
+    </main>
+</body>
+</html>
+    <?php
+    return;
+}
+
 $errorId = uniqid('error', true);
 ?>
 <!doctype html>

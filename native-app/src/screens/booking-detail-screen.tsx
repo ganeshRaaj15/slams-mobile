@@ -68,7 +68,7 @@ export function BookingDetailScreen() {
         booking.pdf_path.split('/').pop() || `booking-${booking.id}.pdf`,
       );
     } catch (error) {
-      setDocumentError(readErrorMessage(error, 'The protected PDF could not be opened.'));
+      setDocumentError(readErrorMessage(error, 'The document could not be opened.'));
     } finally {
       setDocumentBusy(false);
     }
@@ -112,7 +112,7 @@ export function BookingDetailScreen() {
           >
             <Text style={[styles.noteTitle, { color: theme.colors.text }]}>Supporting document attached</Text>
             <Text style={[styles.noteText, { color: theme.colors.textMuted }]}>
-              SLAMS downloads the protected PDF and hands it to your device document viewer without exposing a public file URL.
+              Open the supporting document in your device viewer when you need to review it.
             </Text>
             <Pressable
               disabled={documentBusy}
@@ -127,7 +127,7 @@ export function BookingDetailScreen() {
                 },
               ]}
             >
-              <Text style={styles.documentButtonText}>{documentBusy ? 'Opening...' : 'Open Protected PDF'}</Text>
+              <Text style={styles.documentButtonText}>{documentBusy ? 'Opening...' : 'Open Document'}</Text>
             </Pressable>
             {documentError ? (
               <Text style={[styles.documentError, { color: theme.colors.danger }]}>{documentError}</Text>

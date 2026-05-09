@@ -138,12 +138,12 @@
 
     <h2>Upcoming Booking Activity</h2>
     <table class="data">
-        <thead><tr><th>Lab</th><th>Date</th><th>Time</th><th>Status</th><th>Flow</th></tr></thead>
+        <thead><tr><th>Lab</th><th>Date</th><th>Time</th><th>Status</th></tr></thead>
         <tbody>
             <?php if (empty($upcomingBookings)): ?>
-                <tr><td colspan="5">No upcoming booking activity.</td></tr>
+                <tr><td colspan="4">No upcoming booking activity.</td></tr>
             <?php else: ?>
-                <?php foreach ($upcomingBookings as $booking): ?><tr><td><?= esc($booking['lab_name'] ?? '-') ?></td><td><?= esc($booking['date'] ?? '-') ?></td><td><?= esc(($booking['start_time'] ?? '-') . ' - ' . ($booking['end_time'] ?? '-')) ?></td><td><?= esc($booking['status'] ?? '-') ?></td><td><?= esc($booking['approval_flow'] ?? '-') ?></td></tr><?php endforeach; ?>
+                <?php foreach ($upcomingBookings as $booking): ?><tr><td><?= esc($booking['lab_name'] ?? '-') ?></td><td><?= esc($booking['date'] ?? '-') ?></td><td><?= esc(($booking['start_time'] ?? '-') . ' - ' . ($booking['end_time'] ?? '-')) ?></td><td><?= esc($booking['status'] ?? '-') ?></td></tr><?php endforeach; ?>
             <?php endif; ?>
         </tbody>
     </table>
