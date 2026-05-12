@@ -1,13 +1,37 @@
 # SLAMS Mobile
 
-This project now contains two mobile-facing layers:
+This repository should now be treated as the mobile workspace for SLAMS.
 
-- the existing mobile/PWA experience inside the CodeIgniter app
-- the new real native client in [native-app/README.md](native-app/README.md)
+- `c:\laragon\www\slams` is the canonical CodeIgniter website/backend and the repo that should be deployed to `slams.cloud`
+- `slams-mobile/native-app` is the real installed mobile client that becomes the APK/AAB/IPA deliverable
+- the duplicated CodeIgniter files that still exist here are transitional and should not be the long-term production deployment target
 
-It keeps the same CodeIgniter controllers, models, routes, authentication, and database connection as the main website. The `.env` file still points to `slams_db`, so bookings, labs, assets, users, approvals, notifications, and reports use the same data.
+## Backend Source Of Truth
 
-## Run Locally
+Run the backend from:
+
+```powershell
+cd c:\laragon\www\slams
+php spark serve --port 8080
+```
+
+The mobile app should point to that backend, or to the hosted production URL:
+
+```text
+https://slams.cloud
+```
+
+## Native App
+
+See [native-app/README.md](native-app/README.md) for the actual mobile build workflow.
+
+## Transitional Mirror
+
+This repo still contains the web/PWA/backend files that were used to recover hosting earlier in the migration. Keep them only as a temporary mirror while `slams` becomes the sole deployed backend.
+
+## Legacy Local Run
+
+If you still need to boot the mirrored CodeIgniter app in this repo during transition:
 
 ```powershell
 cd c:\laragon\www\slams-mobile

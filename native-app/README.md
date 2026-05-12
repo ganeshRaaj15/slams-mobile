@@ -4,7 +4,8 @@ This folder contains the real installed-app frontend for SLAMS Mobile.
 
 ## Architecture
 
-- `slams-mobile/` remains the CodeIgniter backend and source of truth.
+- `../slams/` is the canonical CodeIgniter backend and deployment source of truth.
+- `slams-mobile/` is the mobile workspace, with `native-app/` as the installed client.
 - `native-app/` is an Expo React Native client.
 - Authentication uses Shield access tokens through `POST /api/native/auth/token`.
 - The app stores the bearer token in `expo-secure-store`.
@@ -63,13 +64,13 @@ Without that Firebase setup, the notifications screen can request permission but
 3. Set `EXPO_PUBLIC_EAS_PROJECT_ID` if you want to provide the Expo project ID explicitly for push registration.
 4. Set `EXPO_PUBLIC_APP_VARIANT`.
 
-For local development on the same LAN, `EXPO_PUBLIC_API_BASE_URL` is now treated as a preferred hint instead of a hard dependency. If the configured private IP is stale, the app will probe the current subnet and switch to the first backend that answers as `slams-mobile-api`.
+For local development on the same LAN, `EXPO_PUBLIC_API_BASE_URL` is now treated as a preferred hint instead of a hard dependency. If the configured private IP is stale, the app will probe the current subnet and switch to the first backend that answers as the SLAMS native API.
 
 Examples:
 
-- Android emulator: `http://10.0.2.2:8080`
-- iOS simulator: `http://localhost:8080`
-- Physical device: `http://<your-lan-ip>:8080`
+- Android emulator: `http://10.0.2.2:8080/slams/public` or your hosted HTTPS backend
+- iOS simulator: `http://localhost:8080/slams/public`
+- Physical device: `http://<your-lan-ip>/slams/public`
 
 Recommended variants:
 
@@ -77,7 +78,7 @@ Recommended variants:
 - internal installable QA APK/IPA: `preview`
 - store/TestFlight production build: `production`
 
-5. Start the backend from the project root.
+5. Start the backend from `../slams`.
 6. In this folder run:
 
 ```bash

@@ -15,7 +15,7 @@ import {
 
 const STORED_API_BASE_URL_KEY = 'slams-native-api-base-url';
 const HEALTH_PATH = '/api/native/health';
-const HEALTH_SERVICE = 'slams-mobile-api';
+const HEALTH_SERVICES = new Set(['slams-api', 'slams-mobile-api']);
 const DIRECT_PROBE_TIMEOUT_MS = Math.max(700, Math.min(1600, Math.floor(REQUEST_TIMEOUT_MS / 4)));
 const DISCOVERY_PROBE_TIMEOUT_MS = 650;
 const DISCOVERY_BATCH_SIZE = 18;
@@ -27,11 +27,14 @@ type BaseUrlPattern = {
 };
 
 const COMMON_LOCAL_BASE_URL_PATTERNS: BaseUrlPattern[] = [
+  { port: 80, pathPrefix: '/slams/public' },
   { port: 80, pathPrefix: '/slams-mobile/public' },
   { port: 80, pathPrefix: '/public' },
   { port: 80, pathPrefix: '' },
   { port: 8081, pathPrefix: '' },
   { port: 8080, pathPrefix: '' },
+  { port: 8081, pathPrefix: '/slams/public' },
+  { port: 8080, pathPrefix: '/slams/public' },
   { port: 8081, pathPrefix: '/slams-mobile/public' },
   { port: 8080, pathPrefix: '/slams-mobile/public' },
   { port: 8081, pathPrefix: '/public' },
@@ -377,7 +380,7 @@ async function probeApiBaseUrl(baseUrl: string, timeoutMs: number) {
       | { status?: string; service?: string }
       | null;
 
-    return payload?.status === 'success' && payload?.service === HEALTH_SERVICE;
+    return payload?.status === 'success' && HEALTH_SERVICES.has(payload?.service ?? '');
   } catch {
     return false;
   } finally {

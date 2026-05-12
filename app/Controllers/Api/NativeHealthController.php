@@ -10,8 +10,8 @@ class NativeHealthController extends BaseController
     {
         return $this->response->setJSON([
             'status' => 'success',
-            'service' => 'slams-mobile-api',
-            'app' => 'SLAMS Mobile',
+            'service' => 'slams-api',
+            'app' => 'SLAMS',
         ]);
     }
 }
