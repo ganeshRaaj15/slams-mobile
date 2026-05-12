@@ -160,17 +160,21 @@ export async function updateProfileRequest(payload: {
       data = JSON.parse(trimmedBody) as ApiEnvelope<{ user: NativeUser }>;
     } catch (_error) {
       throw new Error(
-        response.ok
-          ? 'Profile update failed.'
-          : trimmedBody.startsWith('<')
-            ? 'The server could not process that profile photo upload.'
+        trimmedBody.startsWith('<')
+          ? `The server returned an HTML response while uploading the profile photo (HTTP ${response.status}).`
+          : response.ok
+            ? 'The server returned an unreadable response while uploading the profile photo.'
             : trimmedBody,
       );
     }
   }
 
   if (!data) {
-    throw new Error('Profile update failed.');
+    throw new Error(
+      response.ok
+        ? 'The server returned an empty response while uploading the profile photo.'
+        : `Profile photo upload failed (HTTP ${response.status}).`,
+    );
   }
 
   if (!response.ok || data.status === 'error') {
