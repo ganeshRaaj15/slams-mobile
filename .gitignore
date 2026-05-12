@@ -82,13 +82,22 @@ public/uploads/pdfs/*
 !public/uploads/pdfs/.htaccess
 
 public/images/labs/*
+!public/images/labs/*.png
+!public/images/labs/*.jpg
+!public/images/labs/*.jpeg
 !public/images/labs/.gitkeep
 
 public/images/pic/*
+!public/images/pic/*.png
+!public/images/pic/*.jpg
+!public/images/pic/*.jpeg
 !public/images/pic/.gitkeep
 
 public/images/assets/*
 !public/images/assets/placeholder_asset.png
+!public/images/assets/*.png
+!public/images/assets/*.jpg
+!public/images/assets/*.jpeg
 !public/images/assets/.gitkeep
 
 public/images/users/*

@@ -16,7 +16,7 @@ class App extends BaseConfig
      *
      * E.g., http://example.com/
      */
-    public string $baseURL = 'http://192.168.0.95/slams-mobile/public/';
+    public string $baseURL = 'http://localhost:8081/';
 
     /**
      * Allowed Hostnames in the Site URL other than the hostname in the baseURL.
@@ -32,7 +32,6 @@ class App extends BaseConfig
     public array $allowedHostnames = [
         'localhost',
         '127.0.0.1',
-        '192.168.0.95',
         'slams-mobile.test',
     ];
 

@@ -1,0 +1,41 @@
+<?php
+
+use CodeIgniter\Boot;
+use Config\Paths;
+
+$minPhpVersion = '8.1';
+if (version_compare(PHP_VERSION, $minPhpVersion, '<')) {
+    $message = sprintf(
+        'Your PHP version must be %s or higher to run CodeIgniter. Current version: %s',
+        $minPhpVersion,
+        PHP_VERSION,
+    );
+
+    header('HTTP/1.1 503 Service Unavailable.', true, 503);
+    echo $message;
+
+    exit(1);
+}
+
+define('FCPATH', __DIR__ . DIRECTORY_SEPARATOR);
+
+if (getcwd() . DIRECTORY_SEPARATOR !== FCPATH) {
+    chdir(FCPATH);
+}
+
+$appRoot = rtrim('__SLAMS_APP_ROOT__', '/\\');
+$pathsPath = $appRoot . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'Config' . DIRECTORY_SEPARATOR . 'Paths.php';
+
+if (! is_file($pathsPath)) {
+    header('HTTP/1.1 503 Service Unavailable.', true, 503);
+    echo 'SLAMS deployment is incomplete. Expected Paths.php at: ' . $pathsPath;
+    exit(1);
+}
+
+require $pathsPath;
+
+$paths = new Paths();
+
+require $paths->systemDirectory . '/Boot.php';
+
+exit(Boot::bootWeb($paths));

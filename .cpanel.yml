@@ -1,0 +1,9 @@
+---
+deployment:
+  tasks:
+    - /bin/sh -lc 'if command -v composer >/dev/null 2>&1; then composer install --no-dev --optimize-autoloader; else echo "composer not found; run composer install manually in the repository path."; fi'
+    - /bin/sh -lc 'if command -v git >/dev/null 2>&1 && git lfs version >/dev/null 2>&1; then git lfs pull; else echo "git-lfs not available; large LFS media will need a manual sync or a non-LFS replacement."; fi'
+    - export DOCROOT=$HOME/public_html
+    - /bin/mkdir -p $DOCROOT
+    - /bin/cp -R public/. $DOCROOT/
+    - /bin/sh -lc 'APP_ROOT="$(pwd)"; sed "s#__SLAMS_APP_ROOT__#$APP_ROOT#g" deploy/cpanel/index.php.template > "$HOME/public_html/index.php"'
