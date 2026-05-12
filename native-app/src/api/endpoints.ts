@@ -151,7 +151,27 @@ export async function updateProfileRequest(payload: {
     body: formData,
   });
 
-  const data = (await response.json()) as ApiEnvelope<{ user: NativeUser }>;
+  const rawBody = await response.text();
+  const trimmedBody = rawBody.trim();
+  let data: ApiEnvelope<{ user: NativeUser }> | null = null;
+
+  if (trimmedBody !== '') {
+    try {
+      data = JSON.parse(trimmedBody) as ApiEnvelope<{ user: NativeUser }>;
+    } catch (_error) {
+      throw new Error(
+        response.ok
+          ? 'Profile update failed.'
+          : trimmedBody.startsWith('<')
+            ? 'The server could not process that profile photo upload.'
+            : trimmedBody,
+      );
+    }
+  }
+
+  if (!data) {
+    throw new Error('Profile update failed.');
+  }
 
   if (!response.ok || data.status === 'error') {
     throw new Error(

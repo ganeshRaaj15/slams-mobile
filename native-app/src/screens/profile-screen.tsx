@@ -15,6 +15,8 @@ import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
 import { readErrorMessage } from '../utils/error-message';
 
+const MAX_PROFILE_PHOTO_BYTES = 4 * 1024 * 1024;
+
 export function ProfileScreen() {
   const theme = useAppTheme();
   const biometric = useAuthStore((state) => state.biometric);
@@ -132,15 +134,20 @@ export function ProfileScreen() {
     }
 
     const asset = result.assets[0];
-    if (!asset.uri || !asset.name || !asset.mimeType) {
+    if (!asset.uri) {
       setLocalError('The selected image could not be read.');
+      return;
+    }
+
+    if ((asset.size ?? 0) > MAX_PROFILE_PHOTO_BYTES) {
+      setLocalError('Profile photo must be 4 MB or smaller.');
       return;
     }
 
     setPhotoAsset({
       uri: asset.uri,
-      name: asset.name,
-      mimeType: asset.mimeType,
+      name: asset.name || 'profile-photo.jpg',
+      mimeType: asset.mimeType || 'image/jpeg',
     });
   }
 
