@@ -4,7 +4,6 @@ namespace Config;
 
 use App\Libraries\StudentRoleService;
 use CodeIgniter\Events\Events;
-use CodeIgniter\Exceptions\FrameworkException;
 use CodeIgniter\HotReloader\HotReloader;
 use CodeIgniter\Shield\Entities\User;
 
@@ -27,15 +26,19 @@ use CodeIgniter\Shield\Entities\User;
 
 Events::on('pre_system', static function (): void {
     if (ENVIRONMENT !== 'testing') {
-        if (ini_get('zlib.output_compression')) {
-            throw FrameworkException::forEnabledZlibOutputCompression();
-        }
+        $zlibOutputCompression = ini_get('zlib.output_compression');
+        $zlibEnabled = filter_var((string) $zlibOutputCompression, FILTER_VALIDATE_BOOLEAN)
+            || in_array((string) $zlibOutputCompression, ['1', 'On', 'on'], true);
 
-        while (ob_get_level() > 0) {
-            ob_end_flush();
-        }
+        if ($zlibEnabled) {
+            log_message('warning', 'zlib.output_compression is enabled on this server. Skipping manual output buffering bootstrap for compatibility.');
+        } else {
+            while (ob_get_level() > 0) {
+                ob_end_flush();
+            }
 
-        ob_start(static fn ($buffer) => $buffer);
+            ob_start(static fn ($buffer) => $buffer);
+        }
     }
 
     /*
