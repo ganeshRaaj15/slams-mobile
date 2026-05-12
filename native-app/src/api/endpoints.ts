@@ -131,6 +131,7 @@ export async function updateProfileRequest(payload: {
     return response.data;
   }
 
+  const token = getApiAccessToken();
   const formData = new FormData();
   formData.append('username', payload.username);
   formData.append('full_name', payload.full_name ?? '');
@@ -139,30 +140,28 @@ export async function updateProfileRequest(payload: {
   formData.append('email', payload.email);
   formData.append('password', payload.password ?? '');
   formData.append('password_confirm', payload.password_confirm ?? '');
-  formData.append(
-    'profile_photo',
-    {
-      uri: payload.profile_photo.uri,
-      name: payload.profile_photo.name,
-      type: payload.profile_photo.mimeType || 'application/octet-stream',
-    } as unknown as Blob,
-  );
+  appendUploadAsset(formData, 'profile_photo', payload.profile_photo);
 
-  const response = await api.post<ApiEnvelope<{ user: NativeUser }>>('/api/native/profile', formData, {
+  const response = await fetchApi('/api/native/profile', {
+    method: 'POST',
     headers: {
       Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
+    body: formData,
   });
 
-  if (response.data.status === 'error') {
+  const data = (await response.json()) as ApiEnvelope<{ user: NativeUser }>;
+
+  if (!response.ok || data.status === 'error') {
     throw new Error(
-      typeof response.data.message === 'string' && response.data.message.trim() !== ''
-        ? response.data.message
+      typeof data.message === 'string' && data.message.trim() !== ''
+        ? data.message
         : 'Profile update failed.',
     );
   }
 
-  return response.data;
+  return data;
 }
 
 export async function getReportSnapshotRequest() {
