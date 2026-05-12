@@ -17,8 +17,8 @@ import { readErrorMessage } from '../utils/error-message';
 
 export function ProfileScreen() {
   const theme = useAppTheme();
-  const bootstrap = useAuthStore((state) => state.bootstrap);
   const biometric = useAuthStore((state) => state.biometric);
+  const replaceUser = useAuthStore((state) => state.replaceUser);
   const refreshBiometricState = useAuthStore((state) => state.refreshBiometricState);
   const setBiometricPreference = useAuthStore((state) => state.setBiometricPreference);
   const queryClient = useQueryClient();
@@ -52,17 +52,21 @@ export function ProfileScreen() {
 
   const saveMutation = useMutation({
     mutationFn: updateProfileRequest,
-    onSuccess: async () => {
+    onSuccess: async (response) => {
       setLocalError(null);
       setLocalMessage('Profile updated successfully.');
       setPassword('');
       setPasswordConfirm('');
       setPhotoAsset(null);
-      try {
-        await bootstrap();
-      } catch (_error) {
-        // Keep the successful save state visible even if the follow-up refresh fails.
-      }
+      replaceUser(response.user);
+      queryClient.setQueryData(['profile-workspace'], (current: typeof profileQuery.data) =>
+        current
+          ? {
+              ...current,
+              user: response.user,
+            }
+          : current,
+      );
       await queryClient.invalidateQueries({ queryKey: ['profile-workspace'] });
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },

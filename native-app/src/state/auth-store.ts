@@ -36,6 +36,7 @@ type AuthState = {
   error: string | null;
   biometric: BiometricState;
   bootstrap: () => Promise<void>;
+  replaceUser: (user: NativeUser) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithBiometrics: () => Promise<void>;
   signUp: (payload: {
@@ -141,6 +142,16 @@ export const useAuthStore = create<AuthState>((set) => ({
         biometric,
       });
     }
+  },
+  replaceUser: (user) => {
+    set((state) =>
+      state.status === 'authenticated'
+        ? {
+            user,
+            error: null,
+          }
+        : state,
+    );
   },
   signIn: async (email, password) => {
     set({ error: null });
