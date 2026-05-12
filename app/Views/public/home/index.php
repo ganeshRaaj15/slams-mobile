@@ -6,6 +6,7 @@ $homeStats = $stats ?? [];
 $labCount = (int) ($homeStats['lab_count'] ?? 0);
 $bookingCount = (int) ($homeStats['total_bookings'] ?? 0);
 $approvedCount = (int) ($homeStats['approved'] ?? 0);
+$heroPoster = base_url('images/fkmp/FKMP.jpeg');
 ?>
 
 <!-- ============================================================
@@ -15,9 +16,8 @@ $approvedCount = (int) ($homeStats['approved'] ?? 0);
 <section class="hero-section">
     <!-- Video Background -->
     <div class="video-background">
-        <video id="uthmVideo" autoplay muted loop playsinline>
+        <video id="uthmVideo" autoplay muted loop playsinline preload="metadata" poster="<?= esc($heroPoster) ?>">
             <source src="<?= base_url('images/uthm-aerial.mp4') ?>" type="video/mp4">
-            <source src="<?= base_url('images/uthm-aerial.webm') ?>" type="video/webm">
         </video>
     </div>
     
@@ -203,6 +203,7 @@ $approvedCount = (int) ($homeStats['approved'] ?? 0);
 document.addEventListener('DOMContentLoaded', function() {
     const video = document.getElementById('uthmVideo');
     const videoBtn = document.getElementById('videoPauseBtn');
+    const videoBackground = document.querySelector('.video-background');
     let isPlaying = true;
 
     function setVideoIcon(iconClass) {
@@ -210,6 +211,23 @@ document.addEventListener('DOMContentLoaded', function() {
         if (icon) {
             icon.className = iconClass;
         }
+    }
+
+    function activateVideoFallback() {
+        if (videoBackground) {
+            videoBackground.classList.add('is-video-fallback');
+        }
+
+        if (video) {
+            video.pause();
+            video.removeAttribute('autoplay');
+        }
+
+        if (videoBtn) {
+            videoBtn.hidden = true;
+        }
+
+        isPlaying = false;
     }
     
     // Optimize video for night footage
@@ -220,6 +238,8 @@ document.addEventListener('DOMContentLoaded', function() {
             setVideoIcon('bi bi-play-fill');
             isPlaying = false;
         });
+
+        video.addEventListener('error', activateVideoFallback);
         
         // Video controls
         videoBtn.addEventListener('click', function() {
@@ -250,6 +270,12 @@ document.addEventListener('DOMContentLoaded', function() {
             this.currentTime = 0;
             this.play();
         });
+
+        window.setTimeout(function() {
+            if (video.readyState === 0 || video.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) {
+                activateVideoFallback();
+            }
+        }, 3500);
     }
     
     // Add smooth scroll for navigation
