@@ -109,9 +109,29 @@ export async function updateProfileRequest(payload: {
     mimeType: string;
   } | null;
 }) {
-  const token = getApiAccessToken();
-  const formData = new FormData();
+  if (!payload.profile_photo) {
+    const response = await api.post<ApiEnvelope<{ user: NativeUser }>>('/api/native/profile', {
+      username: payload.username,
+      full_name: payload.full_name ?? '',
+      phone: payload.phone ?? '',
+      faculty_id: payload.faculty_id,
+      email: payload.email,
+      password: payload.password ?? '',
+      password_confirm: payload.password_confirm ?? '',
+    });
 
+    if (response.data.status === 'error') {
+      throw new Error(
+        typeof response.data.message === 'string' && response.data.message.trim() !== ''
+          ? response.data.message
+          : 'Profile update failed.',
+      );
+    }
+
+    return response.data;
+  }
+
+  const formData = new FormData();
   formData.append('username', payload.username);
   formData.append('full_name', payload.full_name ?? '');
   formData.append('phone', payload.phone ?? '');
@@ -119,30 +139,30 @@ export async function updateProfileRequest(payload: {
   formData.append('email', payload.email);
   formData.append('password', payload.password ?? '');
   formData.append('password_confirm', payload.password_confirm ?? '');
+  formData.append(
+    'profile_photo',
+    {
+      uri: payload.profile_photo.uri,
+      name: payload.profile_photo.name,
+      type: payload.profile_photo.mimeType || 'application/octet-stream',
+    } as unknown as Blob,
+  );
 
-  if (payload.profile_photo) {
-    appendUploadAsset(formData, 'profile_photo', payload.profile_photo);
-  }
-
-  const response = await fetchApi('/api/native/profile', {
-    method: 'POST',
+  const response = await api.post<ApiEnvelope<{ user: NativeUser }>>('/api/native/profile', formData, {
     headers: {
       Accept: 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: formData,
   });
 
-  const data = (await response.json()) as ApiEnvelope<{ user: NativeUser }>;
-  if (!response.ok || data.status === 'error') {
+  if (response.data.status === 'error') {
     throw new Error(
-      typeof data.message === 'string' && data.message.trim() !== ''
-        ? data.message
+      typeof response.data.message === 'string' && response.data.message.trim() !== ''
+        ? response.data.message
         : 'Profile update failed.',
     );
   }
 
-  return data;
+  return response.data;
 }
 
 export async function getReportSnapshotRequest() {

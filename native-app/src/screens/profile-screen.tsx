@@ -58,7 +58,11 @@ export function ProfileScreen() {
       setPassword('');
       setPasswordConfirm('');
       setPhotoAsset(null);
-      await bootstrap();
+      try {
+        await bootstrap();
+      } catch (_error) {
+        // Keep the successful save state visible even if the follow-up refresh fails.
+      }
       await queryClient.invalidateQueries({ queryKey: ['profile-workspace'] });
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },
