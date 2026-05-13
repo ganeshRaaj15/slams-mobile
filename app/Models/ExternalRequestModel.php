@@ -7,8 +7,8 @@ use CodeIgniter\Model;
 class ExternalRequestModel extends Model
 {
     public const STATUSES = [
-        'submitted',
-        'under_review',
+        'pending_pic_approval',
+        'pending_manager_approval',
         'needs_information',
         'approved_for_scheduling',
         'rejected',
@@ -37,6 +37,16 @@ class ExternalRequestModel extends Model
         'purpose',
         'equipment_notes',
         'status',
+        'current_approval_stage',
+        'information_requested_by',
+        'pic_approved',
+        'pic_notes',
+        'pic_reviewed_by',
+        'pic_reviewed_at',
+        'manager_approved',
+        'manager_notes',
+        'manager_reviewed_by',
+        'manager_reviewed_at',
         'review_notes',
         'reviewed_by',
         'reviewed_at',
@@ -47,8 +57,8 @@ class ExternalRequestModel extends Model
     public function statusLabels(): array
     {
         return [
-            'submitted' => 'Submitted',
-            'under_review' => 'Under Review',
+            'pending_pic_approval' => 'Pending PIC Approval',
+            'pending_manager_approval' => 'Pending Lab Manager Approval',
             'needs_information' => 'Needs Information',
             'approved_for_scheduling' => 'Approved For Scheduling',
             'rejected' => 'Rejected',
@@ -64,8 +74,8 @@ class ExternalRequestModel extends Model
     public function statusBadgeClass(string $status): string
     {
         return match ($status) {
-            'submitted' => 'warning text-dark',
-            'under_review' => 'info text-dark',
+            'pending_pic_approval' => 'warning text-dark',
+            'pending_manager_approval' => 'info text-dark',
             'needs_information' => 'secondary',
             'approved_for_scheduling' => 'success',
             'rejected' => 'danger',
@@ -76,11 +86,65 @@ class ExternalRequestModel extends Model
 
     public function userEditableStatuses(): array
     {
-        return ['submitted', 'needs_information'];
+        return ['pending_pic_approval', 'needs_information'];
     }
 
     public function canUserEdit(array $request): bool
     {
         return in_array((string) ($request['status'] ?? ''), $this->userEditableStatuses(), true);
+    }
+
+    public function stageLabels(): array
+    {
+        return [
+            'pic' => 'PIC Review',
+            'manager' => 'Lab Manager Review',
+            'completed' => 'Completed',
+        ];
+    }
+
+    public function stageLabel(string $stage): string
+    {
+        return $this->stageLabels()[$stage] ?? ucwords(str_replace('_', ' ', $stage));
+    }
+
+    public function currentApprovalStage(array $request): string
+    {
+        $stage = trim((string) ($request['current_approval_stage'] ?? ''));
+        if ($stage !== '') {
+            return $stage;
+        }
+
+        if ((string) ($request['status'] ?? '') === 'pending_manager_approval' || (int) ($request['pic_approved'] ?? 0) === 1) {
+            return 'manager';
+        }
+
+        if (in_array((string) ($request['status'] ?? ''), ['approved_for_scheduling', 'rejected', 'completed'], true)) {
+            return 'completed';
+        }
+
+        return 'pic';
+    }
+
+    public function latestRequesterNote(array $request): string
+    {
+        $status = (string) ($request['status'] ?? '');
+        $requestedBy = (string) ($request['information_requested_by'] ?? '');
+
+        if ($status === 'needs_information') {
+            return $requestedBy === 'manager'
+                ? trim((string) ($request['manager_notes'] ?? ''))
+                : trim((string) ($request['pic_notes'] ?? ''));
+        }
+
+        if (! empty($request['manager_notes'])) {
+            return trim((string) $request['manager_notes']);
+        }
+
+        if (! empty($request['pic_notes'])) {
+            return trim((string) $request['pic_notes']);
+        }
+
+        return trim((string) ($request['review_notes'] ?? ''));
     }
 }

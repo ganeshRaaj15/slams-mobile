@@ -179,7 +179,7 @@ class NativeBootstrapController extends BaseController
     protected function externalSummary(User $user, int $notificationCount): array
     {
         $requestModel = new ExternalRequestModel();
-        $activeStatuses = ['submitted', 'under_review', 'needs_information', 'approved_for_scheduling'];
+        $activeStatuses = ['pending_pic_approval', 'pending_manager_approval', 'needs_information', 'approved_for_scheduling'];
         $activeRequests = (int) $requestModel
             ->where('user_id', $user->id)
             ->whereIn('status', $activeStatuses)
@@ -214,7 +214,7 @@ class NativeBootstrapController extends BaseController
             'next_item' => $latest ? [
                 'type' => 'external_request',
                 'title' => (string) ($latest['lab_name'] ?? 'Latest Request'),
-                'subtitle' => ucwords(str_replace('_', ' ', (string) ($latest['status'] ?? 'submitted'))),
+                'subtitle' => $requestModel->statusLabel((string) ($latest['status'] ?? 'pending_pic_approval')),
                 'meta' => trim(((string) ($latest['preferred_date'] ?? '')) . '  ' . ((string) ($latest['lab_room'] ?? ''))),
             ] : null,
             'message' => 'Requests stay in review until staff schedule the final booking internally.',
@@ -241,7 +241,7 @@ class NativeBootstrapController extends BaseController
 
         $externalReview = $labIds === [] ? 0 : (int) (new ExternalRequestModel())
             ->whereIn('lab_id', $labIds)
-            ->whereIn('status', ['submitted', 'under_review'])
+            ->where('status', 'pending_pic_approval')
             ->countAllResults();
 
         return [
@@ -269,7 +269,7 @@ class NativeBootstrapController extends BaseController
             ->countAllResults();
 
         $externalReview = (int) (new ExternalRequestModel())
-            ->whereIn('status', ['submitted', 'under_review'])
+            ->where('status', 'pending_manager_approval')
             ->countAllResults();
 
         $upcomingApproved = (int) (new BookingModel())
@@ -308,7 +308,7 @@ class NativeBootstrapController extends BaseController
             ->countAllResults();
 
         $externalReview = (int) (new ExternalRequestModel())
-            ->whereIn('status', ['submitted', 'under_review'])
+            ->whereIn('status', ['pending_pic_approval', 'pending_manager_approval'])
             ->countAllResults();
 
         $maintenanceOpen = (int) db_connect()->table('maintenance_records')

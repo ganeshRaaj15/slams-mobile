@@ -8,14 +8,14 @@ $requestRecord = $requestRecord ?? [];
 $isEdit = $mode === 'edit';
 $actionUrl = $isEdit ? '/dashboard/external/request/update/' . (int) ($requestRecord['id'] ?? 0) : '/dashboard/external/request/store';
 $requestModel = $requestModel ?? null;
-$currentStatus = (string) ($requestRecord['status'] ?? 'submitted');
+$currentStatus = (string) ($requestRecord['status'] ?? 'pending_pic_approval');
 ?>
 
 <div class="dashboard-header">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
         <div>
             <h2 class="fw-bold text-primary mb-0"><?= $isEdit ? 'Update External Request' : 'Request Lab Access' ?></h2>
-            <p class="text-muted small mb-0">This form creates a request for review. It does not directly reserve the laboratory.</p>
+            <p class="text-muted small mb-0">This form starts a staged approval flow. It does not directly reserve the laboratory.</p>
         </div>
         <a href="/dashboard/external" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i> Back to Requests
@@ -29,8 +29,8 @@ $currentStatus = (string) ($requestRecord['status'] ?? 'submitted');
 
 <?php if ($isEdit && !empty($requestRecord['review_notes'])): ?>
     <div class="alert alert-warning">
-        <strong>Latest review note:</strong><br>
-        <?= nl2br(esc($requestRecord['review_notes'])) ?>
+        <strong>Latest reviewer note:</strong><br>
+        <?= nl2br(esc($requestModel ? $requestModel->latestRequesterNote($requestRecord) : ($requestRecord['review_notes'] ?? ''))) ?>
     </div>
 <?php endif; ?>
 
@@ -54,6 +54,7 @@ $currentStatus = (string) ($requestRecord['status'] ?? 'submitted');
             <div class="col-md-6">
                 <label class="form-label">Current Status</label>
                 <input type="text" class="form-control" value="<?= esc($requestModel ? $requestModel->statusLabel($currentStatus) : ucfirst($currentStatus)) ?>" readonly>
+                <div class="form-text">You will receive a notification and email whenever the PIC or Lab Manager updates this request.</div>
             </div>
 
             <div class="col-md-6">

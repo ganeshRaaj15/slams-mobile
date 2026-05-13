@@ -29,7 +29,7 @@ $requestModel = $requestModel ?? null;
 <?php endif; ?>
 
 <div class="alert alert-info border-0 shadow-sm mb-4">
-    <strong>How this works:</strong> submit the request here, wait for PIC review, and track whether the lab asks for more information, approves the request for scheduling, or rejects it.
+    <strong>Status updates come by notification and email:</strong> after you submit, the PIC reviews first, then the Lab Manager. If either reviewer asks for extra information or adds notes, you will receive that update directly and can resubmit here.
 </div>
 
 <div class="row g-3 mb-4">
@@ -37,10 +37,10 @@ $requestModel = $requestModel ?? null;
         <div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Total</div><div class="fs-3 fw-bold"><?= esc((int) ($stats['total'] ?? 0)) ?></div></div></div>
     </div>
     <div class="col-md-2">
-        <div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Submitted</div><div class="fs-3 fw-bold"><?= esc((int) ($stats['submitted'] ?? 0)) ?></div></div></div>
+        <div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">PIC Queue</div><div class="fs-3 fw-bold"><?= esc((int) ($stats['pending_pic_approval'] ?? 0)) ?></div></div></div>
     </div>
     <div class="col-md-2">
-        <div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Reviewing</div><div class="fs-3 fw-bold"><?= esc((int) ($stats['under_review'] ?? 0)) ?></div></div></div>
+        <div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Manager Queue</div><div class="fs-3 fw-bold"><?= esc((int) ($stats['pending_manager_approval'] ?? 0)) ?></div></div></div>
     </div>
     <div class="col-md-2">
         <div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Needs Info</div><div class="fs-3 fw-bold"><?= esc((int) ($stats['needs_information'] ?? 0)) ?></div></div></div>
@@ -116,9 +116,10 @@ $requestModel = $requestModel ?? null;
                     <tbody>
                         <?php foreach ($requests as $request): ?>
                             <?php
-                            $status = (string) ($request['status'] ?? 'submitted');
+                            $status = (string) ($request['status'] ?? 'pending_pic_approval');
                             $badgeClass = $requestModel ? $requestModel->statusBadgeClass($status) : 'secondary';
                             $canEdit = $requestModel ? $requestModel->canUserEdit($request) : false;
+                            $latestNote = $requestModel ? $requestModel->latestRequesterNote($request) : (string) ($request['review_notes'] ?? '');
                             $schedule = esc($request['preferred_date'] ?? '-');
                             if (!empty($request['preferred_start_time']) && !empty($request['preferred_end_time'])) {
                                 $schedule .= '<br><small class="text-muted">' . esc(substr((string) $request['preferred_start_time'], 0, 5)) . ' - ' . esc(substr((string) $request['preferred_end_time'], 0, 5)) . '</small>';
@@ -129,6 +130,7 @@ $requestModel = $requestModel ?? null;
                                     <div class="fw-semibold"><?= esc($request['organization_name'] ?? '-') ?></div>
                                     <div class="small text-muted"><?= esc($request['contact_name'] ?? '-') ?>, <?= esc($request['participant_count'] ?? 0) ?> participant(s)</div>
                                     <div class="small text-muted">Submitted <?= esc(!empty($request['created_at']) ? date('d M Y H:i', strtotime((string) $request['created_at'])) : '-') ?></div>
+                                    <div class="small text-muted">Current stage: <?= esc($requestModel ? $requestModel->stageLabel($requestModel->currentApprovalStage($request)) : ucfirst((string) ($request['current_approval_stage'] ?? 'pic'))) ?></div>
                                 </td>
                                 <td>
                                     <div class="fw-semibold"><?= esc($request['lab_name'] ?? '-') ?></div>
@@ -139,8 +141,8 @@ $requestModel = $requestModel ?? null;
                                     <span class="badge bg-<?= esc($badgeClass) ?>"><?= esc($statusLabels[$status] ?? ucwords(str_replace('_', ' ', $status))) ?></span>
                                 </td>
                                 <td>
-                                    <?php if (!empty($request['review_notes'])): ?>
-                                        <div class="small"><?= nl2br(esc($request['review_notes'])) ?></div>
+                                    <?php if ($latestNote !== ''): ?>
+                                        <div class="small"><?= nl2br(esc($latestNote)) ?></div>
                                     <?php else: ?>
                                         <span class="text-muted small">No notes yet.</span>
                                     <?php endif; ?>

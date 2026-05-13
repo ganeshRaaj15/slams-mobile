@@ -81,7 +81,7 @@ class MobileExperienceBuilder
             case 'external':
                 $openRequests = (new ExternalRequestModel())
                     ->where('user_id', $user->id)
-                    ->whereIn('status', ['submitted', 'under_review', 'needs_information', 'approved_for_scheduling'])
+                    ->whereIn('status', ['pending_pic_approval', 'pending_manager_approval', 'needs_information', 'approved_for_scheduling'])
                     ->countAllResults();
 
                 $state['attentionCount'] = $openRequests;
@@ -432,17 +432,25 @@ class MobileExperienceBuilder
 
     private function countExternalReviewQueue(string $role, array $labIds): int
     {
-        $builder = (new ExternalRequestModel())
-            ->whereIn('status', ['submitted', 'under_review']);
-
         if ($role === 'pic') {
             if ($labIds === []) {
                 return 0;
             }
 
-            $builder->whereIn('lab_id', $labIds);
+            return (int) (new ExternalRequestModel())
+                ->whereIn('lab_id', $labIds)
+                ->where('status', 'pending_pic_approval')
+                ->countAllResults();
         }
 
-        return $builder->countAllResults();
+        if ($role === 'manager') {
+            return (int) (new ExternalRequestModel())
+                ->where('status', 'pending_manager_approval')
+                ->countAllResults();
+        }
+
+        return (int) (new ExternalRequestModel())
+            ->whereIn('status', ['pending_pic_approval', 'pending_manager_approval'])
+            ->countAllResults();
     }
 }

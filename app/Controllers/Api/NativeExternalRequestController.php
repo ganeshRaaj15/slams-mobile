@@ -86,7 +86,20 @@ class NativeExternalRequestController extends WebExternalDashboard
         }
 
         $payload['user_id'] = $user->id;
-        $payload['status'] = 'submitted';
+        $payload['status'] = 'pending_pic_approval';
+        $payload['current_approval_stage'] = 'pic';
+        $payload['information_requested_by'] = null;
+        $payload['pic_approved'] = 0;
+        $payload['pic_notes'] = null;
+        $payload['pic_reviewed_by'] = null;
+        $payload['pic_reviewed_at'] = null;
+        $payload['manager_approved'] = 0;
+        $payload['manager_notes'] = null;
+        $payload['manager_reviewed_by'] = null;
+        $payload['manager_reviewed_at'] = null;
+        $payload['review_notes'] = null;
+        $payload['reviewed_by'] = null;
+        $payload['reviewed_at'] = null;
 
         $requestId = (int) $this->requestModel->insert($payload, true);
 
@@ -141,7 +154,14 @@ class NativeExternalRequestController extends WebExternalDashboard
                 ]);
         }
 
-        $payload['status'] = 'submitted';
+        $returnStage = (string) ($requestRecord['information_requested_by'] ?? '') === 'manager' && (int) ($requestRecord['pic_approved'] ?? 0) === 1
+            ? 'manager'
+            : 'pic';
+
+        $payload['status'] = $returnStage === 'manager' ? 'pending_manager_approval' : 'pending_pic_approval';
+        $payload['current_approval_stage'] = $returnStage;
+        $payload['information_requested_by'] = null;
+        $payload['review_notes'] = null;
         $payload['reviewed_by'] = null;
         $payload['reviewed_at'] = null;
 
@@ -198,7 +218,19 @@ class NativeExternalRequestController extends WebExternalDashboard
             'equipment_notes' => (string) ($request['equipment_notes'] ?? ''),
             'status' => (string) ($request['status'] ?? ''),
             'status_label' => $this->requestModel->statusLabel((string) ($request['status'] ?? '')),
+            'current_approval_stage' => $this->requestModel->currentApprovalStage($request),
+            'current_approval_stage_label' => $this->requestModel->stageLabel($this->requestModel->currentApprovalStage($request)),
+            'information_requested_by' => (string) ($request['information_requested_by'] ?? ''),
             'review_notes' => (string) ($request['review_notes'] ?? ''),
+            'latest_requester_note' => $this->requestModel->latestRequesterNote($request),
+            'pic_approved' => (bool) ($request['pic_approved'] ?? false),
+            'pic_notes' => (string) ($request['pic_notes'] ?? ''),
+            'pic_reviewed_by' => (int) ($request['pic_reviewed_by'] ?? 0),
+            'pic_reviewed_at' => (string) ($request['pic_reviewed_at'] ?? ''),
+            'manager_approved' => (bool) ($request['manager_approved'] ?? false),
+            'manager_notes' => (string) ($request['manager_notes'] ?? ''),
+            'manager_reviewed_by' => (int) ($request['manager_reviewed_by'] ?? 0),
+            'manager_reviewed_at' => (string) ($request['manager_reviewed_at'] ?? ''),
             'can_edit' => $this->requestModel->canUserEdit($request),
             'created_at' => (string) ($request['created_at'] ?? ''),
             'updated_at' => (string) ($request['updated_at'] ?? ''),

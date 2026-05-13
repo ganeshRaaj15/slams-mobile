@@ -96,15 +96,26 @@ class NativeExternalRequestReviewController extends WebExternalRequestsControlle
         $json = $this->request->getJSON(true);
         $payload = is_array($json) && $json !== [] ? $json : ($this->request->getPost() ?: []);
 
-        $status = trim((string) ($payload['status'] ?? ''));
-        $reviewNotes = trim((string) ($payload['review_notes'] ?? ''));
-
-        if (! in_array($status, ExternalRequestModel::STATUSES, true)) {
+        $actingRole = $this->actingReviewerRole($reviewer['role'], $requestRecord);
+        if ($actingRole === null) {
             return $this->response
                 ->setStatusCode(422)
                 ->setJSON([
                     'status' => 'error',
-                    'message' => 'Please choose a valid request status.',
+                    'message' => 'This external request is not waiting for your approval stage.',
+                ]);
+        }
+
+        $status = trim((string) (($payload['status'] ?? '') ?: ($payload['decision'] ?? '')));
+        $reviewNotes = trim((string) ($payload['review_notes'] ?? ''));
+        $allowedStatuses = $this->allowedStatusesForActor($actingRole);
+
+        if (! in_array($status, $allowedStatuses, true)) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'Please choose a valid external request decision.',
                 ]);
         }
 
@@ -120,15 +131,10 @@ class NativeExternalRequestReviewController extends WebExternalRequestsControlle
         /** @var User $user */
         $user = $reviewer['user'];
 
-        $this->requestModel->update($id, [
-            'status' => $status,
-            'review_notes' => $reviewNotes !== '' ? $reviewNotes : null,
-            'reviewed_by' => $user->id,
-            'reviewed_at' => date('Y-m-d H:i:s'),
-        ]);
+        $this->requestModel->update($id, $this->approvalUpdatePayload($requestRecord, $actingRole, $status, $reviewNotes, (int) $user->id));
 
         try {
-            (new ExternalRequestNotificationService())->notifyStatusUpdated($id);
+            (new ExternalRequestNotificationService())->notifyStatusUpdated($id, $actingRole);
         } catch (\Throwable $e) {
             log_message('error', 'External request notification failed on native review update: ' . $e->getMessage());
         }
@@ -200,7 +206,19 @@ class NativeExternalRequestReviewController extends WebExternalRequestsControlle
             'equipment_notes' => (string) ($request['equipment_notes'] ?? ''),
             'status' => (string) ($request['status'] ?? ''),
             'status_label' => $this->requestModel->statusLabel((string) ($request['status'] ?? '')),
+            'current_approval_stage' => $this->requestModel->currentApprovalStage($request),
+            'current_approval_stage_label' => $this->requestModel->stageLabel($this->requestModel->currentApprovalStage($request)),
+            'information_requested_by' => (string) ($request['information_requested_by'] ?? ''),
             'review_notes' => (string) ($request['review_notes'] ?? ''),
+            'latest_requester_note' => $this->requestModel->latestRequesterNote($request),
+            'pic_approved' => (bool) ($request['pic_approved'] ?? false),
+            'pic_notes' => (string) ($request['pic_notes'] ?? ''),
+            'pic_reviewer_name' => trim((string) ($request['pic_reviewer_full_name'] ?? '')) ?: (string) ($request['pic_reviewer_username'] ?? ''),
+            'pic_reviewed_at' => (string) ($request['pic_reviewed_at'] ?? ''),
+            'manager_approved' => (bool) ($request['manager_approved'] ?? false),
+            'manager_notes' => (string) ($request['manager_notes'] ?? ''),
+            'manager_reviewer_name' => trim((string) ($request['manager_reviewer_full_name'] ?? '')) ?: (string) ($request['manager_reviewer_username'] ?? ''),
+            'manager_reviewed_at' => (string) ($request['manager_reviewed_at'] ?? ''),
             'reviewer_name' => $reviewerName,
             'reviewed_at' => (string) ($request['reviewed_at'] ?? ''),
             'created_at' => (string) ($request['created_at'] ?? ''),

@@ -28,8 +28,8 @@ $requestModel = $requestModel ?? null;
 
 <div class="row g-3 mb-4">
     <div class="col-md-2"><div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Total</div><div class="fs-3 fw-bold"><?= esc((int) ($stats['total'] ?? 0)) ?></div></div></div></div>
-    <div class="col-md-2"><div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Submitted</div><div class="fs-3 fw-bold"><?= esc((int) ($stats['submitted'] ?? 0)) ?></div></div></div></div>
-    <div class="col-md-2"><div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Reviewing</div><div class="fs-3 fw-bold"><?= esc((int) ($stats['under_review'] ?? 0)) ?></div></div></div></div>
+    <div class="col-md-2"><div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">PIC Queue</div><div class="fs-3 fw-bold"><?= esc((int) ($stats['pending_pic_approval'] ?? 0)) ?></div></div></div></div>
+    <div class="col-md-2"><div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Manager Queue</div><div class="fs-3 fw-bold"><?= esc((int) ($stats['pending_manager_approval'] ?? 0)) ?></div></div></div></div>
     <div class="col-md-2"><div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Needs Info</div><div class="fs-3 fw-bold"><?= esc((int) ($stats['needs_information'] ?? 0)) ?></div></div></div></div>
     <div class="col-md-2"><div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Approved</div><div class="fs-3 fw-bold"><?= esc((int) ($stats['approved_for_scheduling'] ?? 0)) ?></div></div></div></div>
     <div class="col-md-2"><div class="card shadow-sm border-0"><div class="card-body"><div class="small text-muted">Rejected</div><div class="fs-3 fw-bold"><?= esc((int) ($stats['rejected'] ?? 0)) ?></div></div></div></div>
@@ -96,9 +96,10 @@ $requestModel = $requestModel ?? null;
                     <tbody>
                         <?php foreach ($requests as $request): ?>
                             <?php
-                            $status = (string) ($request['status'] ?? 'submitted');
+                            $status = (string) ($request['status'] ?? 'pending_pic_approval');
                             $badgeClass = $requestModel ? $requestModel->statusBadgeClass($status) : 'secondary';
                             $requesterName = trim((string) ($request['requester_full_name'] ?? '')) ?: (string) ($request['contact_name'] ?? $request['requester_username'] ?? '-');
+                            $stageLabel = $requestModel ? $requestModel->stageLabel($requestModel->currentApprovalStage($request)) : ucfirst((string) ($request['current_approval_stage'] ?? 'pic'));
                             ?>
                             <tr>
                                 <td>
@@ -116,7 +117,10 @@ $requestModel = $requestModel ?? null;
                                         <div class="small text-muted"><?= esc(substr((string) $request['preferred_start_time'], 0, 5)) ?> - <?= esc(substr((string) $request['preferred_end_time'], 0, 5)) ?></div>
                                     <?php endif; ?>
                                 </td>
-                                <td><span class="badge bg-<?= esc($badgeClass) ?>"><?= esc($statusLabels[$status] ?? ucfirst($status)) ?></span></td>
+                                <td>
+                                    <span class="badge bg-<?= esc($badgeClass) ?>"><?= esc($statusLabels[$status] ?? ucfirst($status)) ?></span>
+                                    <div class="small text-muted mt-1"><?= esc($stageLabel) ?></div>
+                                </td>
                                 <td><?= esc(!empty($request['created_at']) ? date('d M Y H:i', strtotime((string) $request['created_at'])) : '-') ?></td>
                                 <td class="text-end"><a href="/dashboard/external-requests/<?= esc($request['id']) ?>" class="btn btn-sm btn-outline-primary">Open</a></td>
                             </tr>

@@ -76,7 +76,11 @@ class ExternalDashboard extends BaseController
                 'preferred_end_time' => $this->normalizeTimeForDisplay((string) $this->request->getGet('preferred_end_time')),
                 'purpose' => '',
                 'equipment_notes' => '',
-                'status' => 'submitted',
+                'status' => 'pending_pic_approval',
+                'current_approval_stage' => 'pic',
+                'information_requested_by' => null,
+                'pic_notes' => '',
+                'manager_notes' => '',
                 'review_notes' => '',
             ],
             'labs' => $this->labModel->orderBy('name', 'ASC')->findAll(),
@@ -97,7 +101,20 @@ class ExternalDashboard extends BaseController
         }
 
         $payload['user_id'] = auth()->id();
-        $payload['status'] = 'submitted';
+        $payload['status'] = 'pending_pic_approval';
+        $payload['current_approval_stage'] = 'pic';
+        $payload['information_requested_by'] = null;
+        $payload['pic_approved'] = 0;
+        $payload['pic_notes'] = null;
+        $payload['pic_reviewed_by'] = null;
+        $payload['pic_reviewed_at'] = null;
+        $payload['manager_approved'] = 0;
+        $payload['manager_notes'] = null;
+        $payload['manager_reviewed_by'] = null;
+        $payload['manager_reviewed_at'] = null;
+        $payload['review_notes'] = null;
+        $payload['reviewed_by'] = null;
+        $payload['reviewed_at'] = null;
 
         $requestId = (int) $this->requestModel->insert($payload, true);
 
@@ -158,7 +175,14 @@ class ExternalDashboard extends BaseController
             return redirect()->back()->withInput()->with('error', $error);
         }
 
-        $payload['status'] = 'submitted';
+        $returnStage = (string) ($requestRecord['information_requested_by'] ?? '') === 'manager' && (int) ($requestRecord['pic_approved'] ?? 0) === 1
+            ? 'manager'
+            : 'pic';
+
+        $payload['status'] = $returnStage === 'manager' ? 'pending_manager_approval' : 'pending_pic_approval';
+        $payload['current_approval_stage'] = $returnStage;
+        $payload['information_requested_by'] = null;
+        $payload['review_notes'] = null;
         $payload['reviewed_by'] = null;
         $payload['reviewed_at'] = null;
 
