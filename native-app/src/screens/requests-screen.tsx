@@ -108,9 +108,12 @@ export function RequestsScreen() {
               <StatusPill kind="external" status={request.status} />
             </View>
             <Text style={[styles.message, { color: theme.colors.textMuted }]}>{request.purpose}</Text>
-            {request.review_notes ? (
+            <Text style={[styles.editHint, { color: theme.colors.textMuted }]}>
+              Stage: {request.current_approval_stage_label}
+            </Text>
+            {request.latest_requester_note ? (
               <Text style={[styles.reviewNotes, { color: theme.colors.primary }]}>
-                Review note: {request.review_notes}
+                Latest note: {request.latest_requester_note}
               </Text>
             ) : null}
             {request.can_edit ? (

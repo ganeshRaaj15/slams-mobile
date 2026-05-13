@@ -131,6 +131,7 @@ $routes->group('api/native', ['filter' => 'tokens'], static function ($routes) {
 
     $routes->get('external-requests', [NativeExternalRequestController::class, 'index']);
     $routes->get('external-requests/(:num)', [NativeExternalRequestController::class, 'show/$1']);
+    $routes->get('external-requests/labs/(:num)/slots/(:segment)', [NativeExternalRequestController::class, 'daySlots/$1/$2']);
     $routes->post('external-requests', [NativeExternalRequestController::class, 'store']);
     $routes->post('external-requests/(:num)', [NativeExternalRequestController::class, 'update/$1']);
     $routes->get('external-requests/review', [NativeExternalRequestReviewController::class, 'index']);
@@ -442,6 +443,7 @@ $routes->group('dashboard', ['filter' => 'session'], function ($routes) {
     // EXTERNAL DASHBOARD
     $routes->get('external', [ExternalDashboard::class, 'index'], ['filter' => 'group:external']);
     $routes->get('external/request', [ExternalDashboard::class, 'createRequest'], ['filter' => 'group:external']);
+    $routes->get('external/request/slots/(:num)/(:segment)', [ExternalDashboard::class, 'daySlots/$1/$2'], ['filter' => 'group:external']);
     $routes->post('external/request/store', [ExternalDashboard::class, 'storeRequest'], ['filter' => 'group:external']);
     $routes->get('external/request/edit/(:num)', [ExternalDashboard::class, 'editRequest/$1'], ['filter' => 'group:external']);
     $routes->post('external/request/update/(:num)', [ExternalDashboard::class, 'updateRequest/$1'], ['filter' => 'group:external']);

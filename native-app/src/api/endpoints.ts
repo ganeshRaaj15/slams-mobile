@@ -844,6 +844,13 @@ export async function getExternalRequestRequest(requestId: number) {
   return response.data;
 }
 
+export async function listExternalRequestDaySlotsRequest(labId: number, date: string) {
+  const response = await api.get<ApiEnvelope<{ slots: DaySlot[] }>>(
+    `/api/native/external-requests/labs/${labId}/slots/${date}`,
+  );
+  return response.data;
+}
+
 export async function createExternalRequestRequest(payload: {
   lab_id: number;
   organization_name: string;

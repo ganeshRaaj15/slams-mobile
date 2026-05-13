@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -49,6 +49,42 @@ export function ExternalRequestReviewDetailScreen() {
     },
   });
 
+  const request = detailQuery.data?.request;
+  const reviewerRole = detailQuery.data?.role ?? 'pic';
+  const actingRole = useMemo(() => {
+    if (reviewerRole === 'admin') {
+      return request?.current_approval_stage === 'manager' ? 'manager' : 'pic';
+    }
+
+    return reviewerRole;
+  }, [request?.current_approval_stage, reviewerRole]);
+
+  const decisionOptions = useMemo(
+    () =>
+      actingRole === 'manager'
+        ? [
+            { id: 'approved_for_scheduling', label: EXTERNAL_REQUEST_STATUS_LABELS.approved_for_scheduling },
+            { id: 'needs_information', label: EXTERNAL_REQUEST_STATUS_LABELS.needs_information },
+            { id: 'rejected', label: EXTERNAL_REQUEST_STATUS_LABELS.rejected },
+          ]
+        : [
+            { id: 'pending_manager_approval', label: EXTERNAL_REQUEST_STATUS_LABELS.pending_manager_approval },
+            { id: 'needs_information', label: EXTERNAL_REQUEST_STATUS_LABELS.needs_information },
+            { id: 'rejected', label: EXTERNAL_REQUEST_STATUS_LABELS.rejected },
+          ],
+    [actingRole],
+  );
+
+  useEffect(() => {
+    if (!request) {
+      return;
+    }
+
+    setSelectedStatus(decisionOptions.some((option) => option.id === request.status) ? request.status : '');
+    setReviewNotes(request.review_notes || '');
+    setFormError(null);
+  }, [decisionOptions, request]);
+
   if (detailQuery.isLoading) {
     return (
       <Screen scroll={false}>
@@ -57,7 +93,7 @@ export function ExternalRequestReviewDetailScreen() {
     );
   }
 
-  if (detailQuery.isError || !detailQuery.data) {
+  if (detailQuery.isError || !detailQuery.data || !request) {
     return (
       <Screen>
         <ErrorState
@@ -70,19 +106,28 @@ export function ExternalRequestReviewDetailScreen() {
     );
   }
 
-  const request = detailQuery.data.request;
-  const currentStatus = selectedStatus || request.status;
-
-  useEffect(() => {
-    setSelectedStatus(request.status);
-    setReviewNotes(request.review_notes || '');
-  }, [request.id, request.review_notes, request.status]);
+  const selectedDecisionLabel =
+    decisionOptions.find((option) => option.id === selectedStatus)?.label || 'Select review decision';
+  const stageHelperText =
+    actingRole === 'manager'
+      ? 'Approving here reserves the configured slot and schedules the external request.'
+      : 'Approving here forwards the request to the Lab Manager for final review.';
 
   async function handleSave() {
     setFormError(null);
 
+    if (!selectedStatus) {
+      setFormError('Select a review decision before saving.');
+      return;
+    }
+
+    if ((selectedStatus === 'needs_information' || selectedStatus === 'rejected') && !reviewNotes.trim()) {
+      setFormError('Add review notes when requesting more information or rejecting the request.');
+      return;
+    }
+
     await updateMutation.mutateAsync({
-      status: currentStatus,
+      status: selectedStatus,
       review_notes: reviewNotes.trim(),
     });
   }
@@ -159,6 +204,78 @@ export function ExternalRequestReviewDetailScreen() {
             {request.equipment_notes || 'No additional equipment notes were provided.'}
           </Text>
         </View>
+
+        <View
+          style={[
+            styles.noteBlock,
+            {
+              backgroundColor: theme.colors.primarySoft,
+            },
+          ]}
+        >
+          <Text style={[styles.blockTitle, { color: theme.colors.primary }]}>Current approval stage</Text>
+          <Text style={[styles.blockText, { color: theme.colors.text }]}>{request.current_approval_stage_label}</Text>
+          <Text style={[styles.blockText, { color: theme.colors.textMuted }]}>{stageHelperText}</Text>
+        </View>
+
+        {request.latest_requester_note ? (
+          <View
+            style={[
+              styles.noteBlock,
+              {
+                backgroundColor: theme.colors.warningSoft,
+              },
+            ]}
+          >
+            <Text style={[styles.blockTitle, { color: theme.colors.warning }]}>Latest requester-facing note</Text>
+            <Text style={[styles.blockText, { color: theme.colors.text }]}>{request.latest_requester_note}</Text>
+          </View>
+        ) : null}
+
+        {request.pic_notes || request.pic_reviewed_at ? (
+          <View
+            style={[
+              styles.noteBlock,
+              {
+                backgroundColor: theme.colors.surfaceMuted,
+              },
+            ]}
+          >
+            <Text style={[styles.blockTitle, { color: theme.colors.text }]}>PIC review</Text>
+            <Text style={[styles.blockText, { color: theme.colors.textMuted }]}>
+              Reviewer: {request.pic_reviewer_name || 'No PIC review recorded yet'}
+            </Text>
+            <Text style={[styles.blockText, { color: theme.colors.textMuted }]}>
+              Reviewed: {request.pic_reviewed_at ? formatDateLabel(request.pic_reviewed_at) : 'Not reviewed yet'}
+            </Text>
+            <Text style={[styles.blockText, { color: theme.colors.textMuted }]}>
+              Notes: {request.pic_notes || 'No PIC notes recorded yet.'}
+            </Text>
+          </View>
+        ) : null}
+
+        {request.manager_notes || request.manager_reviewed_at ? (
+          <View
+            style={[
+              styles.noteBlock,
+              {
+                backgroundColor: theme.colors.surfaceMuted,
+              },
+            ]}
+          >
+            <Text style={[styles.blockTitle, { color: theme.colors.text }]}>Lab Manager review</Text>
+            <Text style={[styles.blockText, { color: theme.colors.textMuted }]}>
+              Reviewer: {request.manager_reviewer_name || 'No Lab Manager review recorded yet'}
+            </Text>
+            <Text style={[styles.blockText, { color: theme.colors.textMuted }]}>
+              Reviewed:{' '}
+              {request.manager_reviewed_at ? formatDateLabel(request.manager_reviewed_at) : 'Not reviewed yet'}
+            </Text>
+            <Text style={[styles.blockText, { color: theme.colors.textMuted }]}>
+              Notes: {request.manager_notes || 'No Lab Manager notes recorded yet.'}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View
@@ -182,11 +299,11 @@ export function ExternalRequestReviewDetailScreen() {
             },
           ]}
         >
-          <Text style={[styles.selectorLabel, { color: theme.colors.text }]}>Status</Text>
-          <Text style={[styles.selectorValue, { color: theme.colors.primary }]}>
-            {EXTERNAL_REQUEST_STATUS_LABELS[currentStatus] ?? currentStatus}
-          </Text>
+          <Text style={[styles.selectorLabel, { color: theme.colors.text }]}>Decision</Text>
+          <Text style={[styles.selectorValue, { color: theme.colors.primary }]}>{selectedDecisionLabel}</Text>
         </Pressable>
+
+        <Text style={[styles.selectorHint, { color: theme.colors.textMuted }]}>{stageHelperText}</Text>
 
         <TextField
           label="Review notes"
@@ -208,7 +325,7 @@ export function ExternalRequestReviewDetailScreen() {
             },
           ]}
         >
-          <Text style={[styles.blockTitle, { color: theme.colors.text }]}>Last review history</Text>
+          <Text style={[styles.blockTitle, { color: theme.colors.text }]}>Latest shared review history</Text>
           <Text style={[styles.blockText, { color: theme.colors.textMuted }]}>
             Reviewer: {request.reviewer_name || 'No reviewer yet'}
           </Text>
@@ -242,12 +359,20 @@ export function ExternalRequestReviewDetailScreen() {
       <SelectionModal
         onClose={() => setShowStatusPicker(false)}
         onSelect={setSelectedStatus}
-        options={Object.entries(EXTERNAL_REQUEST_STATUS_LABELS).map(([status, label]) => ({
-          id: status,
-          label,
+        options={decisionOptions.map((option) => ({
+          id: option.id,
+          label: option.label,
+          subtitle:
+            option.id === 'pending_manager_approval'
+              ? 'Forward to the Lab Manager'
+              : option.id === 'approved_for_scheduling'
+                ? 'Reserve the slot and schedule it'
+                : option.id === 'needs_information'
+                  ? 'Return the request for clarification'
+                  : 'Reject this request',
         }))}
-        selectedId={currentStatus}
-        title="Select Status"
+        selectedId={selectedStatus || null}
+        title="Select Decision"
         visible={showStatusPicker}
       />
     </Screen>
@@ -327,6 +452,10 @@ const styles = StyleSheet.create({
   selectorValue: {
     fontSize: 15,
     fontWeight: '800',
+  },
+  selectorHint: {
+    fontSize: 12,
+    lineHeight: 18,
   },
   multiline: {
     minHeight: 140,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   createExternalRequestRequest,
   getExternalRequestRequest,
+  listExternalRequestDaySlotsRequest,
   listLabsRequest,
   updateExternalRequestRequest,
 } from '../api/endpoints';
@@ -17,6 +18,7 @@ import { TextField } from '../components/text-field';
 import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
 import { readErrorMessage } from '../utils/error-message';
+import { formatDateLabel } from '../utils/format';
 import type { RootStackParamList } from '../navigation/types';
 
 type FormState = {
@@ -54,6 +56,13 @@ export function RequestFormScreen() {
     equipment_notes: '',
   });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [slotNotice, setSlotNotice] = useState<string | null>(null);
+
+  const minimumDate = useMemo(() => {
+    const next = new Date();
+    next.setHours(12, 0, 0, 0);
+    return next;
+  }, []);
 
   const labsQuery = useQuery({
     queryKey: ['labs'],
@@ -66,24 +75,64 @@ export function RequestFormScreen() {
     enabled: Boolean(route.params?.requestId),
   });
 
+  const daySlotsQuery = useQuery({
+    queryKey: ['external-request-day-slots', form.lab_id, form.preferred_date],
+    queryFn: () => listExternalRequestDaySlotsRequest(form.lab_id, form.preferred_date),
+    enabled: Boolean(form.lab_id && form.preferred_date),
+  });
+
   useEffect(() => {
-    if (existingRequestQuery.data?.request) {
-      const request = existingRequestQuery.data.request;
-      setForm({
-        lab_id: request.lab_id,
-        organization_name: request.organization_name,
-        contact_name: request.contact_name,
-        contact_email: request.contact_email,
-        contact_phone: request.contact_phone,
-        participant_count: String(request.participant_count || 1),
-        preferred_date: request.preferred_date,
-        preferred_start_time: request.preferred_start_time,
-        preferred_end_time: request.preferred_end_time,
-        purpose: request.purpose,
-        equipment_notes: request.equipment_notes,
-      });
+    if (!existingRequestQuery.data?.request) {
+      return;
     }
+
+    const request = existingRequestQuery.data.request;
+    setForm({
+      lab_id: request.lab_id,
+      organization_name: request.organization_name,
+      contact_name: request.contact_name,
+      contact_email: request.contact_email,
+      contact_phone: request.contact_phone,
+      participant_count: String(request.participant_count || 1),
+      preferred_date: request.preferred_date,
+      preferred_start_time: request.preferred_start_time,
+      preferred_end_time: request.preferred_end_time,
+      purpose: request.purpose,
+      equipment_notes: request.equipment_notes,
+    });
+    setSlotNotice(null);
   }, [existingRequestQuery.data]);
+
+  useEffect(() => {
+    const currentStart = form.preferred_start_time;
+    const currentEnd = form.preferred_end_time;
+    if (!currentStart || !currentEnd || !daySlotsQuery.data?.slots) {
+      return;
+    }
+
+    const matchingSlot = daySlotsQuery.data.slots.find(
+      (slot) => slot.start === currentStart && slot.end === currentEnd,
+    );
+
+    if (matchingSlot?.can_book) {
+      return;
+    }
+
+    setForm((current) => {
+      if (current.preferred_start_time !== currentStart || current.preferred_end_time !== currentEnd) {
+        return current;
+      }
+
+      return {
+        ...current,
+        preferred_start_time: '',
+        preferred_end_time: '',
+      };
+    });
+    setSlotNotice(
+      matchingSlot?.reason || 'The previously selected slot is no longer available. Please choose another slot.',
+    );
+  }, [daySlotsQuery.data?.slots, form.preferred_end_time, form.preferred_start_time]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -116,6 +165,13 @@ export function RequestFormScreen() {
       setErrorMessage(readErrorMessage(error, 'Could not save the external request.'));
     },
   });
+
+  const selectedSlotSummary =
+    form.preferred_date && form.preferred_start_time && form.preferred_end_time
+      ? `${formatDateLabel(form.preferred_date)}  |  ${form.preferred_start_time}-${form.preferred_end_time}`
+      : null;
+  const latestRequesterNote =
+    existingRequestQuery.data?.request.latest_requester_note || existingRequestQuery.data?.request.review_notes || '';
 
   if (labsQuery.isLoading || existingRequestQuery.isLoading) {
     return (
@@ -159,7 +215,16 @@ export function RequestFormScreen() {
             return (
               <Pressable
                 key={lab.id}
-                onPress={() => setForm((current) => ({ ...current, lab_id: lab.id }))}
+                onPress={() => {
+                  setErrorMessage(null);
+                  setSlotNotice(null);
+                  setForm((current) => ({
+                    ...current,
+                    lab_id: lab.id,
+                    preferred_start_time: '',
+                    preferred_end_time: '',
+                  }));
+                }}
                 style={[
                   styles.choiceChip,
                   {
@@ -192,6 +257,21 @@ export function RequestFormScreen() {
           },
         ]}
       >
+        <View
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor: theme.colors.primarySoft,
+            },
+          ]}
+        >
+          <Text style={[styles.infoTitle, { color: theme.colors.primary }]}>Approval route</Text>
+          <Text style={[styles.infoText, { color: theme.colors.text }]}>
+            External requests use the same configured booking slots as student bookings. Choosing a slot here does not
+            reserve it until PIC and Lab Manager approvals are complete.
+          </Text>
+        </View>
+
         <TextField
           label="Organization"
           onChangeText={(value) => setForm((current) => ({ ...current, organization_name: value }))}
@@ -227,31 +307,130 @@ export function RequestFormScreen() {
           value={form.participant_count}
         />
         <PickerField
-          allowClear
           label="Preferred Date"
+          minimumDate={minimumDate}
           mode="date"
-          onChangeValue={(value) => setForm((current) => ({ ...current, preferred_date: value }))}
+          onChangeValue={(value) => {
+            setErrorMessage(null);
+            setSlotNotice(null);
+            setForm((current) => ({
+              ...current,
+              preferred_date: value,
+              preferred_start_time: '',
+              preferred_end_time: '',
+            }));
+          }}
           placeholder="Select preferred date"
           value={form.preferred_date}
         />
-        <PickerField
-          allowClear
-          hint="Leave blank if no preferred start time is needed."
-          label="Preferred Start Time"
-          mode="time"
-          onChangeValue={(value) => setForm((current) => ({ ...current, preferred_start_time: value }))}
-          placeholder="Select start time"
-          value={form.preferred_start_time}
-        />
-        <PickerField
-          allowClear
-          hint="Leave blank if no preferred end time is needed."
-          label="Preferred End Time"
-          mode="time"
-          onChangeValue={(value) => setForm((current) => ({ ...current, preferred_end_time: value }))}
-          placeholder="Select end time"
-          value={form.preferred_end_time}
-        />
+
+        {selectedSlotSummary ? (
+          <View
+            style={[
+              styles.infoCard,
+              {
+                backgroundColor: theme.colors.successSoft,
+              },
+            ]}
+          >
+            <Text style={[styles.infoTitle, { color: theme.colors.success }]}>Selected slot</Text>
+            <Text style={[styles.infoText, { color: theme.colors.text }]}>{selectedSlotSummary}</Text>
+          </View>
+        ) : null}
+
+        <View
+          style={[
+            styles.slotCard,
+            {
+              backgroundColor: theme.colors.surfaceMuted,
+            },
+          ]}
+        >
+          <Text style={[styles.slotTitle, { color: theme.colors.text }]}>Available booking slots</Text>
+          <Text style={[styles.helperText, { color: theme.colors.textMuted }]}>
+            Choose one of the configured booking slots for this laboratory.
+          </Text>
+
+          {!form.lab_id ? (
+            <Text style={[styles.slotBodyText, { color: theme.colors.textMuted }]}>Select a laboratory first.</Text>
+          ) : !form.preferred_date ? (
+            <Text style={[styles.slotBodyText, { color: theme.colors.textMuted }]}>
+              Choose a preferred date to load the available slots.
+            </Text>
+          ) : daySlotsQuery.isLoading ? (
+            <Text style={[styles.slotBodyText, { color: theme.colors.textMuted }]}>Loading configured slots...</Text>
+          ) : daySlotsQuery.isError ? (
+            <Text style={[styles.slotBodyText, { color: theme.colors.warning }]}>
+              {readErrorMessage(daySlotsQuery.error, 'Could not load booking slots right now.')}
+            </Text>
+          ) : daySlotsQuery.data?.slots.length ? (
+            <View style={styles.choiceWrap}>
+              {daySlotsQuery.data.slots.map((slot) => {
+                const selected =
+                  form.preferred_start_time === slot.start && form.preferred_end_time === slot.end;
+
+                return (
+                  <Pressable
+                    key={`${slot.label}-${slot.start}-${slot.end}`}
+                    disabled={!slot.can_book}
+                    onPress={() => {
+                      setErrorMessage(null);
+                      setSlotNotice(null);
+                      setForm((current) => ({
+                        ...current,
+                        preferred_start_time: slot.start,
+                        preferred_end_time: slot.end,
+                      }));
+                    }}
+                    style={[
+                      styles.choiceChip,
+                      {
+                        backgroundColor: selected
+                          ? theme.colors.primary
+                          : slot.can_book
+                            ? theme.colors.successSoft
+                            : theme.colors.surface,
+                        opacity: slot.can_book ? 1 : 0.65,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.choiceText,
+                        {
+                          color: selected
+                            ? '#ffffff'
+                            : slot.can_book
+                              ? theme.colors.success
+                              : theme.colors.textMuted,
+                        },
+                      ]}
+                    >
+                      {slot.label || `${slot.start}-${slot.end}`}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.slotMetaText,
+                        {
+                          color: selected ? 'rgba(255,255,255,0.88)' : theme.colors.textMuted,
+                        },
+                      ]}
+                    >
+                      {slot.can_book ? `${slot.start}-${slot.end}` : slot.reason || 'Unavailable'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={[styles.slotBodyText, { color: theme.colors.textMuted }]}>
+              No configured booking slots are available for this date.
+            </Text>
+          )}
+        </View>
+
+        {slotNotice ? <Text style={[styles.helperNotice, { color: theme.colors.warning }]}>{slotNotice}</Text> : null}
+
         <TextField
           label="Purpose"
           multiline
@@ -269,7 +448,7 @@ export function RequestFormScreen() {
           value={form.equipment_notes}
         />
 
-        {existingRequestQuery.data?.request.review_notes ? (
+        {latestRequesterNote ? (
           <View
             style={[
               styles.reviewCard,
@@ -279,9 +458,7 @@ export function RequestFormScreen() {
             ]}
           >
             <Text style={[styles.reviewTitle, { color: theme.colors.warning }]}>Reviewer Notes</Text>
-            <Text style={[styles.reviewText, { color: theme.colors.text }]}>
-              {existingRequestQuery.data.request.review_notes}
-            </Text>
+            <Text style={[styles.reviewText, { color: theme.colors.text }]}>{latestRequesterNote}</Text>
           </View>
         ) : null}
 
@@ -291,6 +468,10 @@ export function RequestFormScreen() {
           disabled={saveMutation.isPending}
           onPress={() => {
             setErrorMessage(null);
+            if (!form.lab_id || !form.preferred_date || !form.preferred_start_time || !form.preferred_end_time) {
+              setErrorMessage('Choose a laboratory, date, and one of the configured booking slots.');
+              return;
+            }
             void saveMutation.mutateAsync();
           }}
           style={[
@@ -321,6 +502,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
   },
+  infoCard: {
+    borderRadius: 14,
+    gap: 6,
+    padding: 14,
+  },
+  infoTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  infoText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
   choiceWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -332,6 +526,32 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   choiceText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  slotCard: {
+    borderRadius: 14,
+    gap: 6,
+    padding: 14,
+  },
+  slotTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  helperText: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  slotBodyText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  slotMetaText: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 4,
+  },
+  helperNotice: {
     fontSize: 13,
     fontWeight: '700',
   },

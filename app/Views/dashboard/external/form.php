@@ -36,12 +36,12 @@ $currentStatus = (string) ($requestRecord['status'] ?? 'pending_pic_approval');
 
 <div class="card shadow-sm border-0">
     <div class="card-body p-4">
-        <form action="<?= esc($actionUrl) ?>" method="post" class="row g-4">
+        <form action="<?= esc($actionUrl) ?>" method="post" class="row g-4" id="externalRequestForm">
             <?= csrf_field() ?>
 
             <div class="col-md-6">
                 <label class="form-label">Laboratory *</label>
-                <select name="lab_id" class="form-select" required>
+                <select name="lab_id" class="form-select" id="externalLabId" required>
                     <option value="">Select a laboratory</option>
                     <?php foreach (($labs ?? []) as $lab): ?>
                         <option value="<?= esc($lab['id']) ?>" <?= (string) old('lab_id', $requestRecord['lab_id'] ?? '') === (string) $lab['id'] ? 'selected' : '' ?>>
@@ -84,17 +84,19 @@ $currentStatus = (string) ($requestRecord['status'] ?? 'pending_pic_approval');
 
             <div class="col-md-4">
                 <label class="form-label">Preferred Date *</label>
-                <input type="date" name="preferred_date" class="form-control" min="<?= esc(date('Y-m-d')) ?>" value="<?= esc(old('preferred_date', $requestRecord['preferred_date'] ?? '')) ?>" required>
+                <input type="date" name="preferred_date" id="externalPreferredDate" class="form-control" min="<?= esc(date('Y-m-d')) ?>" value="<?= esc(old('preferred_date', $requestRecord['preferred_date'] ?? '')) ?>" required>
             </div>
 
-            <div class="col-md-2">
-                <label class="form-label">Start Time</label>
-                <input type="time" name="preferred_start_time" class="form-control" value="<?= esc(old('preferred_start_time', $requestRecord['preferred_start_time'] ?? '')) ?>">
-            </div>
-
-            <div class="col-md-2">
-                <label class="form-label">End Time</label>
-                <input type="time" name="preferred_end_time" class="form-control" value="<?= esc(old('preferred_end_time', $requestRecord['preferred_end_time'] ?? '')) ?>">
+            <div class="col-md-8">
+                <label class="form-label">Preferred Slot *</label>
+                <input type="hidden" name="preferred_start_time" id="externalPreferredStartTime" value="<?= esc(old('preferred_start_time', $requestRecord['preferred_start_time'] ?? '')) ?>">
+                <input type="hidden" name="preferred_end_time" id="externalPreferredEndTime" value="<?= esc(old('preferred_end_time', $requestRecord['preferred_end_time'] ?? '')) ?>">
+                <div class="form-control bg-light d-flex align-items-center" id="externalSlotSummary" style="min-height: 48px;">
+                    Choose a laboratory and date to load the configured booking slots.
+                </div>
+                <div id="externalSlotFeedback" class="mt-2"></div>
+                <div id="externalSlotChoices" class="d-flex flex-wrap gap-2 mt-2"></div>
+                <div class="form-text">External requests use the same configured booking sessions as student bookings. The slot is only reserved after final approval.</div>
             </div>
 
             <div class="col-12">
@@ -116,5 +118,175 @@ $currentStatus = (string) ($requestRecord['status'] ?? 'pending_pic_approval');
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const labField = document.getElementById("externalLabId");
+    const dateField = document.getElementById("externalPreferredDate");
+    const startField = document.getElementById("externalPreferredStartTime");
+    const endField = document.getElementById("externalPreferredEndTime");
+    const summaryEl = document.getElementById("externalSlotSummary");
+    const feedbackEl = document.getElementById("externalSlotFeedback");
+    const slotChoicesEl = document.getElementById("externalSlotChoices");
+
+    if (!labField || !dateField || !startField || !endField || !summaryEl || !feedbackEl || !slotChoicesEl) {
+        return;
+    }
+
+    let selectedStart = startField.value || "";
+    let selectedEnd = endField.value || "";
+
+    function renderFeedback(message, type = "info") {
+        if (!message) {
+            feedbackEl.innerHTML = "";
+            return;
+        }
+
+        const className = type === "warning" ? "alert-warning" : type === "success" ? "alert-success" : "alert-info";
+        feedbackEl.innerHTML = `<div class="alert ${className} small mb-0">${message}</div>`;
+    }
+
+    function renderSummary(label) {
+        summaryEl.textContent = label;
+    }
+
+    function setSelectedSlot(slot) {
+        selectedStart = slot?.start || "";
+        selectedEnd = slot?.end || "";
+        startField.value = selectedStart;
+        endField.value = selectedEnd;
+
+        if (!slot) {
+            renderSummary("Choose one of the available booking slots for the selected date.");
+            return;
+        }
+
+        renderSummary(`${slot.label || `${slot.start}-${slot.end}`} | ${slot.start}-${slot.end}`);
+    }
+
+    function renderSlotChoices(slots) {
+        if (!slots.length) {
+            slotChoicesEl.innerHTML = "";
+            renderFeedback("No configured booking slots are available for this date.", "warning");
+            return;
+        }
+
+        slotChoicesEl.innerHTML = slots.map((slot) => {
+            const isSelected = selectedStart === slot.start && selectedEnd === slot.end;
+            const buttonClass = slot.can_book
+                ? (isSelected ? "btn-primary" : "btn-outline-success")
+                : "btn-outline-secondary";
+            const disabledAttr = slot.can_book ? "" : "disabled";
+            const meta = slot.can_book ? `${slot.start}-${slot.end}` : (slot.reason || "Unavailable");
+
+            return `
+                <button
+                    type="button"
+                    class="btn ${buttonClass} text-start external-slot-choice"
+                    data-start="${slot.start}"
+                    data-end="${slot.end}"
+                    data-label="${slot.label || `${slot.start}-${slot.end}`}"
+                    ${disabledAttr}
+                >
+                    <div class="fw-semibold">${slot.label || `${slot.start}-${slot.end}`}</div>
+                    <div class="small">${meta}</div>
+                </button>
+            `;
+        }).join("");
+    }
+
+    async function loadSlots(preserveCurrentSelection = false) {
+        const labId = labField.value;
+        const preferredDate = dateField.value;
+
+        if (!labId || !preferredDate) {
+            slotChoicesEl.innerHTML = "";
+            if (!preserveCurrentSelection) {
+                setSelectedSlot(null);
+            }
+            renderFeedback("");
+            renderSummary("Choose a laboratory and date to load the configured booking slots.");
+            return;
+        }
+
+        if (!preserveCurrentSelection) {
+            setSelectedSlot(null);
+        }
+
+        renderFeedback("Loading configured booking slots...");
+        slotChoicesEl.innerHTML = "";
+
+        try {
+            const response = await fetch(`/dashboard/external/request/slots/${encodeURIComponent(labId)}/${encodeURIComponent(preferredDate)}`);
+            const data = await response.json();
+            const slots = Array.isArray(data.slots) ? data.slots : [];
+
+            if ((selectedStart || selectedEnd) && !preserveCurrentSelection) {
+                selectedStart = "";
+                selectedEnd = "";
+            }
+
+            const matchingSlot = slots.find((slot) => slot.start === selectedStart && slot.end === selectedEnd);
+            if (matchingSlot && matchingSlot.can_book) {
+                setSelectedSlot(matchingSlot);
+                renderFeedback("Selected slot is available.", "success");
+            } else if (matchingSlot && !matchingSlot.can_book) {
+                setSelectedSlot(null);
+                renderFeedback(matchingSlot.reason || "Selected slot is no longer available. Please choose another slot.", "warning");
+            } else if (selectedStart || selectedEnd) {
+                setSelectedSlot(null);
+                renderFeedback("Please choose one of the configured booking slots for this date.", "warning");
+            } else {
+                renderFeedback("Choose one of the available booking slots below.");
+            }
+
+            renderSlotChoices(slots);
+        } catch (_error) {
+            slotChoicesEl.innerHTML = "";
+            renderFeedback("Could not load booking slots right now. Please try again.", "warning");
+            renderSummary("Choose a laboratory and date to load the configured booking slots.");
+        }
+    }
+
+    labField.addEventListener("change", () => {
+        selectedStart = "";
+        selectedEnd = "";
+        loadSlots();
+    });
+
+    dateField.addEventListener("change", () => {
+        selectedStart = "";
+        selectedEnd = "";
+        loadSlots();
+    });
+
+    slotChoicesEl.addEventListener("click", (event) => {
+        const button = event.target.closest(".external-slot-choice");
+        if (!button || button.disabled) {
+            return;
+        }
+
+        setSelectedSlot({
+            label: button.dataset.label || "",
+            start: button.dataset.start || "",
+            end: button.dataset.end || "",
+        });
+
+        renderFeedback("Selected slot is available.", "success");
+        loadSlots(true);
+    });
+
+    if (selectedStart && selectedEnd && labField.value && dateField.value) {
+        renderSummary("Validating the preselected booking slot...");
+        loadSlots(true);
+        return;
+    }
+
+    renderSummary("Choose a laboratory and date to load the configured booking slots.");
+    if (labField.value && dateField.value) {
+        loadSlots();
+    }
+});
+</script>
 
 <?= $this->endSection() ?>

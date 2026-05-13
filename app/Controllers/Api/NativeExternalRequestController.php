@@ -179,6 +179,19 @@ class NativeExternalRequestController extends WebExternalDashboard
         ]);
     }
 
+    public function daySlots(int $labId, string $date)
+    {
+        $user = $this->externalUser();
+        if ($user instanceof \CodeIgniter\HTTP\RedirectResponse || $user instanceof \CodeIgniter\HTTP\ResponseInterface) {
+            return $user;
+        }
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'slots' => $this->externalDaySlotsInternal($labId, $date),
+        ]);
+    }
+
     protected function nativeRequestPayload(): array
     {
         $json = $this->request->getJSON(true);
@@ -216,6 +229,7 @@ class NativeExternalRequestController extends WebExternalDashboard
             'preferred_end_time' => $this->normalizeTimeForDisplay((string) ($request['preferred_end_time'] ?? '')),
             'purpose' => (string) ($request['purpose'] ?? ''),
             'equipment_notes' => (string) ($request['equipment_notes'] ?? ''),
+            'booking_id' => (int) ($request['booking_id'] ?? 0),
             'status' => (string) ($request['status'] ?? ''),
             'status_label' => $this->requestModel->statusLabel((string) ($request['status'] ?? '')),
             'current_approval_stage' => $this->requestModel->currentApprovalStage($request),

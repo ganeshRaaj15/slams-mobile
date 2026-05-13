@@ -47,6 +47,7 @@ class ExternalRequestModel extends Model
         'manager_notes',
         'manager_reviewed_by',
         'manager_reviewed_at',
+        'booking_id',
         'review_notes',
         'reviewed_by',
         'reviewed_at',

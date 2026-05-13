@@ -20,6 +20,8 @@ export function StatusPill({
   const palette =
     kind === 'external'
       ? {
+          pending_pic_approval: { bg: theme.colors.warningSoft, text: theme.colors.warning },
+          pending_manager_approval: { bg: theme.colors.primarySoft, text: theme.colors.primary },
           submitted: { bg: theme.colors.warningSoft, text: theme.colors.warning },
           under_review: { bg: theme.colors.primarySoft, text: theme.colors.primary },
           needs_information: { bg: theme.colors.surfaceMuted, text: theme.colors.textMuted },

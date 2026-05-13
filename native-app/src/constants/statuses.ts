@@ -6,6 +6,8 @@ export const BOOKING_STATUS_LABELS: Record<string, string> = {
 };
 
 export const EXTERNAL_REQUEST_STATUS_LABELS: Record<string, string> = {
+  pending_pic_approval: 'Pending PIC Approval',
+  pending_manager_approval: 'Pending Lab Manager Approval',
   submitted: 'Submitted',
   under_review: 'Under Review',
   needs_information: 'Needs Information',

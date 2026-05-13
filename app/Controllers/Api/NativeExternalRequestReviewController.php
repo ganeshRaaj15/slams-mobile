@@ -6,6 +6,7 @@ use App\Controllers\Dashboard\ExternalRequestsController as WebExternalRequestsC
 use App\Libraries\ExternalRequestNotificationService;
 use App\Models\ExternalRequestModel;
 use CodeIgniter\Shield\Entities\User;
+use Config\Database;
 
 class NativeExternalRequestReviewController extends WebExternalRequestsController
 {
@@ -31,6 +32,8 @@ class NativeExternalRequestReviewController extends WebExternalRequestsControlle
             } else {
                 $requestsQuery->whereIn('external_requests.lab_id', $labIds);
             }
+        } elseif ($reviewer['role'] === 'manager') {
+            $requestsQuery->where('external_requests.pic_approved', 1);
         }
 
         $requests = $this->applyRequestFilters($requestsQuery, $filters)
@@ -131,7 +134,31 @@ class NativeExternalRequestReviewController extends WebExternalRequestsControlle
         /** @var User $user */
         $user = $reviewer['user'];
 
-        $this->requestModel->update($id, $this->approvalUpdatePayload($requestRecord, $actingRole, $status, $reviewNotes, (int) $user->id));
+        $updatePayload = $this->approvalUpdatePayload($requestRecord, $actingRole, $status, $reviewNotes, (int) $user->id);
+
+        if ($status === 'approved_for_scheduling') {
+            $db = Database::connect();
+
+            try {
+                $db->transBegin();
+                $updatePayload['booking_id'] = $this->requestBookingService->createApprovedBooking($requestRecord);
+                if (! $this->requestModel->update($id, $updatePayload)) {
+                    throw new \RuntimeException('Could not update the external request after reserving the slot.');
+                }
+                $db->transCommit();
+            } catch (\Throwable $e) {
+                $db->transRollback();
+
+                return $this->response
+                    ->setStatusCode(422)
+                    ->setJSON([
+                        'status' => 'error',
+                        'message' => $e->getMessage(),
+                    ]);
+            }
+        } else {
+            $this->requestModel->update($id, $updatePayload);
+        }
 
         try {
             (new ExternalRequestNotificationService())->notifyStatusUpdated($id, $actingRole);

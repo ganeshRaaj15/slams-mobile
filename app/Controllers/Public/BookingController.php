@@ -4,6 +4,7 @@ namespace App\Controllers\Public;
 
 use App\Controllers\BaseController;
 use App\Libraries\ApprovalFlowResolver;
+use App\Libraries\BookingSlotService;
 use App\Libraries\NotificationService;
 use App\Models\BookingModel;
 use App\Models\BookingApplicantModel;
@@ -15,6 +16,13 @@ use Config\Services;
 
 class BookingController extends BaseController
 {
+    protected BookingSlotService $slotService;
+
+    public function __construct()
+    {
+        $this->slotService = new BookingSlotService();
+    }
+
     /*
     |--------------------------------------------------------------------------
     | SLOT DEFINITIONS  (Will later be moved to settings table)
@@ -22,71 +30,17 @@ class BookingController extends BaseController
     */
     protected function getSlotDefinitions(): array
     {
-        $slotsJson = setting('system.booking_slots') ?? '';
-        $slots = [];
-
-        if ($slotsJson) {
-            $decoded = json_decode($slotsJson, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                foreach ($decoded as $slot) {
-                    $start = isset($slot['start']) ? $this->normalizeTime($slot['start']) : '';
-                    $end = isset($slot['end']) ? $this->normalizeTime($slot['end']) : '';
-                    if ($start && $end && $start < $end) {
-                        $label = $slot['label'] ?? ($start . ' - ' . $end);
-                        $slots[] = [
-                            'label' => $label,
-                            'start' => $start,
-                            'end' => $end,
-                        ];
-                    }
-                }
-            }
-        }
-
-        if (!empty($slots)) {
-            usort($slots, function ($a, $b) {
-                if ($a['start'] === $b['start']) {
-                    return strcmp($a['end'], $b['end']);
-                }
-                return strcmp($a['start'], $b['start']);
-            });
-            return $slots;
-        }
-
-        return [
-            ['label' => '08:00 - 10:00', 'start' => '08:00:00', 'end' => '10:00:00'],
-            ['label' => '10:00 - 12:00', 'start' => '10:00:00', 'end' => '12:00:00'],
-            ['label' => '13:00 - 15:00', 'start' => '13:00:00', 'end' => '15:00:00'],
-            ['label' => '15:00 - 17:00', 'start' => '15:00:00', 'end' => '17:00:00'],
-        ];
+        return $this->slotService->getDefinitions();
     }
 
     protected function normalizeTime(string $time): string
     {
-        $time = trim($time);
-
-        if ($time === '') return $time;
-        if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $time)) return $time;
-        if (preg_match('/^\d{2}:\d{2}$/', $time)) return $time . ':00';
-
-        return $time;
+        return $this->slotService->normalizeTime($time);
     }
 
     protected function findMatchingSlotDefinition(string $startTime, string $endTime): ?array
     {
-        $start = $this->normalizeTime($startTime);
-        $end = $this->normalizeTime($endTime);
-
-        foreach ($this->getSlotDefinitions() as $slot) {
-            if (
-                $this->normalizeTime((string) ($slot['start'] ?? '')) === $start
-                && $this->normalizeTime((string) ($slot['end'] ?? '')) === $end
-            ) {
-                return $slot;
-            }
-        }
-
-        return null;
+        return $this->slotService->findMatchingDefinition($startTime, $endTime);
     }
 
     /*

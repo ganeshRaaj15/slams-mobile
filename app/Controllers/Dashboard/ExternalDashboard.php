@@ -3,6 +3,7 @@
 namespace App\Controllers\Dashboard;
 
 use App\Controllers\BaseController;
+use App\Libraries\BookingSlotService;
 use App\Libraries\ExternalRequestNotificationService;
 use App\Models\ExternalRequestModel;
 use App\Models\LaboratoryModel;
@@ -11,12 +12,14 @@ class ExternalDashboard extends BaseController
 {
     protected ExternalRequestModel $requestModel;
     protected LaboratoryModel $labModel;
+    protected BookingSlotService $slotService;
 
     public function __construct()
     {
         helper('auth');
         $this->requestModel = new ExternalRequestModel();
         $this->labModel = new LaboratoryModel();
+        $this->slotService = new BookingSlotService();
     }
 
     public function index()
@@ -197,6 +200,18 @@ class ExternalDashboard extends BaseController
         return redirect()->to('/dashboard/external')->with('success', 'Your external request has been updated and resubmitted for review.');
     }
 
+    public function daySlots(int $labId, string $date)
+    {
+        if ($redirect = $this->ensureExternal()) {
+            return $redirect;
+        }
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'slots' => $this->externalDaySlotsInternal($labId, $date),
+        ]);
+    }
+
     protected function ensureExternal()
     {
         if (! auth()->loggedIn()) {
@@ -295,8 +310,8 @@ class ExternalDashboard extends BaseController
             'contact_phone' => 'required|min_length[6]|max_length[50]',
             'participant_count' => 'required|integer|greater_than[0]',
             'preferred_date' => 'required|valid_date[Y-m-d]',
-            'preferred_start_time' => 'permit_empty|regex_match[/^\d{2}:\d{2}:\d{2}$/]',
-            'preferred_end_time' => 'permit_empty|regex_match[/^\d{2}:\d{2}:\d{2}$/]',
+            'preferred_start_time' => 'required|regex_match[/^\d{2}:\d{2}:\d{2}$/]',
+            'preferred_end_time' => 'required|regex_match[/^\d{2}:\d{2}:\d{2}$/]',
             'purpose' => 'required|min_length[10]',
             'equipment_notes' => 'permit_empty|string',
         ];
@@ -314,16 +329,35 @@ class ExternalDashboard extends BaseController
             return 'Preferred date cannot be in the past.';
         }
 
-        $hasStart = ! empty($payload['preferred_start_time']);
-        $hasEnd = ! empty($payload['preferred_end_time']);
-        if ($hasStart xor $hasEnd) {
-            return 'Please provide both preferred start and end times, or leave both empty.';
+        if ($this->slotService->findMatchingDefinition((string) $payload['preferred_start_time'], (string) $payload['preferred_end_time']) === null) {
+            return 'Please choose one of the configured booking slots.';
         }
-        if ($hasStart && $payload['preferred_start_time'] >= $payload['preferred_end_time']) {
-            return 'Preferred end time must be later than preferred start time.';
+
+        $availability = $this->slotService->slotAvailabilityForLab(
+            (int) $payload['lab_id'],
+            (string) $payload['preferred_date'],
+            (string) $payload['preferred_start_time'],
+            (string) $payload['preferred_end_time']
+        );
+
+        if (! ($availability['can_book'] ?? false)) {
+            return (string) ($availability['reason'] ?? 'Selected booking slot is no longer available.');
         }
 
         return null;
+    }
+
+    protected function externalDaySlotsInternal(int $labId, string $date): array
+    {
+        if ($labId <= 0 || $this->labModel->find($labId) === null) {
+            return [];
+        }
+
+        if ($this->validDate($date) === '') {
+            return [];
+        }
+
+        return $this->slotService->daySlotsForLab($labId, $date);
     }
 
     protected function normalizeTimeForStorage(string $value): ?string

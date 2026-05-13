@@ -27,28 +27,11 @@ export function ExternalRequestReviewQueueScreen() {
     queryFn: () => listExternalRequestReviewQueueRequest(),
   });
 
-  if (reviewQueueQuery.isLoading) {
-    return (
-      <Screen scroll={false}>
-        <LoadingState label="Loading external request queue..." />
-      </Screen>
-    );
-  }
-
-  if (reviewQueueQuery.isError || !reviewQueueQuery.data) {
-    return (
-      <Screen>
-        <ErrorState
-          message="The external request review queue could not be loaded."
-          onRetry={() => {
-            void reviewQueueQuery.refetch();
-          }}
-        />
-      </Screen>
-    );
-  }
-
-  const { stats, status_labels: statusLabels, labs, requests, role } = reviewQueueQuery.data;
+  const role = reviewQueueQuery.data?.role ?? 'pic';
+  const stats = reviewQueueQuery.data?.stats ?? {};
+  const statusLabels = reviewQueueQuery.data?.status_labels ?? {};
+  const labs = reviewQueueQuery.data?.labs ?? [];
+  const requests = reviewQueueQuery.data?.requests ?? [];
 
   const filteredRequests = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -81,6 +64,27 @@ export function ExternalRequestReviewQueueScreen() {
     });
   }, [labFilterId, requests, search, statusFilter]);
 
+  if (reviewQueueQuery.isLoading) {
+    return (
+      <Screen scroll={false}>
+        <LoadingState label="Loading external request queue..." />
+      </Screen>
+    );
+  }
+
+  if (reviewQueueQuery.isError || !reviewQueueQuery.data) {
+    return (
+      <Screen>
+        <ErrorState
+          message="The external request review queue could not be loaded."
+          onRetry={() => {
+            void reviewQueueQuery.refetch();
+          }}
+        />
+      </Screen>
+    );
+  }
+
   const activeLab = labs.find((lab) => lab.id === labFilterId);
 
   return (
@@ -98,25 +102,32 @@ export function ExternalRequestReviewQueueScreen() {
         <Text style={[styles.heroText, { color: theme.colors.textMuted }]}>
           {role === 'pic'
             ? 'Review requests for laboratories assigned to you as PIC.'
-            : 'Review and triage external access requests across the SLAMS system.'}
+            : role === 'manager'
+              ? 'Review external requests that already cleared PIC approval.'
+              : 'Review and triage external access requests across the SLAMS system.'}
         </Text>
       </View>
 
       <View style={styles.statsRow}>
         {[
           { id: 'total', label: 'Total', value: stats.total ?? 0, color: theme.colors.text },
-          { id: 'submitted', label: 'Submitted', value: stats.submitted ?? 0, color: theme.colors.warning },
           {
-            id: 'under_review',
-            label: 'Reviewing',
-            value: stats.under_review ?? 0,
+            id: 'pending_pic_approval',
+            label: 'Awaiting PIC',
+            value: stats.pending_pic_approval ?? 0,
+            color: theme.colors.warning,
+          },
+          {
+            id: 'pending_manager_approval',
+            label: 'Awaiting Manager',
+            value: stats.pending_manager_approval ?? 0,
             color: theme.colors.primary,
           },
           {
-            id: 'approved_for_scheduling',
-            label: 'Approved',
-            value: stats.approved_for_scheduling ?? 0,
-            color: theme.colors.success,
+            id: 'needs_information',
+            label: 'Needs Info',
+            value: stats.needs_information ?? 0,
+            color: theme.colors.textMuted,
           },
         ].map((stat) => (
           <View
@@ -254,10 +265,13 @@ export function ExternalRequestReviewQueueScreen() {
                 ? `  |  ${request.preferred_start_time}-${request.preferred_end_time}`
                 : ''}
             </Text>
+            <Text style={[styles.requestMeta, { color: theme.colors.textMuted }]}>
+              Stage: {request.current_approval_stage_label}
+            </Text>
             <Text style={[styles.requestBody, { color: theme.colors.textMuted }]}>{request.purpose}</Text>
-            {request.review_notes ? (
+            {request.latest_requester_note ? (
               <Text style={[styles.reviewNote, { color: theme.colors.textMuted }]}>
-                Last note: {request.review_notes}
+                Latest note: {request.latest_requester_note}
               </Text>
             ) : null}
           </Pressable>
