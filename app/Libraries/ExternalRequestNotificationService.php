@@ -5,6 +5,7 @@ namespace App\Libraries;
 use App\Models\EmailLogModel;
 use App\Models\ExternalRequestModel;
 use App\Models\NotificationModel;
+use App\Models\SettingsModel;
 use Config\Database;
 
 class ExternalRequestNotificationService
@@ -320,7 +321,26 @@ class ExternalRequestNotificationService
 
     protected function managerEmails(): array
     {
-        return $this->emailsForUserIds($this->managerUserIds());
+        return array_values(array_unique(array_filter(array_merge(
+            [$this->settingValue('system.lab_manager_email')],
+            $this->emailsForUserIds($this->managerUserIds())
+        ))));
+    }
+
+    protected function settingValue(string $key): ?string
+    {
+        [$class, $settingKey] = array_pad(explode('.', $key, 2), 2, '');
+        if ($class === '' || $settingKey === '') {
+            return null;
+        }
+
+        $value = (new SettingsModel())->get($class, $settingKey);
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = strtolower(trim($value));
+        return $value !== '' ? $value : null;
     }
 
     protected function emailsForUserIds(array $userIds): array
