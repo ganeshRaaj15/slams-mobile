@@ -28,7 +28,17 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401 && unauthorizedHandler) {
-      unauthorizedHandler();
+      // Only clear the session when the request was made with the currently-active token.
+      // Stale 401 responses from requests that used a previous token (e.g. in-flight at
+      // logout time) must not wipe a newly-established session.
+      const requestAuthHeader = error.config?.headers?.Authorization;
+      const requestToken =
+        typeof requestAuthHeader === 'string'
+          ? requestAuthHeader.replace(/^Bearer\s+/i, '')
+          : null;
+      if (requestToken !== null && requestToken === accessToken) {
+        unauthorizedHandler();
+      }
     }
 
     const originalRequest = error.config as (typeof error.config & {
