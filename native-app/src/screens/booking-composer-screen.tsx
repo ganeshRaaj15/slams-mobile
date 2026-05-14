@@ -182,9 +182,21 @@ export function BookingComposerScreen() {
       return;
     }
 
-    const hasMatchingService = labQuery.data.lab.services.some((service) => service.id === preselectedServiceId);
-    if (!hasMatchingService) {
+    const matchingService = labQuery.data.lab.services.find((service) => service.id === preselectedServiceId);
+    if (!matchingService) {
       setErrorMessage('The service linked to this QR code is no longer available. Choose another service.');
+      return;
+    }
+
+    const hasAssets = labQuery.data.lab.assets.some(
+      (asset) =>
+        asset.lab_service_id === preselectedServiceId &&
+        asset.quantity > 0 &&
+        asset.status.toLowerCase() !== 'maintenance' &&
+        asset.status.toLowerCase() !== 'faulty',
+    );
+    if (!hasAssets) {
+      setErrorMessage('The service linked to this QR code has no available equipment. Choose another service.');
     }
   }, [labQuery.data?.lab, preselectedServiceId]);
 
@@ -426,11 +438,21 @@ export function BookingComposerScreen() {
   const selectedFaculty =
     facultyModalIndex !== null ? applicants[facultyModalIndex]?.faculty_id?.toString() ?? null : null;
 
-  const serviceOptions = lab.services.map((service) => ({
-    id: String(service.id),
-    label: service.service_name,
-    subtitle: [service.field_name, service.equipment_models].filter(Boolean).join('  |  '),
-  }));
+  const serviceOptions = lab.services
+    .filter((service) =>
+      lab.assets.some(
+        (asset) =>
+          asset.lab_service_id === service.id &&
+          asset.quantity > 0 &&
+          asset.status.toLowerCase() !== 'maintenance' &&
+          asset.status.toLowerCase() !== 'faulty',
+      ),
+    )
+    .map((service) => ({
+      id: String(service.id),
+      label: service.service_name,
+      subtitle: [service.field_name, service.equipment_models].filter(Boolean).join('  |  '),
+    }));
   const slotLookupErrorMessage = selectedDaySlotsQuery.isError
     ? readSlotErrorMessage(selectedDaySlotsQuery.error)
     : recommendedSlotsQuery.isError
