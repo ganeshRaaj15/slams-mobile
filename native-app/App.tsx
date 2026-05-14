@@ -16,7 +16,7 @@ import {
 } from './src/auth/biometric-session';
 import { getRuntimeConfigurationIssues } from './src/config/env';
 import { openNotificationResponse } from './src/notifications/notification-target';
-import { navigateToStack } from './src/navigation/navigation-service';
+import { navigateToStack, pushToStack } from './src/navigation/navigation-service';
 import {
   clearStoredNativePushToken,
   shouldPromptForNativePushPermission,
@@ -219,7 +219,9 @@ function AppShell() {
       return;
     }
 
-    navigateToStack('BookingComposer', {
+    // push (not navigate) so each QR scan always mounts a fresh BookingComposer —
+    // navigate() reuses an existing stack instance and won't re-run useState initialisers.
+    pushToStack('BookingComposer', {
       labId: pendingLinkTarget.labId,
       preselectedServiceId: pendingLinkTarget.serviceId > 0 ? pendingLinkTarget.serviceId : undefined,
       preselectedAssetId: pendingLinkTarget.assetId > 0 ? pendingLinkTarget.assetId : undefined,
