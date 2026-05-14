@@ -228,6 +228,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         });
       }
     } catch (error: unknown) {
+      await clearBiometricSession();
       setApiAccessToken(null);
       set({
         status: 'unauthenticated',
