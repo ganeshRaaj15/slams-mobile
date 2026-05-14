@@ -12,6 +12,7 @@ class NativeBookingController extends WebBookingController
 {
     public function __construct()
     {
+        parent::__construct();
         helper('auth');
     }
 
