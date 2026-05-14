@@ -273,19 +273,18 @@ class BookingController extends BaseController
 
     protected function dayAssetsInternal(int $labId, string $date, array $selected): array
     {
-        if (empty($selected)) return [];
-
-        $slotDefs = $this->getSlotDefinitions();
-        $assetModel = new AssetModel();
+        $slotDefs     = $this->getSlotDefinitions();
         $bookingModel = new BookingModel();
 
-        $assets = $assetModel->where('lab_id', $labId)
-                             ->whereIn('id', array_keys($selected))
-                             ->findAll();
-
         $assetNames = [];
-        foreach ($assets as $a) {
-            $assetNames[(int)$a['id']] = $a['name'];
+        if (! empty($selected)) {
+            $assetModel = new AssetModel();
+            $assets = $assetModel->where('lab_id', $labId)
+                                 ->whereIn('id', array_keys($selected))
+                                 ->findAll();
+            foreach ($assets as $a) {
+                $assetNames[(int)$a['id']] = $a['name'];
+            }
         }
 
         $slots = [];
@@ -293,30 +292,32 @@ class BookingController extends BaseController
         $now   = date('H:i:s');
         foreach ($slotDefs as $slot) {
 
-            $remaining = $this->computeRemainingForSlot(
-                $labId, $date, $slot['start'], $slot['end'], $selected
-            );
-
             $assetsInfo = [];
-            $slotOK = true;
-            $reason = null;
+            $slotOK     = true;
+            $reason     = null;
 
             if ($bookingModel->hasLabConflict($labId, $date, $slot['start'], $slot['end'])) {
                 $slotOK = false;
                 $reason = 'Laboratory already booked for this slot.';
             }
 
-            foreach ($selected as $assetId => $need) {
-                $rem = $remaining[$assetId] ?? 0;
+            if (! empty($selected)) {
+                $remaining = $this->computeRemainingForSlot(
+                    $labId, $date, $slot['start'], $slot['end'], $selected
+                );
 
-                $assetsInfo[] = [
-                    'id'        => $assetId,
-                    'name'      => $assetNames[$assetId] ?? "Asset #$assetId",
-                    'requested' => $need,
-                    'remaining' => $rem,
-                ];
+                foreach ($selected as $assetId => $need) {
+                    $rem = $remaining[$assetId] ?? 0;
 
-                if ($rem < $need) $slotOK = false;
+                    $assetsInfo[] = [
+                        'id'        => $assetId,
+                        'name'      => $assetNames[$assetId] ?? "Asset #$assetId",
+                        'requested' => $need,
+                        'remaining' => $rem,
+                    ];
+
+                    if ($rem < $need) $slotOK = false;
+                }
             }
 
             if ($date < $today || ($date === $today && $slot['end'] <= $now)) {

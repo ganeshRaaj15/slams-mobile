@@ -68,7 +68,7 @@ class NativeBookingController extends WebBookingController
         $serviceId = (int) $this->request->getGet('service_id');
         $selected = $this->resolveSelectedAssets($labId, $serviceId, (string) $this->request->getGet('assets'));
 
-        if ($serviceId <= 0 || $selected === []) {
+        if ($serviceId <= 0) {
             return $this->response->setJSON([
                 'status' => 'success',
                 'slots' => [],

@@ -278,6 +278,8 @@ export function BookingComposerScreen() {
       .join(',');
   }, [selectedAssets]);
 
+  const hasServiceAssets = availableServiceAssets.length > 0;
+
   const recommendedSlotsQuery = useQuery({
     queryKey: ['recommended-slots', route.params.labId, selectedServiceId, assetSelectionString],
     queryFn: () =>
@@ -285,7 +287,7 @@ export function BookingComposerScreen() {
         service_id: selectedServiceId!,
         assets: assetSelectionString,
       }),
-    enabled: Boolean(selectedServiceId && assetSelectionString),
+    enabled: Boolean(selectedServiceId && (assetSelectionString || !hasServiceAssets)),
   });
 
   const selectedDaySlotsQuery = useQuery({
@@ -295,7 +297,7 @@ export function BookingComposerScreen() {
         service_id: selectedServiceId!,
         assets: assetSelectionString,
       }),
-    enabled: Boolean(selectedServiceId && assetSelectionString && selectedDate),
+    enabled: Boolean(selectedServiceId && selectedDate && (assetSelectionString || !hasServiceAssets)),
   });
 
   const recommendedSlots = useMemo(() => {
