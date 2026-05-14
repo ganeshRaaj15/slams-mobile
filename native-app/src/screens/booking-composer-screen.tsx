@@ -182,21 +182,9 @@ export function BookingComposerScreen() {
       return;
     }
 
-    const matchingService = labQuery.data.lab.services.find((service) => service.id === preselectedServiceId);
-    if (!matchingService) {
+    const hasMatchingService = labQuery.data.lab.services.some((service) => service.id === preselectedServiceId);
+    if (!hasMatchingService) {
       setErrorMessage('The service linked to this QR code is no longer available. Choose another service.');
-      return;
-    }
-
-    const hasAssets = labQuery.data.lab.assets.some(
-      (asset) =>
-        asset.lab_service_id === preselectedServiceId &&
-        asset.quantity > 0 &&
-        asset.status.toLowerCase() !== 'maintenance' &&
-        asset.status.toLowerCase() !== 'faulty',
-    );
-    if (!hasAssets) {
-      setErrorMessage('The service linked to this QR code has no available equipment. Choose another service.');
     }
   }, [labQuery.data?.lab, preselectedServiceId]);
 
