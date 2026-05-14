@@ -276,30 +276,23 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
   signOut: async () => {
-    const biometric = await loadBiometricState();
-    const preserveBiometricSession = biometric.isEnabled && biometric.isReady;
-
     await unregisterNativePushRegistration();
 
-    if (!preserveBiometricSession) {
-      try {
-        await logoutRequest();
-      } catch (_error) {
-        // Ignore logout transport errors and clear the local session anyway.
-      }
+    try {
+      await logoutRequest();
+    } catch (_error) {
+      // Ignore transport errors and clear the local session anyway.
     }
 
     await SecureStore.deleteItemAsync(TOKEN_KEY);
-    if (!preserveBiometricSession) {
-      await clearBiometricSession();
-    }
+    await clearBiometricSession();
     setApiAccessToken(null);
     set({
       status: 'unauthenticated',
       token: null,
       user: null,
       error: null,
-      biometric,
+      biometric: await loadBiometricState(),
     });
   },
   clearLocalSession: async (message) => {
