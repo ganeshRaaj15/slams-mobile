@@ -28,7 +28,6 @@ export function NotificationsScreen() {
     mutationFn: markNotificationReadRequest,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },
   });
 
@@ -36,7 +35,6 @@ export function NotificationsScreen() {
     mutationFn: markAllNotificationsReadRequest,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },
   });
 
