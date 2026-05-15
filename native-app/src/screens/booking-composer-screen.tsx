@@ -1164,7 +1164,7 @@ export function BookingComposerScreen() {
       ) : null}
 
       <Pressable
-        disabled={submitMutation.isPending}
+        disabled={submitMutation.isPending || slotCheckMutation.isPending}
         onPress={() => {
           void handleSubmit();
         }}
@@ -1172,12 +1172,16 @@ export function BookingComposerScreen() {
           styles.submitButton,
           {
             backgroundColor: theme.colors.primary,
-            opacity: submitMutation.isPending ? 0.7 : 1,
+            opacity: submitMutation.isPending || slotCheckMutation.isPending ? 0.7 : 1,
           },
         ]}
       >
         <Text style={styles.submitButtonText}>
-          {submitMutation.isPending ? 'Submitting Booking...' : 'Submit Booking'}
+          {submitMutation.isPending
+            ? 'Submitting Booking...'
+            : slotCheckMutation.isPending
+              ? 'Verifying slot...'
+              : 'Submit Booking'}
         </Text>
       </Pressable>
 

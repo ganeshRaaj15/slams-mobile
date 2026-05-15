@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '../theme/use-app-theme';
@@ -37,17 +37,23 @@ export function Screen({ children, scroll = true }: ScreenProps) {
       ]}
     >
       <Backdrop />
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          {
-            padding: theme.spacing.lg,
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.fill}
       >
-        {children}
-      </ScrollView>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            {
+              padding: theme.spacing.lg,
+            },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 
