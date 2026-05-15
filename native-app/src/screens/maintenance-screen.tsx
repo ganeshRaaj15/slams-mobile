@@ -114,7 +114,7 @@ export function MaintenanceScreen() {
       <View style={styles.filterRow}>
         {[
           { id: 'mine', label: 'My Cases' },
-          { id: 'all', label: 'All Open' },
+          { id: 'all', label: 'All Cases' },
           { id: 'testing', label: 'Testing' },
         ].map((filter) => {
           const active = filterMode === filter.id;
