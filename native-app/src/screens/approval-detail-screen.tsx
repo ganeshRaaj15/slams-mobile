@@ -24,6 +24,7 @@ export function ApprovalDetailScreen() {
   const queryClient = useQueryClient();
   const [documentError, setDocumentError] = useState<string | null>(null);
   const [documentBusy, setDocumentBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const detailQuery = useQuery({
     queryKey: ['approval-queue-item', route.params.bookingId],
@@ -32,19 +33,27 @@ export function ApprovalDetailScreen() {
 
   const approveMutation = useMutation({
     mutationFn: approveBookingRequest,
+    onMutate: () => { setActionError(null); },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['approval-queue'] });
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
       navigation.goBack();
     },
+    onError: (error) => {
+      setActionError(readErrorMessage(error, 'Approval failed. Please try again.'));
+    },
   });
 
   const rejectMutation = useMutation({
     mutationFn: rejectBookingRequest,
+    onMutate: () => { setActionError(null); },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['approval-queue'] });
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
       navigation.goBack();
+    },
+    onError: (error) => {
+      setActionError(readErrorMessage(error, 'Rejection failed. Please try again.'));
     },
   });
 
@@ -224,6 +233,9 @@ export function ApprovalDetailScreen() {
         </View>
       ) : null}
 
+      {actionError ? (
+        <Text style={[styles.actionError, { color: theme.colors.danger }]}>{actionError}</Text>
+      ) : null}
       <View style={styles.actionRow}>
         <Pressable
           disabled={rejectMutation.isPending || approveMutation.isPending}
@@ -320,6 +332,12 @@ const styles = StyleSheet.create({
   documentError: {
     fontSize: 12,
     lineHeight: 18,
+  },
+  actionError: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   actionRow: {
     flexDirection: 'row',
