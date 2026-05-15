@@ -34,7 +34,7 @@ type SelectedAssetState = {
 
 const DEVICE_CLOCK_REFRESH_MS = 30000;
 
-function emptyApplicant(emailDomainLabel?: string): BookingApplicantInput {
+function emptyApplicant(): BookingApplicantInput {
   return {
     name: '',
     matric_id: '',

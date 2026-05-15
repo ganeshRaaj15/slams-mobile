@@ -163,7 +163,7 @@ export type ExternalRequest = {
   preferred_end_time: string;
   purpose: string;
   equipment_notes: string;
-  booking_id: number;
+  booking_id: number | null;
   status: string;
   status_label: string;
   current_approval_stage: string;
