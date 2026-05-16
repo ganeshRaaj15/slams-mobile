@@ -981,6 +981,13 @@ export async function createIssueReportRequest(payload: {
   return data;
 }
 
+export async function claimMaintenanceRequest(maintenanceId: number) {
+  const response = await api.post<ApiEnvelope<{ maintenance_id: number }>>(
+    `/api/native/maintenance/${maintenanceId}/claim`,
+  );
+  return response.data;
+}
+
 export async function listMaintenanceRequest(params?: {
   status?: string;
   asset_id?: number;

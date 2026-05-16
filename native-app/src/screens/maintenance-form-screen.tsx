@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
+  claimMaintenanceRequest,
   createMaintenanceRequest,
   getMaintenanceRequest,
   listMaintenanceRequest,
@@ -124,6 +125,14 @@ export function MaintenanceFormScreen() {
       await queryClient.invalidateQueries({ queryKey: ['notifications'] });
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
       navigation.goBack();
+    },
+  });
+
+  const claimMutation = useMutation({
+    mutationFn: () => claimMaintenanceRequest(maintenanceId!),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['maintenance-workspace'] });
+      await queryClient.invalidateQueries({ queryKey: ['maintenance-record', maintenanceId] });
     },
   });
 
@@ -311,6 +320,28 @@ export function MaintenanceFormScreen() {
                 <Text style={[styles.caseDescription, { color: theme.colors.text }]} numberOfLines={3}>
                   {record.description}
                 </Text>
+              ) : null}
+
+              {/* Assignment status */}
+              {record.technician_name ? (
+                <View style={[styles.assignmentCard, { backgroundColor: theme.colors.successSoft }]}>
+                  <Text style={[styles.assignmentLabel, { color: theme.colors.success }]}>Claimed by</Text>
+                  <Text style={[styles.assignmentName, { color: theme.colors.success }]}>{record.technician_name}</Text>
+                </View>
+              ) : record.status === 'reported' ? (
+                <View style={[styles.assignmentCard, { backgroundColor: theme.colors.warningSoft }]}>
+                  <Text style={[styles.assignmentLabel, { color: theme.colors.warning }]}>Not yet claimed</Text>
+                  <Pressable
+                    disabled={claimMutation.isPending}
+                    onPress={() => { void claimMutation.mutateAsync(); }}
+                    style={[styles.claimButton, { backgroundColor: theme.colors.successSoft, opacity: claimMutation.isPending ? 0.7 : 1 }]}
+                  >
+                    <Text style={[styles.claimButtonText, { color: theme.colors.success }]}>Claim This Case</Text>
+                  </Pressable>
+                  <Text style={[styles.assignmentHint, { color: theme.colors.textMuted }]}>
+                    Claiming notifies other technicians not to duplicate this work.
+                  </Text>
+                </View>
               ) : null}
 
               {record.asset_prediction ? (
@@ -771,6 +802,34 @@ const styles = StyleSheet.create({
   caseDescription: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  assignmentCard: {
+    borderRadius: 14,
+    gap: 8,
+    padding: 14,
+  },
+  assignmentLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  assignmentName: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  assignmentHint: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  claimButton: {
+    alignItems: 'center',
+    borderRadius: 10,
+    paddingVertical: 10,
+  },
+  claimButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
   },
   predictionCard: {
     borderRadius: 14,

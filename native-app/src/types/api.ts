@@ -510,6 +510,8 @@ export type MaintenanceRecordSummary = {
   created_at: string;
   updated_at: string;
   is_locked: boolean;
+  assigned_technician_id: number;
+  technician_name: string;
 };
 
 export type MaintenanceLogItem = {

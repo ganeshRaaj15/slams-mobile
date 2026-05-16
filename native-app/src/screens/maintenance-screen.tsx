@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { listMaintenanceRequest } from '../api/endpoints';
+import { claimMaintenanceRequest, listMaintenanceRequest } from '../api/endpoints';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
@@ -21,6 +21,7 @@ export function MaintenanceScreen() {
   const role = useAuthStore((state) => state.user?.primary_role ?? 'student');
   const [filterMode, setFilterMode] = useState<FilterMode>('mine');
 
+  const queryClient = useQueryClient();
   const canUseMaintenance = role === 'technician';
   const queryParams = useMemo(() => {
     if (filterMode === 'testing') {
@@ -34,6 +35,13 @@ export function MaintenanceScreen() {
     queryKey: ['maintenance-workspace', queryParams],
     queryFn: () => listMaintenanceRequest(queryParams),
     enabled: canUseMaintenance,
+  });
+
+  const claimMutation = useMutation({
+    mutationFn: claimMaintenanceRequest,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['maintenance-workspace'] });
+    },
   });
 
   if (!canUseMaintenance) {
@@ -195,6 +203,26 @@ export function MaintenanceScreen() {
               Quantity {record.quantity_affected}
               {record.unit_reference ? `  |  Unit ${record.unit_reference}` : ''}
             </Text>
+
+            {record.technician_name ? (
+              <Text style={[styles.cardBody, { color: theme.colors.textMuted }]}>
+                Claimed by {record.technician_name}
+              </Text>
+            ) : record.status === 'reported' ? (
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  claimMutation.mutate(record.id);
+                }}
+                style={[styles.claimButton, { backgroundColor: theme.colors.successSoft }]}
+              >
+                <Text style={[styles.claimButtonText, { color: theme.colors.success }]}>
+                  Claim This Case
+                </Text>
+              </Pressable>
+            ) : (
+              <Text style={[styles.cardBody, { color: theme.colors.textMuted }]}>Unassigned</Text>
+            )}
           </Pressable>
         ))
       )}
@@ -273,5 +301,14 @@ const styles = StyleSheet.create({
   cardBody: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  claimButton: {
+    alignItems: 'center',
+    borderRadius: 10,
+    paddingVertical: 10,
+  },
+  claimButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
   },
 });
