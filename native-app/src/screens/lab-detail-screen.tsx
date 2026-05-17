@@ -246,6 +246,24 @@ export function LabDetailScreen() {
         )}
       </View>
 
+      {(() => {
+        const assetsUnderMaintenance = lab.assets.filter(
+          (a) => (a.status ?? '').toLowerCase() === 'maintenance',
+        );
+        return assetsUnderMaintenance.length > 0 ? (
+          <View style={[styles.maintenanceBanner, { backgroundColor: theme.colors.warningSoft }]}>
+            <Text style={[styles.maintenanceBannerTitle, { color: theme.colors.warning }]}>
+              Equipment Notice
+            </Text>
+            <Text style={[styles.maintenanceBannerText, { color: theme.colors.text }]}>
+              {assetsUnderMaintenance.length} item{assetsUnderMaintenance.length > 1 ? 's' : ''} in this lab{' '}
+              {assetsUnderMaintenance.length > 1 ? 'are' : 'is'} currently under maintenance and may not be
+              available for use.
+            </Text>
+          </View>
+        ) : null;
+      })()}
+
       <View
         style={[
           styles.sectionCard,
@@ -271,48 +289,61 @@ export function LabDetailScreen() {
             message="Assets for this laboratory have not been added yet."
           />
         ) : (
-          lab.assets.map((asset) => (
-            <View
-              key={asset.id}
-              style={[
-                styles.innerCard,
-                {
-                  backgroundColor: theme.colors.surfaceMuted,
-                },
-              ]}
-            >
-              <Text
+          lab.assets.map((asset) => {
+            const isUnderMaintenance = (asset.status ?? '').toLowerCase() === 'maintenance';
+            return (
+              <View
+                key={asset.id}
                 style={[
-                  styles.innerTitle,
+                  styles.innerCard,
                   {
-                    color: theme.colors.text,
+                    backgroundColor: isUnderMaintenance
+                      ? theme.colors.warningSoft
+                      : theme.colors.surfaceMuted,
                   },
                 ]}
               >
-                {asset.name}
-              </Text>
-              <Text
-                style={[
-                  styles.innerText,
-                  {
-                    color: theme.colors.textMuted,
-                  },
-                ]}
-              >
-                {asset.category || 'Uncategorized'}  |  {asset.status || 'Unknown status'}
-              </Text>
-              <Text
-                style={[
-                  styles.innerText,
-                  {
-                    color: theme.colors.textMuted,
-                  },
-                ]}
-              >
-                Available: {asset.quantity} / {asset.total_quantity}
-              </Text>
-            </View>
-          ))
+                <View style={styles.assetTitleRow}>
+                  <Text
+                    style={[
+                      styles.innerTitle,
+                      {
+                        color: theme.colors.text,
+                        flex: 1,
+                      },
+                    ]}
+                  >
+                    {asset.name}
+                  </Text>
+                  {isUnderMaintenance ? (
+                    <View style={[styles.maintenancePill, { backgroundColor: theme.colors.warning }]}>
+                      <Text style={styles.maintenancePillText}>Under Maintenance</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text
+                  style={[
+                    styles.innerText,
+                    {
+                      color: theme.colors.textMuted,
+                    },
+                  ]}
+                >
+                  {asset.category || 'Uncategorized'}
+                </Text>
+                <Text
+                  style={[
+                    styles.innerText,
+                    {
+                      color: theme.colors.textMuted,
+                    },
+                  ]}
+                >
+                  Available: {asset.quantity} / {asset.total_quantity}
+                </Text>
+              </View>
+            );
+          })
         )}
       </View>
     </Screen>
@@ -391,5 +422,33 @@ const styles = StyleSheet.create({
   innerText: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  maintenanceBanner: {
+    borderRadius: 16,
+    gap: 6,
+    padding: 16,
+  },
+  maintenanceBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  maintenanceBannerText: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  assetTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  maintenancePill: {
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  maintenancePillText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '800',
   },
 });

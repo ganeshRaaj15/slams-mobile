@@ -344,21 +344,50 @@ export function MaintenanceFormScreen() {
                 </View>
               ) : null}
 
-              {record.asset_prediction ? (
-                <View style={[styles.predictionCard, { backgroundColor: theme.colors.primarySoft }]}>
-                  <Text style={[styles.predictionTitle, { color: theme.colors.primary }]}>
-                    Predictive maintenance signal
-                  </Text>
-                  <Text style={[styles.predictionText, { color: theme.colors.text }]}>
-                    Risk {record.asset_prediction.risk_percent}%  ·  {record.asset_prediction.decision?.label || 'Normal monitoring'}
-                  </Text>
-                  {record.asset_prediction.reasons?.[0] ? (
-                    <Text style={[styles.predictionText, { color: theme.colors.textMuted }]}>
-                      {record.asset_prediction.reasons[0]}
+              {record.asset_prediction ? (() => {
+                const pred = record.asset_prediction;
+                const band = pred.risk_band ?? 'low';
+                const pct = pred.risk_percent ?? 0;
+                const predBgColor = band === 'high' ? theme.colors.dangerSoft : band === 'medium' ? theme.colors.warningSoft : theme.colors.successSoft;
+                const predAccent = band === 'high' ? theme.colors.danger : band === 'medium' ? theme.colors.warning : theme.colors.success;
+                const predHeadline = band === 'high'
+                  ? 'Maintenance likely needed urgently'
+                  : band === 'medium'
+                  ? 'Maintenance recommended within 60 days'
+                  : 'Equipment appears stable';
+                return (
+                  <View style={[styles.predictionCard, { backgroundColor: predBgColor }]}>
+                    <Text style={[styles.predictionTitle, { color: predAccent }]}>
+                      AI Maintenance Prediction
                     </Text>
-                  ) : null}
-                </View>
-              ) : null}
+                    <Text style={[styles.predictionHeadline, { color: predAccent }]}>
+                      {predHeadline}
+                    </Text>
+                    <View style={styles.predictionRiskRow}>
+                      <Text style={[styles.predictionText, { color: theme.colors.text }]}>Risk Score</Text>
+                      <Text style={[styles.predictionBadge, { color: predAccent }]}>{pct}%</Text>
+                    </View>
+                    <View style={[styles.predictionBar, { backgroundColor: theme.colors.border }]}>
+                      <View style={[styles.predictionBarFill, { width: `${pct}%` as any, backgroundColor: predAccent }]} />
+                    </View>
+                    <Text style={[styles.predictionText, { color: theme.colors.text }]}>
+                      {pred.decision?.label || 'Normal monitoring'}  ·  {(pred.decision?.priority ?? 'low').charAt(0).toUpperCase() + (pred.decision?.priority ?? 'low').slice(1)} priority
+                    </Text>
+                    {pred.reasons && pred.reasons.length > 0 ? (
+                      <View style={styles.predictionReasons}>
+                        <Text style={[styles.predictionText, { color: theme.colors.textMuted, fontWeight: '700' }]}>
+                          Why the model flagged this:
+                        </Text>
+                        {pred.reasons.map((reason, idx) => (
+                          <Text key={idx} style={[styles.predictionText, { color: theme.colors.textMuted }]}>
+                            {'• '}{reason}
+                          </Text>
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })() : null}
             </View>
           ) : null}
 
@@ -837,8 +866,38 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   predictionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  predictionHeadline: {
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  predictionRiskRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  predictionBadge: {
     fontSize: 14,
     fontWeight: '800',
+  },
+  predictionBar: {
+    height: 6,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  predictionBarFill: {
+    height: 6,
+    borderRadius: 4,
+  },
+  predictionReasons: {
+    gap: 4,
+    marginTop: 4,
   },
   predictionText: {
     fontSize: 13,
