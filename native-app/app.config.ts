@@ -9,6 +9,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: 'slams-native',
   owner: 'ganeshraaj15',
   version: '1.0.0',
+  icon: './assets/icon.png',
+  splash: {
+    image: './assets/splash-icon.png',
+    resizeMode: 'contain',
+    backgroundColor: '#f5f8f6',
+  },
   runtimeVersion: {
     policy: 'appVersion',
   },
