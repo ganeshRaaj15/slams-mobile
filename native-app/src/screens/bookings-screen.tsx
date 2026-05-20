@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { cancelBookingRequest, listBookingsRequest } from '../api/endpoints';
+import { AnimatedListItem } from '../components/animated-list-item';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
@@ -100,9 +101,9 @@ export function BookingsScreen() {
           message="Bookings you submit in SLAMS will appear here."
         />
       ) : (
-        bookingsQuery.data.bookings.map((booking) => (
+        bookingsQuery.data.bookings.map((booking, index) => (
+          <AnimatedListItem key={booking.id} index={index}>
           <Pressable
-            key={booking.id}
             onPress={() => navigation.navigate('BookingDetail', { bookingId: booking.id })}
             style={[
               styles.card,
@@ -144,6 +145,7 @@ export function BookingsScreen() {
               </Pressable>
             ) : null}
           </Pressable>
+          </AnimatedListItem>
         ))
       )}
     </Screen>

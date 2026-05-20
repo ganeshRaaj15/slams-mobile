@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { listApprovalQueueRequest } from '../api/endpoints';
+import { AnimatedListItem } from '../components/animated-list-item';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
@@ -123,9 +124,9 @@ export function ApprovalsScreen() {
           message="The current approval queue is clear."
         />
       ) : (
-        queueQuery.data.bookings.map((booking) => (
+        queueQuery.data.bookings.map((booking, index) => (
+          <AnimatedListItem key={booking.id} index={index}>
           <Pressable
-            key={booking.id}
             onPress={() => navigation.navigate('ApprovalDetail', { bookingId: booking.id })}
             style={[
               styles.card,
@@ -194,6 +195,7 @@ export function ApprovalsScreen() {
               </View>
             ) : null}
           </Pressable>
+          </AnimatedListItem>
         ))
       )}
     </Screen>

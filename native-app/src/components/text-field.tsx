@@ -1,5 +1,6 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Animated, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useAppTheme } from '../theme/use-app-theme';
 
@@ -9,8 +10,40 @@ type TextFieldProps = ComponentProps<typeof TextInput> & {
   rightAccessory?: ReactNode;
 };
 
-export function TextField({ label, hint, rightAccessory, style, ...props }: TextFieldProps) {
+export function TextField({ label, hint, rightAccessory, style, onFocus, onBlur, ...props }: TextFieldProps) {
   const theme = useAppTheme();
+  const [focused, setFocused] = useState(false);
+  const focusAnim = useRef(new Animated.Value(0)).current;
+
+  function handleFocus(e: Parameters<NonNullable<ComponentProps<typeof TextInput>['onFocus']>>[0]) {
+    setFocused(true);
+    Animated.timing(focusAnim, {
+      toValue: 1,
+      duration: 150,
+      useNativeDriver: false,
+    }).start();
+    onFocus?.(e);
+  }
+
+  function handleBlur(e: Parameters<NonNullable<ComponentProps<typeof TextInput>['onBlur']>>[0]) {
+    setFocused(false);
+    Animated.timing(focusAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: false,
+    }).start();
+    onBlur?.(e);
+  }
+
+  const borderColor = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.colors.borderStrong, theme.colors.primary],
+  });
+
+  const backgroundColor = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.colors.surfaceMuted, theme.colors.surface],
+  });
 
   return (
     <View style={styles.wrap}>
@@ -18,7 +51,7 @@ export function TextField({ label, hint, rightAccessory, style, ...props }: Text
         style={[
           styles.label,
           {
-            color: theme.colors.text,
+            color: focused ? theme.colors.primary : theme.colors.text,
           },
         ]}
       >
@@ -37,20 +70,30 @@ export function TextField({ label, hint, rightAccessory, style, ...props }: Text
         </Text>
       ) : null}
       <View style={styles.inputWrap}>
-        <TextInput
-          placeholderTextColor={theme.colors.textMuted}
+        <Animated.View
           style={[
-            styles.input,
+            styles.inputContainer,
             {
-              backgroundColor: theme.colors.surfaceMuted,
-              borderColor: theme.colors.borderStrong,
-              color: theme.colors.text,
+              borderColor,
+              backgroundColor,
             },
-            rightAccessory ? styles.inputWithAccessory : null,
-            style,
           ]}
-          {...props}
-        />
+        >
+          <TextInput
+            placeholderTextColor={theme.colors.textMuted}
+            style={[
+              styles.input,
+              {
+                color: theme.colors.text,
+              },
+              rightAccessory ? styles.inputWithAccessory : null,
+              style,
+            ]}
+            onBlur={handleBlur}
+            onFocus={handleFocus}
+            {...props}
+          />
+        </Animated.View>
         {rightAccessory ? <View style={styles.accessory}>{rightAccessory}</View> : null}
       </View>
     </View>
@@ -73,9 +116,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-  input: {
+  inputContainer: {
     borderRadius: 14,
     borderWidth: 1,
+  },
+  input: {
     fontSize: 15,
     paddingHorizontal: 14,
     paddingVertical: 12,

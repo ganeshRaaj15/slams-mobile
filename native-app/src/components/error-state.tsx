@@ -1,5 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
+import { textStyle } from '../theme/palette';
 import { useAppTheme } from '../theme/use-app-theme';
 
 export function ErrorState({
@@ -16,16 +18,27 @@ export function ErrorState({
       style={[
         styles.card,
         {
-          backgroundColor: theme.colors.dangerSoft,
+          backgroundColor: theme.colors.surface,
           borderColor: theme.colors.danger,
         },
       ]}
     >
+      <View
+        style={[
+          styles.iconWrap,
+          {
+            backgroundColor: theme.colors.dangerSoft,
+          },
+        ]}
+      >
+        <Ionicons color={theme.colors.danger} name="alert-circle" size={theme.iconSize.lg} />
+      </View>
       <Text
         style={[
+          textStyle.heading,
           styles.title,
           {
-            color: theme.colors.text,
+            color: theme.colors.heading,
           },
         ]}
       >
@@ -33,6 +46,7 @@ export function ErrorState({
       </Text>
       <Text
         style={[
+          textStyle.caption,
           styles.message,
           {
             color: theme.colors.textMuted,
@@ -43,15 +57,19 @@ export function ErrorState({
       </Text>
       {onRetry ? (
         <Pressable
+          accessibilityLabel="Retry"
+          accessibilityRole="button"
           onPress={onRetry}
-          style={[
+          style={({ pressed }) => [
             styles.button,
             {
               backgroundColor: theme.colors.danger,
+              opacity: pressed ? 0.82 : 1,
             },
           ]}
         >
-          <Text style={styles.buttonText}>Retry</Text>
+          <Ionicons color="#ffffff" name="refresh-outline" size={theme.iconSize.xs} />
+          <Text style={[textStyle.label, styles.buttonText]}>Try again</Text>
         </Pressable>
       ) : null}
     </View>
@@ -60,29 +78,37 @@ export function ErrorState({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    alignItems: 'center',
+    borderRadius: 18,
     borderWidth: 1,
-    gap: 8,
-    padding: 16,
+    gap: 10,
+    padding: 28,
+  },
+  iconWrap: {
+    alignItems: 'center',
+    borderRadius: 20,
+    height: 68,
+    justifyContent: 'center',
+    marginBottom: 2,
+    width: 68,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
+    textAlign: 'center',
   },
   message: {
-    fontSize: 14,
-    lineHeight: 20,
+    textAlign: 'center',
   },
   button: {
-    alignSelf: 'flex-start',
+    alignItems: 'center',
+    alignSelf: 'center',
     borderRadius: 12,
-    marginTop: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
   },
   buttonText: {
     color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
   },
 });

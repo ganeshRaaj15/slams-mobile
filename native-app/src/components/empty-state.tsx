@@ -1,10 +1,15 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
+import { textStyle } from '../theme/palette';
 import { useAppTheme } from '../theme/use-app-theme';
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 type EmptyStateProps = {
   title: string;
   message: string;
+  icon?: IoniconName;
   actionLabel?: string;
   onActionPress?: () => void;
 };
@@ -12,6 +17,7 @@ type EmptyStateProps = {
 export function EmptyState({
   title,
   message,
+  icon = 'folder-open-outline',
   actionLabel,
   onActionPress,
 }: EmptyStateProps) {
@@ -27,11 +33,22 @@ export function EmptyState({
         },
       ]}
     >
+      <View
+        style={[
+          styles.iconWrap,
+          {
+            backgroundColor: theme.colors.primarySoft,
+          },
+        ]}
+      >
+        <Ionicons color={theme.colors.primary} name={icon} size={theme.iconSize.lg} />
+      </View>
       <Text
         style={[
+          textStyle.heading,
           styles.title,
           {
-            color: theme.colors.text,
+            color: theme.colors.heading,
           },
         ]}
       >
@@ -39,6 +56,7 @@ export function EmptyState({
       </Text>
       <Text
         style={[
+          textStyle.caption,
           styles.message,
           {
             color: theme.colors.textMuted,
@@ -49,15 +67,17 @@ export function EmptyState({
       </Text>
       {actionLabel && onActionPress ? (
         <Pressable
+          accessibilityRole="button"
           onPress={onActionPress}
-          style={[
+          style={({ pressed }) => [
             styles.button,
             {
               backgroundColor: theme.colors.primary,
+              opacity: pressed ? 0.82 : 1,
             },
           ]}
         >
-          <Text style={styles.buttonText}>{actionLabel}</Text>
+          <Text style={[textStyle.label, styles.buttonText]}>{actionLabel}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -66,29 +86,34 @@ export function EmptyState({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    alignItems: 'center',
+    borderRadius: 18,
     borderWidth: 1,
-    gap: 8,
-    padding: 16,
+    gap: 10,
+    padding: 28,
+  },
+  iconWrap: {
+    alignItems: 'center',
+    borderRadius: 20,
+    height: 68,
+    justifyContent: 'center',
+    marginBottom: 2,
+    width: 68,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
+    textAlign: 'center',
   },
   message: {
-    fontSize: 14,
-    lineHeight: 20,
+    textAlign: 'center',
   },
   button: {
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     borderRadius: 12,
-    marginTop: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    marginTop: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
   },
   buttonText: {
     color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
   },
 });

@@ -1,16 +1,72 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import type { ToneKey } from '../types/api';
+import { textStyle } from '../theme/palette';
 import { useAppTheme } from '../theme/use-app-theme';
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+type TrendProp = {
+  value: number;
+  direction: 'up' | 'down' | 'neutral';
+};
+
+function CountUpValue({ value, color }: { value: number | string; color: string }) {
+  const animatedValue = useRef(new Animated.Value(0)).current;
+  const numericValue = typeof value === 'number' ? value : parseFloat(String(value));
+  const isNumeric = !isNaN(numericValue);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+  }, []);
+
+  useEffect(() => {
+    if (!isNumeric) return;
+    if (reduceMotion) {
+      animatedValue.setValue(numericValue);
+      return;
+    }
+    animatedValue.setValue(0);
+    Animated.timing(animatedValue, {
+      toValue: numericValue,
+      duration: 600,
+      useNativeDriver: false,
+    }).start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numericValue, reduceMotion]);
+
+  if (!isNumeric) {
+    return (
+      <Text style={[textStyle.display, styles.value, { color }]}>{value}</Text>
+    );
+  }
+
+  return (
+    <Animated.Text style={[textStyle.display, styles.value, { color }]}>
+      {animatedValue.interpolate({
+        inputRange: [0, numericValue === 0 ? 1 : numericValue],
+        outputRange: ['0', String(numericValue)],
+        extrapolate: 'clamp',
+      }) as unknown as string}
+    </Animated.Text>
+  );
+}
 
 export function StatCard({
   label,
   value,
   tone = 'neutral',
+  icon,
+  trend,
 }: {
   label: string;
   value: number | string;
   tone?: ToneKey;
+  icon?: IoniconName;
+  trend?: TrendProp;
 }) {
   const theme = useAppTheme();
   const cardShadow = {
@@ -30,6 +86,12 @@ export function StatCard({
     neutral: { backgroundColor: theme.colors.surfaceMuted, valueColor: theme.colors.heading },
   }[tone];
 
+  const trendIcon: IoniconName =
+    !trend ? 'remove-outline'
+    : trend.direction === 'up' ? 'arrow-up-outline'
+    : trend.direction === 'down' ? 'arrow-down-outline'
+    : 'remove-outline';
+
   return (
     <View
       style={[
@@ -41,8 +103,21 @@ export function StatCard({
         },
       ]}
     >
+      {icon ? (
+        <View
+          style={[
+            styles.iconCircle,
+            {
+              backgroundColor: toneStyle.backgroundColor,
+            },
+          ]}
+        >
+          <Ionicons color={toneStyle.valueColor} name={icon} size={theme.iconSize.sm} />
+        </View>
+      ) : null}
       <Text
         style={[
+          textStyle.label,
           styles.label,
           {
             color: theme.colors.textMuted,
@@ -60,17 +135,38 @@ export function StatCard({
           },
         ]}
       >
-        <Text
-          style={[
-            styles.value,
-            {
-              color: toneStyle.valueColor,
-            },
-          ]}
-        >
-          {value}
-        </Text>
+        <CountUpValue color={toneStyle.valueColor} value={value} />
       </View>
+      {trend ? (
+        <View style={styles.trendRow}>
+          <Ionicons
+            color={
+              trend.direction === 'up'
+                ? theme.colors.success
+                : trend.direction === 'down'
+                  ? theme.colors.danger
+                  : theme.colors.textMuted
+            }
+            name={trendIcon}
+            size={theme.iconSize.xs}
+          />
+          <Text
+            style={[
+              styles.trendText,
+              {
+                color:
+                  trend.direction === 'up'
+                    ? theme.colors.success
+                    : trend.direction === 'down'
+                      ? theme.colors.danger
+                      : theme.colors.textMuted,
+              },
+            ]}
+          >
+            {trend.value > 0 ? '+' : ''}{trend.value}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -83,9 +179,15 @@ const styles = StyleSheet.create({
     minWidth: '47%',
     padding: 15,
   },
+  iconCircle: {
+    alignItems: 'center',
+    borderRadius: 18,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
   label: {
-    fontSize: 13,
-    fontWeight: '700',
+    // color applied inline via theme
   },
   valueWrap: {
     alignSelf: 'flex-start',
@@ -95,7 +197,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   value: {
-    fontSize: 22,
-    fontWeight: '800',
+    // fontSize/fontWeight come from textStyle.display; color applied inline
+  },
+  trendRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 3,
+  },
+  trendText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

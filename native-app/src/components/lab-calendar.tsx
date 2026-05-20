@@ -22,6 +22,28 @@ function monthLabel(year: number, month: number) {
   });
 }
 
+function buildWeeks(year: number, month: number): (number | null)[][] {
+  const firstDayOfWeek = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const weeks: (number | null)[][] = [];
+  let week: (number | null)[] = Array(firstDayOfWeek).fill(null);
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    week.push(d);
+    if (week.length === 7) {
+      weeks.push(week);
+      week = [];
+    }
+  }
+
+  if (week.length > 0) {
+    while (week.length < 7) week.push(null);
+    weeks.push(week);
+  }
+
+  return weeks;
+}
+
 type Props = {
   labId: number;
 };
@@ -43,34 +65,23 @@ export function LabCalendar({ labId }: Props) {
 
   const dayQuery = useQuery({
     queryKey: ['lab-day-slots', labId, selectedDate],
-    queryFn: () =>
-      listDaySlotsRequest(labId, selectedDate!, { service_id: 0, assets: '' }),
+    queryFn: () => listDaySlotsRequest(labId, selectedDate!, { service_id: 0, assets: '' }),
     enabled: !!selectedDate,
     staleTime: 60 * 1000,
   });
 
   const unavailableSet = new Set<string>(calendarQuery.data?.unavailableDates ?? []);
-
-  const firstDayOfWeek = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const weeks = buildWeeks(year, month);
 
   function prevMonth() {
-    if (month === 0) {
-      setYear((y) => y - 1);
-      setMonth(11);
-    } else {
-      setMonth((m) => m - 1);
-    }
+    if (month === 0) { setYear((y) => y - 1); setMonth(11); }
+    else { setMonth((m) => m - 1); }
     setSelectedDate(null);
   }
 
   function nextMonth() {
-    if (month === 11) {
-      setYear((y) => y + 1);
-      setMonth(0);
-    } else {
-      setMonth((m) => m + 1);
-    }
+    if (month === 11) { setYear((y) => y + 1); setMonth(0); }
+    else { setMonth((m) => m + 1); }
     setSelectedDate(null);
   }
 
@@ -79,68 +90,9 @@ export function LabCalendar({ labId }: Props) {
     setSelectedDate((prev) => (prev === ds ? null : ds));
   }
 
-  const cells: React.ReactNode[] = DAY_LABELS.map((label) => (
-    <View key={label} style={styles.headerCell}>
-      <Text style={[styles.headerText, { color: theme.colors.textMuted }]}>{label}</Text>
-    </View>
-  ));
-
-  for (let i = 0; i < firstDayOfWeek; i++) {
-    cells.push(<View key={`empty-${i}`} style={styles.cell} />);
-  }
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const ds = dateStr(year, month, d);
-    const cellDate = new Date(year, month, d);
-    cellDate.setHours(0, 0, 0, 0);
-    const isPast = cellDate < today;
-    const isToday = cellDate.getTime() === today.getTime();
-    const isUnavailable = !isPast && unavailableSet.has(ds);
-    const isSelected = selectedDate === ds;
-    const isAvailable = !isPast && !isUnavailable;
-
-    let bg = 'transparent';
-    let textColor = theme.colors.textMuted;
-    let borderColor = 'transparent';
-
-    if (isToday) {
-      bg = theme.colors.primarySoft;
-      textColor = theme.colors.primary;
-      borderColor = theme.colors.primary;
-    } else if (isSelected) {
-      bg = theme.colors.primary;
-      textColor = '#ffffff';
-    } else if (isUnavailable) {
-      bg = theme.colors.dangerSoft ?? '#ffe4e4';
-      textColor = theme.colors.danger;
-    } else if (isAvailable) {
-      textColor = theme.colors.text;
-    }
-
-    cells.push(
-      <Pressable
-        key={ds}
-        disabled={isPast || isUnavailable}
-        onPress={() => handleDayPress(ds, isPast, isUnavailable)}
-        style={[
-          styles.cell,
-          {
-            backgroundColor: bg,
-            borderColor,
-            borderWidth: isToday && !isSelected ? 1 : 0,
-            borderRadius: 8,
-          },
-        ]}
-      >
-        <Text style={[styles.dayText, { color: textColor, fontWeight: isToday ? '800' : '500' }]}>
-          {d}
-        </Text>
-      </Pressable>,
-    );
-  }
-
   return (
     <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+      {/* Nav */}
       <View style={styles.navRow}>
         <Pressable hitSlop={8} onPress={prevMonth} style={styles.navBtn}>
           <Text style={[styles.navBtnText, { color: theme.colors.primary }]}>‹ Prev</Text>
@@ -153,12 +105,90 @@ export function LabCalendar({ labId }: Props) {
         </Pressable>
       </View>
 
+      {/* Day header row */}
+      <View style={styles.weekRow}>
+        {DAY_LABELS.map((label) => (
+          <View key={label} style={styles.dayCell}>
+            <Text style={[styles.headerText, { color: theme.colors.textMuted }]}>{label}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Calendar body */}
       {calendarQuery.isLoading ? (
         <ActivityIndicator color={theme.colors.primary} style={styles.loader} />
       ) : (
-        <View style={styles.grid}>{cells}</View>
+        weeks.map((week, wi) => (
+          <View key={wi} style={styles.weekRow}>
+            {week.map((d, di) => {
+              if (d === null) {
+                return <View key={di} style={styles.dayCell} />;
+              }
+
+              const ds = dateStr(year, month, d);
+              const cellDate = new Date(year, month, d);
+              cellDate.setHours(0, 0, 0, 0);
+              const isPast = cellDate < today;
+              const isToday = cellDate.getTime() === today.getTime();
+              const isUnavailable = !isPast && unavailableSet.has(ds);
+              const isSelected = selectedDate === ds;
+
+              let bg = 'transparent';
+              let textColor: string = isPast ? theme.colors.textMuted : theme.colors.text;
+              let borderColor = 'transparent';
+              let borderWidth = 0;
+
+              if (isSelected) {
+                bg = theme.colors.primary;
+                textColor = '#ffffff';
+              } else if (isToday) {
+                bg = theme.colors.primarySoft;
+                textColor = theme.colors.primary;
+                borderColor = theme.colors.primary;
+                borderWidth = 1;
+              } else if (isUnavailable) {
+                bg = theme.colors.dangerSoft ?? '#ffe4e4';
+                textColor = theme.colors.danger;
+              }
+
+              return (
+                <Pressable
+                  key={ds}
+                  disabled={isPast || isUnavailable}
+                  onPress={() => handleDayPress(ds, isPast, isUnavailable)}
+                  style={styles.dayCell}
+                >
+                  <View
+                    style={[
+                      styles.dayInner,
+                      {
+                        backgroundColor: bg,
+                        borderColor,
+                        borderWidth,
+                        borderRadius: 8,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dayText,
+                        {
+                          color: textColor,
+                          fontWeight: isToday || isSelected ? '800' : '500',
+                        },
+                      ]}
+                    >
+                      {d}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        ))
       )}
 
+      {/* Legend */}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: theme.colors.primarySoft, borderColor: theme.colors.primary, borderWidth: 1 }]} />
@@ -174,6 +204,7 @@ export function LabCalendar({ labId }: Props) {
         </View>
       </View>
 
+      {/* Day slot panel */}
       {selectedDate ? (
         <View style={[styles.dayPanel, { borderTopColor: theme.colors.border }]}>
           <Text style={[styles.dayPanelTitle, { color: theme.colors.text }]}>
@@ -193,11 +224,7 @@ export function LabCalendar({ labId }: Props) {
                   key={`${slot.start}-${slot.end}`}
                   style={[
                     styles.slotRow,
-                    {
-                      backgroundColor: slot.can_book
-                        ? theme.colors.successSoft
-                        : theme.colors.dangerSoft,
-                    },
+                    { backgroundColor: slot.can_book ? theme.colors.successSoft : theme.colors.dangerSoft },
                   ]}
                 >
                   <Text style={[styles.slotTime, { color: theme.colors.text }]}>
@@ -225,17 +252,21 @@ export function LabCalendar({ labId }: Props) {
   );
 }
 
+const DAY_CELL_HEIGHT = 44;
+const DAY_INNER_SIZE = 36;
+
 const styles = StyleSheet.create({
   card: {
     borderRadius: 18,
     borderWidth: 1,
-    gap: 12,
+    gap: 4,
     padding: 16,
   },
   navRow: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 8,
   },
   navBtn: {
     paddingHorizontal: 4,
@@ -252,32 +283,37 @@ const styles = StyleSheet.create({
   loader: {
     marginVertical: 24,
   },
-  grid: {
+  weekRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
   },
-  headerCell: {
+  dayCell: {
     alignItems: 'center',
-    paddingVertical: 4,
-    width: `${100 / 7}%`,
+    flex: 1,
+    height: DAY_CELL_HEIGHT,
+    justifyContent: 'center',
+  },
+  dayInner: {
+    alignItems: 'center',
+    height: DAY_INNER_SIZE,
+    justifyContent: 'center',
+    width: DAY_INNER_SIZE,
   },
   headerText: {
     fontSize: 11,
     fontWeight: '700',
-  },
-  cell: {
-    alignItems: 'center',
-    aspectRatio: 1,
-    justifyContent: 'center',
-    width: `${100 / 7}%`,
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   dayText: {
     fontSize: 13,
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   legend: {
     flexDirection: 'row',
-    gap: 14,
     flexWrap: 'wrap',
+    gap: 14,
+    marginTop: 8,
   },
   legendItem: {
     alignItems: 'center',
@@ -295,6 +331,7 @@ const styles = StyleSheet.create({
   dayPanel: {
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: 10,
+    marginTop: 8,
     paddingTop: 12,
   },
   dayPanelTitle: {

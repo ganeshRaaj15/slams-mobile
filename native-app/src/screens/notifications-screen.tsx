@@ -6,6 +6,7 @@ import {
   markAllNotificationsReadRequest,
   markNotificationReadRequest,
 } from '../api/endpoints';
+import { AnimatedListItem } from '../components/animated-list-item';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';

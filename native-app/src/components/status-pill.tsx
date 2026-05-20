@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import {
   ASSET_STATUS_LABELS,
@@ -7,6 +8,40 @@ import {
   MAINTENANCE_STATUS_LABELS,
 } from '../constants/statuses';
 import { useAppTheme } from '../theme/use-app-theme';
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+function getStatusIcon(status: string, kind: string): IoniconName {
+  const key = `${kind}:${status}`;
+  const iconMap: Record<string, IoniconName> = {
+    // booking
+    'booking:PENDING': 'time-outline',
+    'booking:APPROVED': 'checkmark-circle',
+    'booking:REJECTED': 'close-circle-outline',
+    'booking:CANCELLED': 'ban-outline',
+    // external
+    'external:pending_pic_approval': 'time-outline',
+    'external:pending_manager_approval': 'time-outline',
+    'external:submitted': 'time-outline',
+    'external:under_review': 'search-outline',
+    'external:needs_information': 'information-circle-outline',
+    'external:approved_for_scheduling': 'checkmark-circle',
+    'external:rejected': 'close-circle-outline',
+    'external:completed': 'checkmark-done-outline',
+    // maintenance
+    'maintenance:reported': 'alert-circle-outline',
+    'maintenance:scheduled': 'calendar-outline',
+    'maintenance:in_progress': 'construct-outline',
+    'maintenance:testing': 'flask-outline',
+    'maintenance:completed': 'checkmark-done-outline',
+    'maintenance:cancelled': 'close-circle-outline',
+    // asset
+    'asset:available': 'checkmark-circle',
+    'asset:maintenance': 'construct-outline',
+    'asset:faulty': 'close-circle-outline',
+  };
+  return iconMap[key] ?? 'ellipse-outline';
+}
 
 export function StatusPill({
   status,
@@ -66,6 +101,8 @@ export function StatusPill({
           ? ASSET_STATUS_LABELS[status] ?? status
         : BOOKING_STATUS_LABELS[status] ?? status;
 
+  const icon = getStatusIcon(status, kind);
+
   return (
     <View
       style={[
@@ -75,6 +112,7 @@ export function StatusPill({
         },
       ]}
     >
+      <Ionicons color={style.text} name={icon} size={14} />
       <Text
         style={[
           styles.label,
@@ -91,10 +129,13 @@ export function StatusPill({
 
 const styles = StyleSheet.create({
   pill: {
+    alignItems: 'center',
     alignSelf: 'flex-start',
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
   },
   label: {
     fontSize: 12,

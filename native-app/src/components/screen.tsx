@@ -21,7 +21,6 @@ export function Screen({ children, scroll = true }: ScreenProps) {
         },
       ]}
       >
-        <Backdrop />
         <View style={styles.fill}>{children}</View>
       </SafeAreaView>
     );
@@ -36,7 +35,6 @@ export function Screen({ children, scroll = true }: ScreenProps) {
         },
       ]}
     >
-      <Backdrop />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.fill}
@@ -56,38 +54,6 @@ export function Screen({ children, scroll = true }: ScreenProps) {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-
-  function Backdrop() {
-    return (
-      <View pointerEvents="none" style={styles.backdrop}>
-        <View
-          style={[
-            styles.glowPrimary,
-            {
-              backgroundColor: theme.colors.glowPrimary,
-            },
-          ]}
-        />
-        <View
-          style={[
-            styles.glowSecondary,
-            {
-              backgroundColor: theme.colors.glowAccent,
-            },
-          ]}
-        />
-        <View
-          style={[
-            styles.glowTertiary,
-            {
-              backgroundColor: theme.colors.primarySoft,
-              borderColor: theme.colors.border,
-            },
-          ]}
-        />
-      </View>
-    );
-  }
 }
 
 const styles = StyleSheet.create({
@@ -97,34 +63,6 @@ const styles = StyleSheet.create({
   },
   fill: {
     flex: 1,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  glowPrimary: {
-    position: 'absolute',
-    top: -90,
-    left: -70,
-    width: 260,
-    height: 260,
-    borderRadius: 999,
-  },
-  glowSecondary: {
-    position: 'absolute',
-    top: 96,
-    right: -84,
-    width: 220,
-    height: 220,
-    borderRadius: 999,
-  },
-  glowTertiary: {
-    position: 'absolute',
-    bottom: 118,
-    left: '18%',
-    width: 180,
-    height: 180,
-    borderRadius: 999,
-    borderWidth: 1,
   },
   content: {
     gap: 14,
