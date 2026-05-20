@@ -29,6 +29,7 @@ import type {
   NativePushStatus,
   NativeUser,
   NotificationListResponse,
+  OtpChallengeResponse,
   ProfileWorkspace,
   ReportSnapshot,
   RecommendedSlot,
@@ -60,7 +61,26 @@ export async function loginRequest(payload: {
   password: string;
   device_name: string;
 }) {
-  const response = await api.post<ApiEnvelope<AuthResponse>>('/api/native/auth/token', payload);
+  const response = await api.post<ApiEnvelope<AuthResponse | OtpChallengeResponse>>(
+    '/api/native/auth/token',
+    payload,
+  );
+  return response.data;
+}
+
+export async function verifyOtpRequest(payload: {
+  otp_token: string;
+  otp_code: string;
+  device_name: string;
+}) {
+  const response = await api.post<ApiEnvelope<AuthResponse>>('/api/native/auth/otp/verify', payload);
+  return response.data;
+}
+
+export async function toggleTwofaRequest(enabled: boolean) {
+  const response = await api.post<ApiEnvelope<{ twofa_enabled: boolean }>>('/api/native/profile/twofa', {
+    twofa_enabled: enabled ? 1 : 0,
+  });
   return response.data;
 }
 

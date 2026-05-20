@@ -10,6 +10,7 @@ export type NativeUser = {
   profile_photo: string;
   profile_photo_url: string;
   active: boolean;
+  twofa_enabled: boolean;
   roles: string[];
   primary_role: string;
   dashboard_path: string;
@@ -334,6 +335,12 @@ export type ReportSnapshot = {
 export type AuthResponse = {
   token: string;
   user: NativeUser;
+};
+
+export type OtpChallengeResponse = {
+  status: 'otp_required';
+  otp_token: string;
+  message: string;
 };
 
 export type BookingListResponse = {

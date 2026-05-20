@@ -3,7 +3,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useEffect, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
-import { getNativePushStatusRequest, getProfileWorkspaceRequest, updateProfileRequest } from '../api/endpoints';
+import { getNativePushStatusRequest, getProfileWorkspaceRequest, toggleTwofaRequest, updateProfileRequest } from '../api/endpoints';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
@@ -38,6 +38,7 @@ export function ProfileScreen() {
     mimeType: string;
   } | null>(null);
   const [biometricPending, setBiometricPending] = useState(false);
+  const [twofaPending, setTwofaPending] = useState(false);
   const [pushPending, setPushPending] = useState(false);
   const [localMessage, setLocalMessage] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -184,6 +185,29 @@ export function ProfileScreen() {
       );
     } finally {
       setBiometricPending(false);
+    }
+  }
+
+  async function handleTwofaToggle(enabled: boolean) {
+    setTwofaPending(true);
+
+    try {
+      await toggleTwofaRequest(enabled);
+      queryClient.setQueryData(['profile-workspace'], (current: typeof profileQuery.data) =>
+        current
+          ? { ...current, user: { ...current.user, twofa_enabled: enabled } }
+          : current,
+      );
+      replaceUser({ ...user, twofa_enabled: enabled });
+      setLocalMessage(
+        enabled
+          ? 'Two-factor authentication enabled. You will receive an email code on each login.'
+          : 'Two-factor authentication disabled.',
+      );
+    } catch (error: unknown) {
+      setLocalError(readErrorMessage(error, 'Could not update two-factor authentication.'));
+    } finally {
+      setTwofaPending(false);
     }
   }
 
@@ -408,6 +432,38 @@ export function ProfileScreen() {
             This device does not currently expose a supported biometric method to the app.
           </Text>
         )}
+      </View>
+
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Two-Factor Authentication</Text>
+        <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
+          When enabled, a one-time code is emailed to you each time you sign in.
+        </Text>
+        <View style={styles.switchRow}>
+          <View style={styles.switchCopy}>
+            <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>
+              {user.twofa_enabled ? 'Enabled' : 'Disabled'}
+            </Text>
+            <Text style={[styles.switchHint, { color: theme.colors.textMuted }]}>
+              Applies to both the web and mobile sign-in.
+            </Text>
+          </View>
+          <Switch
+            disabled={twofaPending}
+            onValueChange={(value) => {
+              void handleTwofaToggle(value);
+            }}
+            value={user.twofa_enabled}
+          />
+        </View>
       </View>
 
       <View

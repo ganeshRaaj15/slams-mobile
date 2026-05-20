@@ -14,9 +14,12 @@ export function LoginScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const signIn = useAuthStore((state) => state.signIn);
+  const submitOtp = useAuthStore((state) => state.submitOtp);
   const signInWithBiometrics = useAuthStore((state) => state.signInWithBiometrics);
+  const authStatus = useAuthStore((state) => state.status);
   const authError = useAuthStore((state) => state.error);
   const biometric = useAuthStore((state) => state.biometric);
+  const isOtpPending = authStatus === 'otp_pending';
   const cardShadow = {
     elevation: 5,
     shadowColor: theme.colors.shadow,
@@ -31,6 +34,7 @@ export function LoginScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [biometricSubmitting, setBiometricSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState('');
 
   const onSubmit = async () => {
     if (!email.trim() || !password) {
@@ -42,6 +46,23 @@ export function LoginScreen() {
       setLocalError(null);
       setSubmitting(true);
       await signIn(email, password);
+    } catch (_error) {
+      // Error state is stored centrally.
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onOtpSubmit = async () => {
+    if (otpCode.trim().length !== 6) {
+      setLocalError('Enter the 6-digit code sent to your email.');
+      return;
+    }
+
+    try {
+      setLocalError(null);
+      setSubmitting(true);
+      await submitOtp(otpCode.trim());
     } catch (_error) {
       // Error state is stored centrally.
     } finally {
@@ -115,7 +136,44 @@ export function LoginScreen() {
           },
         ]}
       >
-        {biometric.isReady ? (
+        {isOtpPending ? (
+          <>
+            <Text style={[styles.otpHeading, { color: theme.colors.heading }]}>
+              Verification Required
+            </Text>
+            <Text style={[styles.otpHint, { color: theme.colors.textMuted }]}>
+              A 6-digit code has been sent to your email. Enter it below to continue.
+            </Text>
+            <TextField
+              autoCapitalize="none"
+              keyboardType="number-pad"
+              label="Verification Code"
+              maxLength={6}
+              onChangeText={setOtpCode}
+              placeholder="000000"
+              value={otpCode}
+            />
+            {localError ? (
+              <Text style={[styles.error, { color: theme.colors.danger }]}>{localError}</Text>
+            ) : null}
+            {!localError && authError ? (
+              <Text style={[styles.error, { color: theme.colors.danger }]}>{authError}</Text>
+            ) : null}
+            <Pressable
+              disabled={submitting}
+              onPress={onOtpSubmit}
+              style={[styles.button, { backgroundColor: theme.colors.primary, opacity: submitting ? 0.7 : 1 }]}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.buttonText}>Verify Code</Text>
+              )}
+            </Pressable>
+          </>
+        ) : null}
+
+        {!isOtpPending && biometric.isReady ? (
           <Pressable
             disabled={submitting || biometricSubmitting}
             onPress={onBiometricSubmit}
@@ -148,7 +206,7 @@ export function LoginScreen() {
           </Pressable>
         ) : null}
 
-        {biometric.isEnabled && !biometric.isReady ? (
+        {!isOtpPending && biometric.isEnabled && !biometric.isReady ? (
           <Text
             style={[
               styles.hint,
@@ -161,103 +219,82 @@ export function LoginScreen() {
           </Text>
         ) : null}
 
-        <TextField
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          label="Email"
-          onChangeText={setEmail}
-          placeholder="name@example.com"
-          value={email}
-        />
-        <TextField
-          label="Password"
-          onChangeText={setPassword}
-          placeholder="Enter your password"
-          rightAccessory={
+        {!isOtpPending ? (
+          <>
+            <TextField
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              label="Email"
+              onChangeText={setEmail}
+              placeholder="name@example.com"
+              value={email}
+            />
+            <TextField
+              label="Password"
+              onChangeText={setPassword}
+              placeholder="Enter your password"
+              rightAccessory={
+                <Pressable
+                  accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={() => {
+                    setPasswordVisible((current) => !current);
+                  }}
+                  style={styles.passwordToggle}
+                >
+                  <Ionicons
+                    color={theme.colors.textMuted}
+                    name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                  />
+                </Pressable>
+              }
+              secureTextEntry={!passwordVisible}
+              value={password}
+            />
+
+            {localError ? (
+              <Text style={[styles.error, { color: theme.colors.danger }]}>{localError}</Text>
+            ) : null}
+
+            {!localError && authError ? (
+              <Text style={[styles.error, { color: theme.colors.danger }]}>{authError}</Text>
+            ) : null}
+
             <Pressable
-              accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={() => {
-                setPasswordVisible((current) => !current);
-              }}
-              style={styles.passwordToggle}
+              disabled={submitting}
+              onPress={onSubmit}
+              style={[
+                styles.button,
+                {
+                  backgroundColor: theme.colors.primary,
+                  opacity: submitting ? 0.7 : 1,
+                },
+              ]}
             >
-              <Ionicons
-                color={theme.colors.textMuted}
-                name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
-                size={20}
-              />
+              {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Sign In</Text>}
             </Pressable>
-          }
-          secureTextEntry={!passwordVisible}
-          value={password}
-        />
 
-        {localError ? (
-          <Text
-            style={[
-              styles.error,
-              {
-                color: theme.colors.danger,
-              },
-            ]}
-          >
-            {localError}
-          </Text>
+            <Pressable
+              onPress={() => {
+                navigation.navigate('Register');
+              }}
+              style={[
+                styles.secondaryButton,
+                {
+                  backgroundColor: theme.colors.primarySoft,
+                  borderColor: theme.colors.borderStrong,
+                },
+              ]}
+            >
+              <Text style={[styles.secondaryButtonText, { color: theme.colors.primary }]}>
+                Create Account
+              </Text>
+            </Pressable>
+          </>
         ) : null}
-
-        {!localError && authError ? (
-          <Text
-            style={[
-              styles.error,
-              {
-                color: theme.colors.danger,
-              },
-            ]}
-          >
-            {authError}
-          </Text>
-        ) : null}
-
-        <Pressable
-          disabled={submitting}
-          onPress={onSubmit}
-          style={[
-            styles.button,
-            {
-              backgroundColor: theme.colors.primary,
-              opacity: submitting ? 0.7 : 1,
-            },
-          ]}
-        >
-          {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Sign In</Text>}
-        </Pressable>
-
-        <Pressable
-          onPress={() => {
-            navigation.navigate('Register');
-          }}
-          style={[
-            styles.secondaryButton,
-            {
-              backgroundColor: theme.colors.primarySoft,
-              borderColor: theme.colors.borderStrong,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.secondaryButtonText,
-              {
-                color: theme.colors.primary,
-              },
-            ]}
-          >
-            Create Account
-          </Text>
-        </Pressable>
       </View>
     </Screen>
   );
@@ -307,6 +344,14 @@ const styles = StyleSheet.create({
   error: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  otpHeading: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  otpHint: {
+    fontSize: 13,
+    lineHeight: 20,
   },
   hint: {
     fontSize: 12,

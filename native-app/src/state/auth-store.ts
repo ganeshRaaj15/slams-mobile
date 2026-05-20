@@ -2,7 +2,7 @@ import * as Device from 'expo-device';
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
-import { loginRequest, logoutRequest, meRequest, registerRequest } from '../api/endpoints';
+import { loginRequest, logoutRequest, meRequest, registerRequest, verifyOtpRequest } from '../api/endpoints';
 import {
   clearBiometricSession,
   getBiometricPreferenceEnabled,
@@ -21,7 +21,7 @@ import { readErrorMessage } from '../utils/error-message';
 
 const TOKEN_KEY = 'slams-native-access-token';
 
-type AuthStatus = 'booting' | 'authenticated' | 'unauthenticated';
+type AuthStatus = 'booting' | 'authenticated' | 'unauthenticated' | 'otp_pending';
 
 const defaultBiometricState: BiometricState = {
   isSupported: false,
@@ -35,9 +35,12 @@ type AuthState = {
   user: NativeUser | null;
   error: string | null;
   biometric: BiometricState;
+  otpToken: string | null;
+  otpDeviceName: string | null;
   bootstrap: () => Promise<void>;
   replaceUser: (user: NativeUser) => void;
   signIn: (email: string, password: string) => Promise<void>;
+  submitOtp: (otpCode: string) => Promise<void>;
   signInWithBiometrics: () => Promise<void>;
   signUp: (payload: {
     username: string;
@@ -85,12 +88,14 @@ async function persistSessionToken(token: string) {
   return loadBiometricState();
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   status: 'booting',
   token: null,
   user: null,
   error: null,
   biometric: defaultBiometricState,
+  otpToken: null,
+  otpDeviceName: null,
   bootstrap: async () => {
     const biometric = await loadBiometricState();
 
@@ -157,11 +162,22 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ error: null });
 
     try {
+      const device = deviceName();
       const response = await loginRequest({
         email: email.trim(),
         password,
-        device_name: deviceName(),
+        device_name: device,
       });
+
+      if (response.status === 'otp_required') {
+        set({
+          status: 'otp_pending',
+          otpToken: response.otp_token,
+          otpDeviceName: device,
+          error: null,
+        });
+        return;
+      }
 
       const biometric = await persistSessionToken(response.token);
       setApiAccessToken(response.token);
@@ -172,6 +188,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         user: response.user,
         error: null,
         biometric,
+        otpToken: null,
+        otpDeviceName: null,
       });
     } catch (error: unknown) {
       const message = readErrorMessage(error, 'Unable to sign in with those credentials.');
@@ -183,6 +201,41 @@ export const useAuthStore = create<AuthState>((set) => ({
         error: message,
       });
 
+      throw error;
+    }
+  },
+  submitOtp: async (otpCode) => {
+    set({ error: null });
+
+    const { otpToken, otpDeviceName } = get();
+
+    if (!otpToken || !otpDeviceName) {
+      set({ error: 'OTP session expired. Please sign in again.', status: 'unauthenticated' });
+      return;
+    }
+
+    try {
+      const response = await verifyOtpRequest({
+        otp_token: otpToken,
+        otp_code: otpCode,
+        device_name: otpDeviceName,
+      });
+
+      const biometric = await persistSessionToken(response.token);
+      setApiAccessToken(response.token);
+
+      set({
+        status: 'authenticated',
+        token: response.token,
+        user: response.user,
+        error: null,
+        biometric,
+        otpToken: null,
+        otpDeviceName: null,
+      });
+    } catch (error: unknown) {
+      const message = readErrorMessage(error, 'Invalid verification code.');
+      set({ error: message });
       throw error;
     }
   },
@@ -293,6 +346,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       user: null,
       error: null,
       biometric: await loadBiometricState(),
+      otpToken: null,
+      otpDeviceName: null,
     });
   },
   clearLocalSession: async (message) => {
@@ -306,6 +361,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       user: null,
       error: message ?? 'Your session expired. Please sign in again.',
       biometric: await loadBiometricState(),
+      otpToken: null,
+      otpDeviceName: null,
     });
   },
   refreshBiometricState: async () => {
