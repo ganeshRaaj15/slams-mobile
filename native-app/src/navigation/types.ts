@@ -34,6 +34,8 @@ export type MainTabParamList = {
   Issues: undefined;
   Maintenance: undefined;
   Requests: undefined;
+  Reports: undefined;
+  AdminWorkspace: undefined;
   Notifications: undefined;
   Profile: undefined;
 };

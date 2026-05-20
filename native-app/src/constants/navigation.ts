@@ -14,6 +14,8 @@ export const TAB_LABELS: Record<MainTabName, string> = {
   Issues: 'Issues',
   Maintenance: 'Maintenance',
   Requests: 'Requests',
+  Reports: 'Reports',
+  AdminWorkspace: 'Admin',
   Notifications: 'Alerts',
   Profile: 'Profile',
 };
@@ -26,6 +28,8 @@ export const TAB_ICONS: Record<MainTabName, { active: IoniconName; inactive: Ion
   Issues: { active: 'alert-circle', inactive: 'alert-circle-outline' },
   Maintenance: { active: 'build', inactive: 'build-outline' },
   Requests: { active: 'document-text', inactive: 'document-text-outline' },
+  Reports: { active: 'stats-chart', inactive: 'stats-chart-outline' },
+  AdminWorkspace: { active: 'grid', inactive: 'grid-outline' },
   Notifications: { active: 'notifications', inactive: 'notifications-outline' },
   Profile: { active: 'person', inactive: 'person-outline' },
 };

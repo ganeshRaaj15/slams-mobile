@@ -144,34 +144,29 @@ function MainTabs() {
       }}
     >
       <Tabs.Screen name="Home" component={HomeScreen} />
-      <Tabs.Screen name="Labs" component={LabsScreen} />
+      {role !== 'admin' ? <Tabs.Screen name="Labs" component={LabsScreen} /> : null}
       {isStudentRole(role) ? <Tabs.Screen name="Bookings" component={BookingsScreen} /> : null}
       {role === 'student' || role === 'staff' || role === 'pic' ? (
         <Tabs.Screen name="Issues" component={IssuesScreen} />
       ) : null}
       {role === 'technician' ? <Tabs.Screen name="Maintenance" component={MaintenanceScreen} /> : null}
-      {isOperationalRole(role) && role !== 'technician' ? (
-        <Tabs.Screen
-          name="Approvals"
-          component={ApprovalsScreen}
-          options={{
-            title: 'Approvals',
-          }}
-        />
+      {isOperationalRole(role) && role !== 'technician' && role !== 'admin' ? (
+        <Tabs.Screen name="Approvals" component={ApprovalsScreen} options={{ title: 'Approvals' }} />
       ) : null}
-      {isExternalRole(role) || role === 'pic' || role === 'manager' || role === 'admin' ? (
+      {(isExternalRole(role) || role === 'pic' || role === 'manager') ? (
         <Tabs.Screen
           name="Requests"
           component={RequestsScreen}
-          options={{
-            title: isExternalRole(role) ? 'My Requests' : 'External Requests',
-          }}
+          options={{ title: isExternalRole(role) ? 'My Requests' : 'External Requests' }}
         />
       ) : null}
-      <Tabs.Screen
-        name="Notifications"
-        component={NotificationsScreen}
-      />
+      {role === 'admin' ? (
+        <Tabs.Screen name="Reports" component={ReportsScreen} options={{ title: 'Reports' }} />
+      ) : null}
+      {role === 'admin' ? (
+        <Tabs.Screen name="AdminWorkspace" component={AdminWorkspaceScreen} options={{ title: 'Admin Workspace' }} />
+      ) : null}
+      <Tabs.Screen name="Notifications" component={NotificationsScreen} />
       <Tabs.Screen name="Profile" component={ProfileScreen} />
     </Tabs.Navigator>
   );
