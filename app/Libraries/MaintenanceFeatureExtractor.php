@@ -35,11 +35,17 @@ class MaintenanceFeatureExtractor
             'days_since_last_event',
             'days_since_last_planned',
             'days_since_last_corrective',
+            'days_since_last_booking',
             'events_last_30d',
             'events_last_90d',
             'corrective_last_120d',
             'planned_last_180d',
             'high_priority_last_180d',
+            'bookings_last_30d',
+            'bookings_last_90d',
+            'booking_units_last_90d',
+            'avg_booking_gap_days',
+            'booking_gap_delta',
             'avg_gap_days',
             'avg_planned_gap_days',
             'planned_gap_delta',
@@ -59,6 +65,10 @@ class MaintenanceFeatureExtractor
             static fn(array $row): int => (int) $row['id'],
             $assets
         ));
+        $bookingHistoryByAsset = $this->bookingHistoryByAsset(array_map(
+            static fn(array $row): int => (int) $row['id'],
+            $assets
+        ));
 
         $today = new DateTimeImmutable('today', $this->timezone);
         $maxAnchor = $today->sub(new DateInterval('P' . max($horizonDays, 1) . 'D'));
@@ -68,6 +78,7 @@ class MaintenanceFeatureExtractor
         foreach ($assets as $asset) {
             $assetId = (int) $asset['id'];
             $history = $historyByAsset[$assetId] ?? [];
+            $bookingHistory = $bookingHistoryByAsset[$assetId] ?? [];
             if ($history === []) {
                 continue;
             }
@@ -77,7 +88,7 @@ class MaintenanceFeatureExtractor
             $anchor = $anchor->setTime(0, 0);
 
             while ($anchor <= $maxAnchor) {
-                $features = $this->extractFeaturesFromHistory($asset, $history, $anchor);
+                $features = $this->extractFeaturesFromHistory($asset, $history, $bookingHistory, $anchor);
                 if (($features['events_last_90d'] ?? 0.0) > 0.0 || ($features['days_since_last_event'] ?? 999.0) < 365.0) {
                     $samples[] = [
                         'asset_id' => $assetId,
@@ -109,9 +120,10 @@ class MaintenanceFeatureExtractor
         }
 
         $history = $this->maintenanceHistoryByAsset([$assetId])[$assetId] ?? [];
+        $bookingHistory = $this->bookingHistoryByAsset([$assetId])[$assetId] ?? [];
         $anchor = $anchor ?? new DateTimeImmutable('now', $this->timezone);
 
-        return $this->extractFeaturesFromHistory($asset, $history, $anchor);
+        return $this->extractFeaturesFromHistory($asset, $history, $bookingHistory, $anchor);
     }
 
     public function assetRows(): array
@@ -162,6 +174,45 @@ class MaintenanceFeatureExtractor
         return $history;
     }
 
+    protected function bookingHistoryByAsset(array $assetIds): array
+    {
+        if ($assetIds === []) {
+            return [];
+        }
+
+        $rows = $this->db->table('booking_assets ba')
+            ->select('ba.asset_id, ba.quantity_used, b.date, b.start_time, b.end_time, b.status')
+            ->join('bookings b', 'b.id = ba.booking_id', 'inner')
+            ->whereIn('ba.asset_id', $assetIds)
+            ->whereIn('b.status', ['PENDING', 'APPROVED'])
+            ->orderBy('b.date', 'ASC')
+            ->orderBy('b.start_time', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        $history = [];
+
+        foreach ($rows as $row) {
+            $assetId = (int) ($row['asset_id'] ?? 0);
+            $eventAt = $this->bookingEventAt($row);
+            if ($assetId <= 0 || ! $eventAt) {
+                continue;
+            }
+
+            $history[$assetId][] = [
+                'quantity_used' => max((int) ($row['quantity_used'] ?? 1), 1),
+                'status' => strtoupper(trim((string) ($row['status'] ?? 'APPROVED'))),
+                'event_at' => $eventAt,
+            ];
+        }
+
+        foreach ($history as &$events) {
+            usort($events, static fn(array $a, array $b): int => $a['event_at'] <=> $b['event_at']);
+        }
+
+        return $history;
+    }
+
     protected function eventAt(array $row): ?DateTimeImmutable
     {
         foreach (['completed_at', 'scheduled_for', 'started_at', 'updated_at', 'created_at'] as $field) {
@@ -180,6 +231,25 @@ class MaintenanceFeatureExtractor
         return null;
     }
 
+    protected function bookingEventAt(array $row): ?DateTimeImmutable
+    {
+        $date = trim((string) ($row['date'] ?? ''));
+        if ($date === '') {
+            return null;
+        }
+
+        $time = trim((string) ($row['end_time'] ?? $row['start_time'] ?? '09:00:00'));
+        if ($time === '') {
+            $time = '09:00:00';
+        }
+
+        try {
+            return new DateTimeImmutable($date . ' ' . $time, $this->timezone);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     protected function hasFutureMaintenance(array $history, DateTimeImmutable $anchor, int $horizonDays): bool
     {
         $cutoff = $anchor->add(new DateInterval('P' . max($horizonDays, 1) . 'D'));
@@ -194,17 +264,22 @@ class MaintenanceFeatureExtractor
         return false;
     }
 
-    protected function extractFeaturesFromHistory(array $asset, array $history, DateTimeImmutable $anchor): array
+    protected function extractFeaturesFromHistory(array $asset, array $history, array $bookingHistory, DateTimeImmutable $anchor): array
     {
         $totalQuantity = max((int) ($asset['total_quantity'] ?? $asset['quantity'] ?? 1), 1);
         $pastEvents = array_values(array_filter(
             $history,
             static fn(array $event): bool => $event['event_at'] <= $anchor
         ));
+        $pastBookings = array_values(array_filter(
+            $bookingHistory,
+            static fn(array $event): bool => $event['event_at'] <= $anchor
+        ));
 
         $lastEvent = $this->lastMatchingEvent($pastEvents, static fn(array $event): bool => true);
         $lastPlanned = $this->lastMatchingEvent($pastEvents, fn(array $event): bool => $this->isPlanned($event['issue_type']));
         $lastCorrective = $this->lastMatchingEvent($pastEvents, static fn(array $event): bool => $event['issue_type'] === 'corrective');
+        $lastBooking = $this->lastMatchingEvent($pastBookings, static fn(array $event): bool => true);
 
         $eventsLast30 = $this->countInWindow($pastEvents, $anchor, 30);
         $eventsLast90 = $this->countInWindow($pastEvents, $anchor, 90);
@@ -214,10 +289,15 @@ class MaintenanceFeatureExtractor
         $eventsLast365 = $this->eventsInWindow($pastEvents, $anchor, 365);
         $correctiveLast365 = array_values(array_filter($eventsLast365, static fn(array $event): bool => $event['issue_type'] === 'corrective'));
         $plannedEvents = array_values(array_filter($pastEvents, fn(array $event): bool => $this->isPlanned($event['issue_type'])));
+        $bookingsLast30 = $this->countInWindow($pastBookings, $anchor, 30);
+        $bookingsLast90 = $this->countInWindow($pastBookings, $anchor, 90);
+        $bookingUnitsLast90 = $this->sumBookingUnitsInWindow($pastBookings, $anchor, 90);
 
         $avgGap = $this->averageGapDays($pastEvents, 6, 180.0);
         $avgPlannedGap = $this->averageGapDays($plannedEvents, 4, 240.0);
+        $avgBookingGap = $this->averageGapDays($pastBookings, 8, 45.0);
         $daysSinceLastPlanned = $this->daysSince($anchor, $lastPlanned['event_at'] ?? null, 365.0);
+        $daysSinceLastBooking = $this->daysSince($anchor, $lastBooking['event_at'] ?? null, 90.0);
 
         $recentFive = array_slice($pastEvents, -5);
         $meanQuantityRatio = 0.0;
@@ -235,11 +315,17 @@ class MaintenanceFeatureExtractor
             'days_since_last_event' => $this->daysSince($anchor, $lastEvent['event_at'] ?? null, 365.0),
             'days_since_last_planned' => $daysSinceLastPlanned,
             'days_since_last_corrective' => $this->daysSince($anchor, $lastCorrective['event_at'] ?? null, 365.0),
+            'days_since_last_booking' => $daysSinceLastBooking,
             'events_last_30d' => (float) $eventsLast30,
             'events_last_90d' => (float) $eventsLast90,
             'corrective_last_120d' => (float) $correctiveLast120,
             'planned_last_180d' => (float) $plannedLast180,
             'high_priority_last_180d' => (float) $highPriorityLast180,
+            'bookings_last_30d' => (float) $bookingsLast30,
+            'bookings_last_90d' => (float) $bookingsLast90,
+            'booking_units_last_90d' => $bookingUnitsLast90,
+            'avg_booking_gap_days' => $avgBookingGap,
+            'booking_gap_delta' => max($avgBookingGap - $daysSinceLastBooking, 0.0),
             'avg_gap_days' => $avgGap,
             'avg_planned_gap_days' => $avgPlannedGap,
             'planned_gap_delta' => max($daysSinceLastPlanned - $avgPlannedGap, 0.0),
@@ -322,5 +408,20 @@ class MaintenanceFeatureExtractor
         }
 
         return array_sum($gaps) / count($gaps);
+    }
+
+    protected function sumBookingUnitsInWindow(array $events, DateTimeImmutable $anchor, int $days): float
+    {
+        $window = $this->eventsInWindow($events, $anchor, $days);
+        if ($window === []) {
+            return 0.0;
+        }
+
+        $sum = 0.0;
+        foreach ($window as $event) {
+            $sum += (float) ($event['quantity_used'] ?? 0.0);
+        }
+
+        return $sum;
     }
 }

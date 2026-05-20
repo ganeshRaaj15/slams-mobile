@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   getAdminSettingsRequest,
   runAdminScheduledTasksRequest,
+  trainMaintenanceModelRequest,
   updateAdminBookingSlotsRequest,
   updateAdminSettingsRequest,
 } from '../api/endpoints';
@@ -89,6 +90,23 @@ export function AdminSettingsScreen() {
     onError: (error: unknown) => {
       setFeedback(null);
       setErrorMessage(readErrorMessage(error, 'Scheduled tasks could not be executed.'));
+    },
+  });
+
+  const trainModelMutation = useMutation({
+    mutationFn: trainMaintenanceModelRequest,
+    onSuccess: (data) => {
+      const s = data.model_summary;
+      const st = data.asset_stats;
+      const f1 = s.metrics?.f1 != null ? ` F1: ${(s.metrics.f1 * 100).toFixed(1)}%.` : '';
+      setErrorMessage(null);
+      setFeedback(
+        `Model trained.${f1} High risk: ${st.high_risk}, Due soon: ${st.due_soon}, Predicted actions: ${st.predicted_actions}.`,
+      );
+    },
+    onError: (error: unknown) => {
+      setFeedback(null);
+      setErrorMessage(readErrorMessage(error, 'Model training failed. Check server logs.'));
     },
   });
 
@@ -229,6 +247,38 @@ export function AdminSettingsScreen() {
         >
           <Text style={styles.primaryButtonText}>
             {saveSlotsMutation.isPending ? 'Saving...' : 'Save Booking Slots'}
+          </Text>
+        </Pressable>
+      </View>
+
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.title, { color: theme.colors.text }]}>Predictive Maintenance</Text>
+        <Text style={[styles.helperText, { color: theme.colors.textMuted }]}>
+          Retrains the local maintenance risk model using all current maintenance records and booking history. Run after significant data changes to refresh risk scores.
+        </Text>
+        <Pressable
+          disabled={trainModelMutation.isPending}
+          onPress={() => {
+            void trainModelMutation.mutateAsync();
+          }}
+          style={[
+            styles.secondaryButton,
+            {
+              backgroundColor: theme.colors.primarySoft ?? theme.colors.surfaceMuted,
+              opacity: trainModelMutation.isPending ? 0.7 : 1,
+            },
+          ]}
+        >
+          <Text style={[styles.secondaryButtonText, { color: theme.colors.primary }]}>
+            {trainModelMutation.isPending ? 'Training...' : 'Retrain Maintenance Model'}
           </Text>
         </Pressable>
       </View>

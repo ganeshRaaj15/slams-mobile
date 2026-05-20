@@ -565,12 +565,26 @@ export type MaintenanceWorkspaceResponse = {
     assigned: number;
     open_total: number;
     testing: number;
+    predictive: number;
   };
   status_labels: Record<string, string>;
   issue_types: string[];
   priorities: string[];
   assets: MaintenanceAssetOption[];
   records: MaintenanceRecordSummary[];
+  predictive_alerts: Array<{
+    asset_id: number;
+    asset_name: string;
+    asset_code: string;
+    lab_name: string;
+    risk_percent: number;
+    risk_band: string;
+    decision_label: string;
+    decision_priority: string;
+    next_due_at: string;
+    days_until: number | null;
+    reasons: string[];
+  }>;
 };
 
 export type MaintenanceDetailResponse = {
@@ -738,6 +752,20 @@ export type AdminAssetRecord = {
   maintenance_open: number;
   last_completed_at: string;
   last_reported_at: string;
+  risk_probability: number;
+  risk_percent: number;
+  risk_band: string;
+  decision_label: string;
+  decision_priority: string;
+  reasons: string[];
+  next_due_at: string;
+  days_until: number | null;
+  forecast_status: string;
+  bookings_last_30d: number;
+  bookings_last_90d: number;
+  booking_units_last_90d: number;
+  days_since_last_booking: number;
+  planned_gap_delta: number;
 };
 
 export type AdminAssetListResponse = {
@@ -754,6 +782,11 @@ export type AdminAssetListResponse = {
     status: string;
   };
   status_options: string[];
+  stats: {
+    high_risk: number;
+    due_soon: number;
+    predicted_actions: number;
+  };
 };
 
 export type AdminAssetDetailResponse = {

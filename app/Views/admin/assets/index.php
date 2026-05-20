@@ -5,6 +5,7 @@
 $filters = $filters ?? ['q' => '', 'lab_id' => 0, 'status' => ''];
 $labs = $labs ?? [];
 $statusOptions = $statusOptions ?? ['available', 'maintenance', 'faulty'];
+$intelligenceStats = $intelligenceStats ?? ['high_risk' => 0, 'due_soon' => 0, 'predicted_actions' => 0];
 ?>
 
 
@@ -71,6 +72,9 @@ $unitsInMaintenance = array_sum(array_map(static fn($asset) => (int) ($asset['ma
         <div class="col-md-4"><div class="asset-metric p-3"><div class="text-muted small text-uppercase">Registered Assets</div><div class="display-6 fw-bold"><?= esc($totalAssets) ?></div></div></div>
         <div class="col-md-4"><div class="asset-metric p-3"><div class="text-muted small text-uppercase">Open Maintenance Records</div><div class="display-6 fw-bold"><?= esc($openMaintenance) ?></div></div></div>
         <div class="col-md-4"><div class="asset-metric p-3"><div class="text-muted small text-uppercase">Units Under Maintenance</div><div class="display-6 fw-bold"><?= esc($unitsInMaintenance) ?></div></div></div>
+        <div class="col-md-4"><div class="asset-metric p-3"><div class="text-muted small text-uppercase">High-Risk Assets</div><div class="display-6 fw-bold"><?= esc($intelligenceStats['high_risk']) ?></div></div></div>
+        <div class="col-md-4"><div class="asset-metric p-3"><div class="text-muted small text-uppercase">Due Within 30 Days</div><div class="display-6 fw-bold"><?= esc($intelligenceStats['due_soon']) ?></div></div></div>
+        <div class="col-md-4"><div class="asset-metric p-3"><div class="text-muted small text-uppercase">Priority Actions</div><div class="display-6 fw-bold"><?= esc($intelligenceStats['predicted_actions']) ?></div></div></div>
     </div>
 
     <div class="asset-table-card p-3 p-lg-4">
@@ -83,14 +87,15 @@ $unitsInMaintenance = array_sum(array_map(static fn($asset) => (int) ($asset['ma
             <div class="table-responsive">
                 <table class="table align-middle mb-0">
                     <thead class="table-light">
-                        <tr>
-                            <th>Asset</th>
-                            <th>Lab</th>
-                            <th>Specification</th>
-                            <th>Availability</th>
-                            <th>Maintenance</th>
-                            <th class="text-center">Actions</th>
-                        </tr>
+                            <tr>
+                                <th>Asset</th>
+                                <th>Lab</th>
+                                <th>Specification</th>
+                                <th>Availability</th>
+                                <th>Maintenance</th>
+                                <th>AI Risk</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($assets as $asset): ?>
@@ -125,6 +130,20 @@ $unitsInMaintenance = array_sum(array_map(static fn($asset) => (int) ($asset['ma
                                     <div class="fw-semibold"><?= esc($asset['maintenance_total']) ?> total record(s)</div>
                                     <div class="small text-muted"><?= esc($asset['maintenance_open']) ?> open</div>
                                     <div class="small text-muted">Last completed: <?= esc($asset['last_completed_at'] ? date('d M Y', strtotime($asset['last_completed_at'])) : '-') ?></div>
+                                </td>
+                                <td>
+                                    <?php $riskBadge = ($asset['risk_band'] ?? 'low') === 'high' ? 'danger' : (($asset['risk_band'] ?? 'low') === 'medium' ? 'warning text-dark' : 'success'); ?>
+                                    <span class="badge bg-<?= esc($riskBadge) ?>"><?= esc((int) ($asset['risk_percent'] ?? 0)) ?>%</span>
+                                    <div class="small fw-semibold mt-1"><?= esc($asset['decision_label'] ?? 'Normal monitoring') ?></div>
+                                    <div class="small text-muted">
+                                        <?= esc((int) ($asset['bookings_last_30d'] ?? 0)) ?> bookings in 30d
+                                        <?php if (!empty($asset['next_due_at'])): ?>
+                                            | Due <?= esc(date('d M Y', strtotime($asset['next_due_at']))) ?>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php if (!empty($asset['reasons'][0])): ?>
+                                        <div class="small text-muted"><?= esc($asset['reasons'][0]) ?></div>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="text-center">
                                     <?php

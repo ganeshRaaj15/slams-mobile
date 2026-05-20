@@ -9,6 +9,19 @@ $errors = session()->getFlashdata('errors') ?? [];
 $availableUnits = (int) ($asset['quantity'] ?? ($asset['total_quantity'] ?? 1));
 $totalUnits = (int) ($asset['total_quantity'] ?? $availableUnits ?: 1);
 $maintenanceUnits = max($totalUnits - $availableUnits, 0);
+$intelligence = $intelligence ?? [
+    'risk_percent' => 0,
+    'risk_band' => 'low',
+    'decision_label' => 'Normal monitoring',
+    'decision_priority' => 'low',
+    'reasons' => [],
+    'next_due_at' => '',
+    'bookings_last_30d' => 0,
+    'bookings_last_90d' => 0,
+    'booking_units_last_90d' => 0,
+    'days_since_last_booking' => 0,
+    'planned_gap_delta' => 0,
+];
 ?>
 
 <div class="container-fluid">
@@ -124,6 +137,32 @@ $maintenanceUnits = max($totalUnits - $availableUnits, 0);
             </div>
 
             <?php if ($isEdit): ?>
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white"><h6 class="mb-1">Predictive Maintenance Insight</h6></div>
+                    <div class="card-body">
+                        <?php $riskClass = ($intelligence['risk_band'] ?? 'low') === 'high' ? 'danger' : (($intelligence['risk_band'] ?? 'low') === 'medium' ? 'warning text-dark' : 'success'); ?>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <span class="badge bg-<?= esc($riskClass) ?>">Risk <?= esc((int) ($intelligence['risk_percent'] ?? 0)) ?>%</span>
+                            <span class="badge text-bg-light border text-uppercase"><?= esc($intelligence['decision_priority'] ?? 'low') ?> priority</span>
+                        </div>
+                        <div class="small text-muted mb-2"><?= esc($intelligence['decision_label'] ?? 'Normal monitoring') ?></div>
+                        <div class="small text-muted">Bookings in last 30 days: <?= esc((int) ($intelligence['bookings_last_30d'] ?? 0)) ?></div>
+                        <div class="small text-muted">Bookings in last 90 days: <?= esc((int) ($intelligence['bookings_last_90d'] ?? 0)) ?></div>
+                        <div class="small text-muted">Units booked in last 90 days: <?= esc((int) ($intelligence['booking_units_last_90d'] ?? 0)) ?></div>
+                        <div class="small text-muted">Days since last booking: <?= esc((int) ($intelligence['days_since_last_booking'] ?? 0)) ?></div>
+                        <?php if (!empty($intelligence['next_due_at'])): ?>
+                            <div class="small text-muted">Next estimated due date: <?= esc(date('d M Y', strtotime($intelligence['next_due_at']))) ?></div>
+                        <?php endif; ?>
+                        <?php if (!empty($intelligence['reasons'])): ?>
+                            <div class="small mt-3">
+                                <?php foreach (array_slice($intelligence['reasons'], 0, 2) as $reason): ?>
+                                    <div><?= esc($reason) ?></div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
                 <div class="card border-0 shadow-sm">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
                         <h6 class="mb-1">Maintenance History</h6>

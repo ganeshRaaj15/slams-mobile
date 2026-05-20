@@ -384,6 +384,42 @@ export function AdminAssetEditorScreen() {
               },
             ]}
           >
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Predictive Maintenance Insight</Text>
+            <View style={styles.summaryRow}>
+              <View style={[styles.summaryPill, { backgroundColor: theme.colors.dangerSoft }]}>
+                <Text style={[styles.summaryText, { color: theme.colors.danger }]}>
+                  Risk {asset.risk_percent}%
+                </Text>
+              </View>
+              <View style={[styles.summaryPill, { backgroundColor: theme.colors.primarySoft }]}>
+                <Text style={[styles.summaryText, { color: theme.colors.primary }]}>
+                  {asset.decision_priority.toUpperCase()} PRIORITY
+                </Text>
+              </View>
+            </View>
+            <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>{asset.decision_label}</Text>
+            <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>
+              Bookings in last 30 days {asset.bookings_last_30d}  |  Bookings in last 90 days {asset.bookings_last_90d}
+            </Text>
+            {asset.next_due_at ? (
+              <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>
+                Next estimated due date {formatDateLabel(asset.next_due_at)}
+              </Text>
+            ) : null}
+            {asset.reasons[0] ? (
+              <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>{asset.reasons[0]}</Text>
+            ) : null}
+          </View>
+
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Maintenance Summary</Text>
             <View style={styles.summaryRow}>
               <View

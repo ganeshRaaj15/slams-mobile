@@ -79,8 +79,25 @@ export function AdminAssetsScreen() {
             borderColor: theme.colors.border,
           },
         ]}
-      >
+        >
         <Text style={[styles.title, { color: theme.colors.text }]}>Asset Management</Text>
+        <View style={styles.summaryRow}>
+          <View style={[styles.summaryPill, { backgroundColor: theme.colors.dangerSoft }]}>
+            <Text style={[styles.summaryText, { color: theme.colors.danger }]}>
+              High Risk {assetsQuery.data.stats.high_risk}
+            </Text>
+          </View>
+          <View style={[styles.summaryPill, { backgroundColor: theme.colors.warningSoft }]}>
+            <Text style={[styles.summaryText, { color: theme.colors.warning }]}>
+              Due Soon {assetsQuery.data.stats.due_soon}
+            </Text>
+          </View>
+          <View style={[styles.summaryPill, { backgroundColor: theme.colors.primarySoft }]}>
+            <Text style={[styles.summaryText, { color: theme.colors.primary }]}>
+              Action {assetsQuery.data.stats.predicted_actions}
+            </Text>
+          </View>
+        </View>
         <TextField
           label="Search"
           onChangeText={setQuery}
@@ -167,6 +184,9 @@ export function AdminAssetsScreen() {
             </Text>
             <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>
               Available {asset.quantity}/{asset.total_quantity}  |  Under maintenance {asset.maintenance_quantity}
+            </Text>
+            <Text style={[styles.metaText, { color: theme.colors.danger }]}>
+              Risk {asset.risk_percent}%  |  {asset.decision_label}
             </Text>
 
             <View style={styles.summaryRow}>

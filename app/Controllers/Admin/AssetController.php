@@ -3,6 +3,7 @@
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Libraries\AssetIntelligenceService;
 use App\Models\AssetModel;
 use App\Models\LaboratoryModel;
 use App\Models\MaintenanceRecordModel;
@@ -91,11 +92,19 @@ class AssetController extends BaseController
         }
         unset($asset);
 
+        $intelligenceService = new AssetIntelligenceService();
+        $intelligenceMap = $intelligenceService->mapForAssets();
+        foreach ($assets as &$asset) {
+            $asset = array_merge($asset, $intelligenceMap[(int) $asset['id']] ?? $this->emptyIntelligence());
+        }
+        unset($asset);
+
         return view('admin/assets/index', [
             'assets' => $assets,
             'labs' => $this->labModel->orderBy('name', 'ASC')->findAll(),
             'filters' => $filters,
             'statusOptions' => ['available', 'maintenance', 'faulty'],
+            'intelligenceStats' => $intelligenceService->stats($intelligenceMap),
         ]);
     }
 
@@ -137,6 +146,7 @@ class AssetController extends BaseController
             'labs' => $this->labModel->orderBy('name', 'ASC')->findAll(),
             'asset' => $this->applyLegacyDefaults([]),
             'maintenanceHistory' => [],
+            'intelligence' => $this->emptyIntelligence(),
         ]);
     }
 
@@ -174,12 +184,14 @@ class AssetController extends BaseController
             ->where('maintenance_records.asset_id', $id)
             ->orderBy('maintenance_records.created_at', 'DESC')
             ->findAll();
+        $intelligence = (new AssetIntelligenceService())->mapForAssets()[(int) $id] ?? $this->emptyIntelligence();
 
         return view('admin/assets/form', [
             'mode' => 'edit',
             'asset' => $asset,
             'labs' => $this->labModel->orderBy('name', 'ASC')->findAll(),
             'maintenanceHistory' => $maintenanceHistory,
+            'intelligence' => $intelligence,
         ]);
     }
 
@@ -325,5 +337,26 @@ class AssetController extends BaseController
         $asset['quantity'] = max((int) ($asset['quantity'] ?? 0), 0);
         $asset['status'] = ! empty($asset['status']) ? $asset['status'] : 'available';
         return $asset;
+    }
+
+    protected function emptyIntelligence(): array
+    {
+        return [
+            'risk_probability' => 0.0,
+            'risk_percent' => 0,
+            'risk_band' => 'low',
+            'decision' => ['action' => 'monitor', 'label' => 'Normal monitoring', 'priority' => 'low'],
+            'decision_label' => 'Normal monitoring',
+            'decision_priority' => 'low',
+            'reasons' => [],
+            'next_due_at' => '',
+            'days_until' => null,
+            'forecast_status' => '',
+            'bookings_last_30d' => 0,
+            'bookings_last_90d' => 0,
+            'booking_units_last_90d' => 0,
+            'days_since_last_booking' => 0,
+            'planned_gap_delta' => 0,
+        ];
     }
 }

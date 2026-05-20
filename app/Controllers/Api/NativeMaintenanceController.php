@@ -3,6 +3,7 @@
 namespace App\Controllers\Api;
 
 use App\Controllers\Technician\MaintenanceController as WebMaintenanceController;
+use App\Libraries\MaintenanceForecastService;
 use App\Libraries\NotificationService;
 use App\Libraries\MaintenancePredictionService;
 use CodeIgniter\Shield\Entities\User;
@@ -34,6 +35,10 @@ class NativeMaintenanceController extends WebMaintenanceController
         $records = $recordsQuery->orderBy('maintenance_records.created_at', 'DESC')->findAll();
         $statusLabels = $this->maintenanceModel->workflowLabels();
         $openStatuses = $this->maintenanceModel->openStatuses();
+        $predictiveAlerts = array_slice(array_values(array_filter(
+            (new MaintenanceForecastService())->getUpcomingForecasts(90),
+            static fn(array $item): bool => in_array((string) ($item['decision_priority'] ?? 'low'), ['high', 'medium'], true)
+        )), 0, 8);
 
         return $this->response->setJSON([
             'status' => 'success',
@@ -48,12 +53,28 @@ class NativeMaintenanceController extends WebMaintenanceController
                 'testing' => (int) (new \App\Models\MaintenanceRecordModel())
                     ->where('status', 'testing')
                     ->countAllResults(),
+                'predictive' => count($predictiveAlerts),
             ],
             'status_labels' => $statusLabels,
             'issue_types' => ['preventive', 'inspection', 'calibration', 'other'],
             'priorities' => ['low', 'medium', 'high', 'critical'],
             'assets' => array_map(fn(array $asset): array => $this->serializeAssetOption($asset), $this->assetOptions()),
             'records' => array_map(fn(array $record): array => $this->serializeRecord($record), $records),
+            'predictive_alerts' => array_map(static function (array $forecast): array {
+                return [
+                    'asset_id' => (int) ($forecast['asset_id'] ?? 0),
+                    'asset_name' => (string) ($forecast['name'] ?? ''),
+                    'asset_code' => (string) ($forecast['asset_code'] ?? ''),
+                    'lab_name' => (string) ($forecast['lab_name'] ?? ''),
+                    'risk_percent' => (int) ($forecast['risk_percent'] ?? 0),
+                    'risk_band' => (string) ($forecast['risk_band'] ?? 'low'),
+                    'decision_label' => (string) ($forecast['decision_label'] ?? 'Normal monitoring'),
+                    'decision_priority' => (string) ($forecast['decision_priority'] ?? 'low'),
+                    'next_due_at' => (string) ($forecast['next_due_at'] ?? ''),
+                    'days_until' => isset($forecast['days_until']) ? (int) $forecast['days_until'] : null,
+                    'reasons' => $forecast['reasons'] ?? [],
+                ];
+            }, $predictiveAlerts),
         ]);
     }
 

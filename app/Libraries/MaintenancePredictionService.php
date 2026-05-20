@@ -176,8 +176,16 @@ class MaintenancePredictionService
         $plannedGapDelta = (float) ($features['planned_gap_delta'] ?? 0.0);
         $correctiveRecent = (float) ($features['corrective_last_120d'] ?? 0.0);
         $highPriority = (float) ($features['high_priority_last_180d'] ?? 0.0);
+        $bookingPressure = (float) ($features['bookings_last_30d'] ?? 0.0);
+        $bookingUnitsPressure = (float) ($features['booking_units_last_90d'] ?? 0.0);
 
-        if ($probability >= 0.72 || $plannedGapDelta >= 45.0 || $correctiveRecent >= 2.0 || $highPriority >= 1.0) {
+        if (
+            $probability >= 0.72
+            || $plannedGapDelta >= 45.0
+            || $correctiveRecent >= 2.0
+            || $highPriority >= 1.0
+            || ($bookingPressure >= 6.0 && $bookingUnitsPressure >= 6.0)
+        ) {
             return [
                 'action' => 'schedule_now',
                 'label' => 'Schedule preventive maintenance now',
@@ -185,7 +193,7 @@ class MaintenancePredictionService
             ];
         }
 
-        if ($probability >= max($threshold, 0.45) || $plannedGapDelta >= 14.0) {
+        if ($probability >= max($threshold, 0.45) || $plannedGapDelta >= 14.0 || $bookingPressure >= 3.0) {
             return [
                 'action' => 'inspect_soon',
                 'label' => 'Inspect within 14 days',
@@ -231,6 +239,14 @@ class MaintenancePredictionService
             $reasons[] = 'The planned maintenance interval has been exceeded.';
         }
 
+        if ((float) ($features['bookings_last_30d'] ?? 0.0) >= 4.0) {
+            $reasons[] = 'Recent booking demand is elevated for this asset.';
+        }
+
+        if ((float) ($features['booking_units_last_90d'] ?? 0.0) >= 6.0) {
+            $reasons[] = 'High recent equipment utilization was detected from booking history.';
+        }
+
         if ($hasCorrectivePressure && (float) ($features['events_last_30d'] ?? 0.0) >= 1.0) {
             $reasons[] = 'The asset had maintenance activity in the last 30 days.';
         }
@@ -262,6 +278,14 @@ class MaintenancePredictionService
 
         if ((float) ($features['planned_gap_delta'] ?? 0.0) >= 45.0) {
             return 0.76;
+        }
+
+        if ((float) ($features['bookings_last_30d'] ?? 0.0) >= 6.0 && (float) ($features['planned_gap_delta'] ?? 0.0) >= 14.0) {
+            return 0.74;
+        }
+
+        if ((float) ($features['booking_units_last_90d'] ?? 0.0) >= 8.0) {
+            return 0.6;
         }
 
         if ((float) ($features['planned_gap_delta'] ?? 0.0) >= 14.0) {

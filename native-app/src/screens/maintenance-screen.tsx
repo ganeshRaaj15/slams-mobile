@@ -117,6 +117,18 @@ export function MaintenanceScreen() {
           <Text style={[styles.statLabel, { color: theme.colors.textMuted }]}>Testing</Text>
           <Text style={[styles.statValue, { color: theme.colors.accent }]}>{stats.testing}</Text>
         </View>
+        <View
+          style={[
+            styles.statBlock,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.statLabel, { color: theme.colors.textMuted }]}>Predictive</Text>
+          <Text style={[styles.statValue, { color: theme.colors.danger }]}>{stats.predictive}</Text>
+        </View>
       </View>
 
       <View style={styles.filterRow}>
@@ -164,6 +176,58 @@ export function MaintenanceScreen() {
       >
         <Text style={styles.createButtonText}>Plan Preventive Maintenance</Text>
       </Pressable>
+
+      {maintenanceQuery.data.predictive_alerts.length > 0 ? (
+        <View
+          style={[
+            styles.alertPanel,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.panelTitle, { color: theme.colors.text }]}>Predictive Alerts</Text>
+          <Text style={[styles.panelMeta, { color: theme.colors.textMuted }]}>
+            High-risk assets are prioritized using booking pressure and maintenance history.
+          </Text>
+          {maintenanceQuery.data.predictive_alerts.slice(0, 3).map((alert) => (
+            <Pressable
+              key={`${alert.asset_id}-${alert.next_due_at}`}
+              onPress={() =>
+                navigation.navigate('MaintenanceForm', {
+                  assetId: alert.asset_id,
+                })
+              }
+              style={[
+                styles.alertCard,
+                {
+                  backgroundColor: theme.colors.surfaceMuted,
+                },
+              ]}
+            >
+              <View style={styles.cardHeader}>
+                <View style={styles.cardTitleWrap}>
+                  <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{alert.asset_name}</Text>
+                  <Text style={[styles.cardMeta, { color: theme.colors.primary }]}>
+                    {alert.decision_label}
+                  </Text>
+                </View>
+                <Text style={[styles.riskBadge, { color: theme.colors.danger }]}>
+                  {alert.risk_percent}%
+                </Text>
+              </View>
+              <Text style={[styles.cardBody, { color: theme.colors.textMuted }]}>
+                {alert.lab_name || 'Unassigned lab'}
+                {alert.next_due_at ? `  |  Due ${formatDateLabel(alert.next_due_at)}` : ''}
+              </Text>
+              {alert.reasons[0] ? (
+                <Text style={[styles.cardBody, { color: theme.colors.textMuted }]}>{alert.reasons[0]}</Text>
+              ) : null}
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
       {records.length === 0 ? (
         <EmptyState
@@ -233,6 +297,7 @@ export function MaintenanceScreen() {
 const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
   statBlock: {
@@ -275,6 +340,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
+  alertPanel: {
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 10,
+    padding: 16,
+  },
+  panelTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  panelMeta: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  alertCard: {
+    borderRadius: 14,
+    gap: 8,
+    padding: 12,
+  },
   card: {
     borderRadius: 18,
     borderWidth: 1,
@@ -301,6 +385,10 @@ const styles = StyleSheet.create({
   cardBody: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  riskBadge: {
+    fontSize: 18,
+    fontWeight: '800',
   },
   claimButton: {
     alignItems: 'center',

@@ -2,7 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { getAdminSettingsRequest, getReportSnapshotRequest, listAdminLabsRequest, listAdminUsersRequest } from '../api/endpoints';
+import {
+  getAdminSettingsRequest,
+  getReportSnapshotRequest,
+  listAdminAssetsRequest,
+  listAdminLabsRequest,
+  listAdminUsersRequest,
+} from '../api/endpoints';
 import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
 import { Screen } from '../components/screen';
@@ -32,8 +38,12 @@ export function AdminWorkspaceScreen() {
     queryKey: ['report-snapshot', 'admin-workspace'],
     queryFn: getReportSnapshotRequest,
   });
+  const assetsQuery = useQuery({
+    queryKey: ['admin-assets', 'summary'],
+    queryFn: () => listAdminAssetsRequest(),
+  });
 
-  if (usersQuery.isLoading || settingsQuery.isLoading || labsQuery.isLoading || reportQuery.isLoading) {
+  if (usersQuery.isLoading || settingsQuery.isLoading || labsQuery.isLoading || reportQuery.isLoading || assetsQuery.isLoading) {
     return (
       <Screen scroll={false}>
         <LoadingState label="Loading admin workspace..." />
@@ -46,10 +56,12 @@ export function AdminWorkspaceScreen() {
     settingsQuery.isError ||
     labsQuery.isError ||
     reportQuery.isError ||
+    assetsQuery.isError ||
     !usersQuery.data ||
     !settingsQuery.data ||
     !labsQuery.data ||
-    !reportQuery.data
+    !reportQuery.data ||
+    !assetsQuery.data
   ) {
     return (
       <Screen>
@@ -60,6 +72,7 @@ export function AdminWorkspaceScreen() {
             void settingsQuery.refetch();
             void labsQuery.refetch();
             void reportQuery.refetch();
+            void assetsQuery.refetch();
           }}
         />
       </Screen>
@@ -71,6 +84,7 @@ export function AdminWorkspaceScreen() {
   const managedSettingsCount = Object.keys(settingsQuery.data.settings ?? {}).length;
   const bookingSlotsCount = settingsQuery.data.booking_slots?.length ?? 0;
   const report = reportQuery.data.report;
+  const assetStats = assetsQuery.data.stats;
   const userStats = usersQuery.data.stats ?? {
     total: users.length,
     active: users.filter((record) => record.active).length,
@@ -94,7 +108,7 @@ export function AdminWorkspaceScreen() {
       >
         <Text style={[styles.title, { color: theme.colors.text }]}>Admin Workspace</Text>
         <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
-          Manage users, laboratories, assets, settings, and reports from one admin workspace.
+          Manage users, laboratories, assets, settings, and reports from one workspace with predictive asset risk visibility.
         </Text>
       </View>
 
@@ -103,6 +117,8 @@ export function AdminWorkspaceScreen() {
         <StatCard label="Active Users" tone="success" value={userStats.active} />
         <StatCard label="Labs" tone="accent" value={labStats.total_labs} />
         <StatCard label="Assets" tone="warning" value={Number(report.kpis.total_assets ?? 0)} />
+        <StatCard label="High Risk" tone="danger" value={assetStats.high_risk} />
+        <StatCard label="Due Soon" tone="accent" value={assetStats.due_soon} />
         <StatCard label="Settings" tone="accent" value={managedSettingsCount} />
         <StatCard label="Booking Slots" tone="warning" value={bookingSlotsCount} />
       </View>
@@ -157,7 +173,7 @@ export function AdminWorkspaceScreen() {
       >
         <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Manage Assets</Text>
         <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
-          Maintain inventory, quantities, serials, images, and maintenance traceability.
+          Maintain inventory, quantities, serials, images, maintenance traceability, and predictive maintenance risk.
         </Text>
       </Pressable>
 

@@ -485,6 +485,26 @@ export async function runAdminScheduledTasksRequest() {
   return response.data;
 }
 
+export async function trainMaintenanceModelRequest() {
+  const response = await api.post<ApiEnvelope<{
+    message: string;
+    model_summary: {
+      available: boolean;
+      trained_at: string | null;
+      threshold: number;
+      metrics: Record<string, number>;
+      dataset: Record<string, number>;
+      training: Record<string, number>;
+    };
+    asset_stats: {
+      high_risk: number;
+      due_soon: number;
+      predicted_actions: number;
+    };
+  }>>('/api/native/admin/settings/train-maintenance-model');
+  return response.data;
+}
+
 export async function listAdminUsersRequest(params?: {
   q?: string;
   role?: string;

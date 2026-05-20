@@ -3,6 +3,7 @@
 namespace App\Controllers\Api;
 
 use App\Controllers\BaseController;
+use App\Libraries\AssetIntelligenceService;
 use App\Models\AssetModel;
 use App\Models\LaboratoryModel;
 use App\Models\MaintenanceRecordModel;
@@ -71,8 +72,14 @@ class NativeAdminAssetController extends BaseController
             ->findAll();
 
         $maintenanceStats = $this->maintenanceStatsMap();
+        $intelligenceService = new AssetIntelligenceService();
+        $intelligenceMap = $intelligenceService->mapForAssets();
         foreach ($assets as &$asset) {
-            $asset = $this->serializeAsset($asset, $maintenanceStats[(int) $asset['id']] ?? null);
+            $asset = $this->serializeAsset(
+                $asset,
+                $maintenanceStats[(int) $asset['id']] ?? null,
+                $intelligenceMap[(int) $asset['id']] ?? null
+            );
         }
         unset($asset);
 
@@ -82,6 +89,7 @@ class NativeAdminAssetController extends BaseController
             'labs' => array_map(fn(array $lab): array => $this->serializeLabOption($lab), $this->labModel->orderBy('name', 'ASC')->findAll()),
             'filters' => $filters,
             'status_options' => ['available', 'maintenance', 'faulty'],
+            'stats' => $intelligenceService->stats($intelligenceMap),
         ]);
     }
 
@@ -112,7 +120,11 @@ class NativeAdminAssetController extends BaseController
 
         return $this->response->setJSON([
             'status' => 'success',
-            'asset' => $this->serializeAsset($asset, $this->maintenanceStatsMap()[$id] ?? null),
+            'asset' => $this->serializeAsset(
+                $asset,
+                $this->maintenanceStatsMap()[$id] ?? null,
+                (new AssetIntelligenceService())->mapForAssets()[$id] ?? null
+            ),
             'maintenance_history' => array_map(fn(array $record): array => $this->serializeMaintenanceHistory($record), $maintenanceHistory),
             'labs' => array_map(fn(array $lab): array => $this->serializeLabOption($lab), $this->labModel->orderBy('name', 'ASC')->findAll()),
         ]);
@@ -155,7 +167,7 @@ class NativeAdminAssetController extends BaseController
         return $this->response->setJSON([
             'status' => 'success',
             'message' => 'Asset created successfully.',
-            'asset' => $asset ? $this->serializeAsset($asset, null) : null,
+            'asset' => $asset ? $this->serializeAsset($asset, null, null) : null,
         ]);
     }
 
@@ -207,7 +219,11 @@ class NativeAdminAssetController extends BaseController
         return $this->response->setJSON([
             'status' => 'success',
             'message' => 'Asset updated successfully.',
-            'asset' => $updated ? $this->serializeAsset($updated, $this->maintenanceStatsMap()[$id] ?? null) : null,
+            'asset' => $updated ? $this->serializeAsset(
+                $updated,
+                $this->maintenanceStatsMap()[$id] ?? null,
+                (new AssetIntelligenceService())->mapForAssets()[$id] ?? null
+            ) : null,
         ]);
     }
 
@@ -246,10 +262,11 @@ class NativeAdminAssetController extends BaseController
         ]);
     }
 
-    protected function serializeAsset(array $asset, ?array $stat): array
+    protected function serializeAsset(array $asset, ?array $stat, ?array $intelligence): array
     {
         $asset = $this->applyLegacyDefaults($asset);
         $maintenanceQuantity = max($asset['total_quantity'] - $asset['quantity'], 0);
+        $intelligence = $intelligence ?? $this->emptyIntelligence();
 
         return [
             'id' => (int) $asset['id'],
@@ -275,6 +292,20 @@ class NativeAdminAssetController extends BaseController
             'maintenance_open' => (int) ($stat['open_records'] ?? 0),
             'last_completed_at' => (string) ($stat['last_completed_at'] ?? ''),
             'last_reported_at' => (string) ($stat['last_reported_at'] ?? ''),
+            'risk_probability' => (float) ($intelligence['risk_probability'] ?? 0.0),
+            'risk_percent' => (int) ($intelligence['risk_percent'] ?? 0),
+            'risk_band' => (string) ($intelligence['risk_band'] ?? 'low'),
+            'decision_label' => (string) ($intelligence['decision_label'] ?? 'Normal monitoring'),
+            'decision_priority' => (string) ($intelligence['decision_priority'] ?? 'low'),
+            'reasons' => $intelligence['reasons'] ?? [],
+            'next_due_at' => (string) ($intelligence['next_due_at'] ?? ''),
+            'days_until' => isset($intelligence['days_until']) ? (int) $intelligence['days_until'] : null,
+            'forecast_status' => (string) ($intelligence['forecast_status'] ?? ''),
+            'bookings_last_30d' => (int) ($intelligence['bookings_last_30d'] ?? 0),
+            'bookings_last_90d' => (int) ($intelligence['bookings_last_90d'] ?? 0),
+            'booking_units_last_90d' => (int) ($intelligence['booking_units_last_90d'] ?? 0),
+            'days_since_last_booking' => (int) ($intelligence['days_since_last_booking'] ?? 0),
+            'planned_gap_delta' => (int) ($intelligence['planned_gap_delta'] ?? 0),
         ];
     }
 
@@ -406,6 +437,26 @@ class NativeAdminAssetController extends BaseController
         }
 
         return $maintenanceStats;
+    }
+
+    protected function emptyIntelligence(): array
+    {
+        return [
+            'risk_probability' => 0.0,
+            'risk_percent' => 0,
+            'risk_band' => 'low',
+            'decision_label' => 'Normal monitoring',
+            'decision_priority' => 'low',
+            'reasons' => [],
+            'next_due_at' => '',
+            'days_until' => null,
+            'forecast_status' => '',
+            'bookings_last_30d' => 0,
+            'bookings_last_90d' => 0,
+            'booking_units_last_90d' => 0,
+            'days_since_last_booking' => 0,
+            'planned_gap_delta' => 0,
+        ];
     }
 
     protected function authorizedAdmin()

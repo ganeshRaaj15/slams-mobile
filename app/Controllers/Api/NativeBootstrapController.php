@@ -3,6 +3,8 @@
 namespace App\Controllers\Api;
 
 use App\Controllers\BaseController;
+use App\Libraries\AssetIntelligenceService;
+use App\Libraries\MaintenanceForecastService;
 use App\Libraries\NativeUserSerializer;
 use App\Models\BookingModel;
 use App\Models\ExternalRequestModel;
@@ -314,20 +316,23 @@ class NativeBootstrapController extends BaseController
         $maintenanceOpen = (int) db_connect()->table('maintenance_records')
             ->whereIn('status', ['reported', 'scheduled', 'in_progress', 'testing'])
             ->countAllResults();
+        $intelligenceStats = (new AssetIntelligenceService())->stats((new AssetIntelligenceService())->mapForAssets());
 
         return [
             'role' => 'admin',
-            'attention_count' => $pendingAll + $externalReview,
-            'attention_label' => ($pendingAll + $externalReview) > 0 ? ($pendingAll + $externalReview) . ' admin tasks waiting' : 'Admin queue is clear',
-            'attention_meta' => 'Oversee approvals, requests, maintenance, and system operations.',
+            'attention_count' => max($pendingAll + $externalReview, (int) ($intelligenceStats['high_risk'] ?? 0)),
+            'attention_label' => ($intelligenceStats['high_risk'] ?? 0) > 0
+                ? $intelligenceStats['high_risk'] . ' high-risk asset(s)'
+                : (($pendingAll + $externalReview) > 0 ? ($pendingAll + $externalReview) . ' admin tasks waiting' : 'Admin queue is clear'),
+            'attention_meta' => 'Oversee approvals, requests, maintenance, and asset-risk intelligence.',
             'stats' => [
                 ['id' => 'pending_all', 'label' => 'Approvals', 'value' => $pendingAll, 'tone' => 'warning'],
-                ['id' => 'external_review', 'label' => 'External', 'value' => $externalReview, 'tone' => 'accent'],
+                ['id' => 'high_risk_assets', 'label' => 'High Risk', 'value' => (int) ($intelligenceStats['high_risk'] ?? 0), 'tone' => 'danger'],
                 ['id' => 'maintenance_open', 'label' => 'Maintenance', 'value' => $maintenanceOpen, 'tone' => 'primary'],
-                ['id' => 'notifications', 'label' => 'Alerts', 'value' => $notificationCount, 'tone' => 'neutral'],
+                ['id' => 'due_soon_assets', 'label' => 'Due Soon', 'value' => (int) ($intelligenceStats['due_soon'] ?? 0), 'tone' => 'accent'],
             ],
             'next_item' => null,
-            'message' => 'User management, reports, settings, laboratories, and assets are available from the admin workspace.',
+            'message' => 'User management, reports, settings, laboratories, and assets now include predictive maintenance signals driven by booking demand and maintenance history.',
         ];
     }
 
@@ -335,6 +340,11 @@ class NativeBootstrapController extends BaseController
     {
         $maintenanceModel = new MaintenanceRecordModel();
         $openStatuses = $maintenanceModel->openStatuses();
+        $forecastService = new MaintenanceForecastService();
+        $predictiveAlerts = array_values(array_filter(
+            $forecastService->getUpcomingForecasts(90),
+            static fn(array $item): bool => in_array((string) ($item['decision_priority'] ?? 'low'), ['high', 'medium'], true)
+        ));
 
         $assigned = (int) (new MaintenanceRecordModel())
             ->where('assigned_technician_id', $user->id)
@@ -348,20 +358,29 @@ class NativeBootstrapController extends BaseController
         $testing = (int) (new MaintenanceRecordModel())
             ->where('status', 'testing')
             ->countAllResults();
+        $predictiveCount = count($predictiveAlerts);
+        $topAlert = $predictiveAlerts[0] ?? null;
 
         return [
             'role' => 'technician',
-            'attention_count' => $assigned > 0 ? $assigned : $openTotal,
-            'attention_label' => $assigned > 0 ? $assigned . ' assigned case(s)' : ($openTotal > 0 ? $openTotal . ' open case(s)' : 'No open cases'),
-            'attention_meta' => 'Monitor assigned cases and track open maintenance work.',
+            'attention_count' => max($assigned, $openTotal, $predictiveCount),
+            'attention_label' => $predictiveCount > 0
+                ? $predictiveCount . ' predictive alert(s)'
+                : ($assigned > 0 ? $assigned . ' assigned case(s)' : ($openTotal > 0 ? $openTotal . ' open case(s)' : 'No open cases')),
+            'attention_meta' => 'Booking demand, maintenance history, and overdue planned work are combined into technician alerts.',
             'stats' => [
                 ['id' => 'assigned', 'label' => 'Assigned', 'value' => $assigned, 'tone' => 'primary'],
                 ['id' => 'open_total', 'label' => 'Open', 'value' => $openTotal, 'tone' => 'warning'],
                 ['id' => 'testing', 'label' => 'Testing', 'value' => $testing, 'tone' => 'accent'],
-                ['id' => 'notifications', 'label' => 'Alerts', 'value' => $notificationCount, 'tone' => 'neutral'],
+                ['id' => 'predictive', 'label' => 'Predictive', 'value' => $predictiveCount, 'tone' => 'danger'],
             ],
-            'next_item' => null,
-            'message' => 'Plan, update, test, and close maintenance cases from the technician workspace.',
+            'next_item' => $topAlert ? [
+                'type' => 'predictive_maintenance',
+                'title' => (string) ($topAlert['name'] ?? 'Asset Alert'),
+                'subtitle' => (string) ($topAlert['decision_label'] ?? 'Inspect soon'),
+                'meta' => 'Risk ' . (int) ($topAlert['risk_percent'] ?? 0) . '%' . (! empty($topAlert['lab_name']) ? ' | ' . $topAlert['lab_name'] : ''),
+            ] : null,
+            'message' => 'Plan, claim, update, test, and close maintenance cases using predictive alerts that prioritize assets likely to need service soon.',
         ];
     }
 
