@@ -210,6 +210,160 @@ export function ReportsScreen() {
         )}
       </View>
 
+      {report.monthlyTrend && report.monthlyTrend.length > 0 ? (
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Booking Trend</Text>
+          {(() => {
+            const maxTotal = Math.max(...report.monthlyTrend.map((m) => m.total), 1);
+            return report.monthlyTrend.map((m) => (
+              <View key={m.month} style={styles.barRow}>
+                <Text style={[styles.barLabel, { color: theme.colors.textMuted }]}>{m.month}</Text>
+                <View style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      {
+                        width: `${Math.round((m.total / maxTotal) * 100)}%` as any,
+                        backgroundColor: theme.colors.primary,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.barValue, { color: theme.colors.text }]}>{m.total}</Text>
+              </View>
+            ));
+          })()}
+        </View>
+      ) : null}
+
+      {report.peakHours && report.peakHours.length > 0 ? (
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Peak Usage Hours</Text>
+          {(() => {
+            const maxTotal = Math.max(...report.peakHours.map((p) => p.total), 1);
+            const peakColors = [
+              theme.colors.success,
+              theme.colors.primary,
+              theme.colors.warning,
+              theme.colors.danger,
+              theme.colors.textMuted,
+            ];
+            return report.peakHours.map((p, i) => (
+              <View key={p.time_slot} style={styles.barRow}>
+                <Text style={[styles.barLabel, { color: theme.colors.textMuted }]}>{p.time_slot}</Text>
+                <View style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      {
+                        width: `${Math.round((p.total / maxTotal) * 100)}%` as any,
+                        backgroundColor: peakColors[i % peakColors.length] ?? theme.colors.primary,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.barValue, { color: theme.colors.text }]}>{p.total}</Text>
+              </View>
+            ));
+          })()}
+        </View>
+      ) : null}
+
+      {report.labUtilization && report.labUtilization.length > 0 ? (
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Lab Utilization</Text>
+          {report.labUtilization.map((lab) => (
+            <View
+              key={lab.laboratory_name}
+              style={[styles.innerCard, { backgroundColor: theme.colors.surfaceMuted }]}
+            >
+              <View style={styles.utilizationHeader}>
+                <Text style={[styles.innerTitle, { color: theme.colors.text }]}>{lab.laboratory_name}</Text>
+                <Text style={[styles.utilizationPct, { color: theme.colors.primary }]}>
+                  {lab.usage_percentage}%
+                </Text>
+              </View>
+              <View style={styles.barTrack}>
+                <View
+                  style={[
+                    styles.barFill,
+                    {
+                      width: `${Math.min(lab.usage_percentage, 100)}%` as any,
+                      backgroundColor: lab.usage_percentage >= 75
+                        ? theme.colors.danger
+                        : lab.usage_percentage >= 40
+                        ? theme.colors.warning
+                        : theme.colors.success,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={[styles.innerMeta, { color: theme.colors.textMuted }]}>
+                {lab.total_bookings} booking(s)  ·  {lab.total_used_hours}h used  ·  Peak: {lab.peak_usage_day}, {lab.peak_usage_time}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {report.maintenanceTrend && report.maintenanceTrend.length > 0 ? (
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Maintenance Trend</Text>
+          {(() => {
+            const maxTotal = Math.max(...report.maintenanceTrend.map((m) => m.total), 1);
+            return report.maintenanceTrend.map((m) => (
+              <View key={m.month} style={styles.barRow}>
+                <Text style={[styles.barLabel, { color: theme.colors.textMuted }]}>{m.month}</Text>
+                <View style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      {
+                        width: `${Math.round((m.total / maxTotal) * 100)}%` as any,
+                        backgroundColor: theme.colors.danger,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.barValue, { color: theme.colors.text }]}>{m.total}</Text>
+              </View>
+            ));
+          })()}
+        </View>
+      ) : null}
+
       <View
         style={[
           styles.card,
@@ -330,5 +484,41 @@ const styles = StyleSheet.create({
   innerMeta: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  barRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  barLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    minWidth: 88,
+  },
+  barTrack: {
+    backgroundColor: 'rgba(0,0,0,0.07)',
+    borderRadius: 6,
+    flex: 1,
+    height: 10,
+    overflow: 'hidden',
+  },
+  barFill: {
+    borderRadius: 6,
+    height: '100%',
+  },
+  barValue: {
+    fontSize: 12,
+    fontWeight: '800',
+    minWidth: 28,
+    textAlign: 'right',
+  },
+  utilizationHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  utilizationPct: {
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

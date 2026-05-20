@@ -315,6 +315,19 @@ export type ReportSnapshot = {
     status: string;
     approval_flow: string;
   }>;
+  labUtilization: Array<{
+    laboratory_name: string;
+    laboratory_room: string;
+    total_bookings: number;
+    total_used_hours: number;
+    usage_percentage: number;
+    peak_usage_day: string;
+    peak_usage_time: string;
+  }>;
+  peakHours: Array<{
+    time_slot: string;
+    total: number;
+  }>;
   role: 'pic' | 'manager' | 'admin';
 };
 
