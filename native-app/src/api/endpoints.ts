@@ -265,6 +265,13 @@ export async function listLabsRequest() {
   return response.data;
 }
 
+export async function getLabCalendarRequest(labId: number) {
+  const response = await api.get<ApiEnvelope<{ unavailableDates: string[] }>>(
+    `/api/native/labs/${labId}/calendar`,
+  );
+  return response.data;
+}
+
 export async function listFacultiesRequest() {
   const response = await api.get<ApiEnvelope<{ faculties: FacultyReference[] }>>(
     '/api/native/references/faculties',

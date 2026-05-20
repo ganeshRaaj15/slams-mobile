@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { getLabRequest } from '../api/endpoints';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
+import { LabCalendar } from '../components/lab-calendar';
 import { LoadingState } from '../components/loading-state';
 import { Screen } from '../components/screen';
 import { isExternalRole, isOperationalRole, isStudentRole } from '../constants/roles';
@@ -171,6 +172,19 @@ export function LabDetailScreen() {
           </Text>
         </View>
       ) : null}
+
+      <View
+        style={[
+          styles.sectionCard,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Availability Calendar</Text>
+        <LabCalendar labId={lab.id} />
+      </View>
 
       <View
         style={[
