@@ -52,12 +52,21 @@ export function ExternalRequestReviewDetailScreen() {
   const request = detailQuery.data?.request;
   const reviewerRole = detailQuery.data?.role ?? 'pic';
   const actingRole = useMemo(() => {
+    const stage = request?.current_approval_stage;
     if (reviewerRole === 'admin') {
-      return request?.current_approval_stage === 'manager' ? 'manager' : 'pic';
+      if (stage === 'manager') return 'manager';
+      if (stage === 'pic') return 'pic';
+      return null;
     }
 
     return reviewerRole;
   }, [request?.current_approval_stage, reviewerRole]);
+
+  const isActionable = actingRole !== null && (
+    request?.status === 'pending_pic_approval' ||
+    request?.status === 'pending_manager_approval' ||
+    request?.status === 'needs_information'
+  );
 
   const decisionOptions = useMemo(
     () =>
@@ -67,11 +76,13 @@ export function ExternalRequestReviewDetailScreen() {
             { id: 'needs_information', label: EXTERNAL_REQUEST_STATUS_LABELS.needs_information },
             { id: 'rejected', label: EXTERNAL_REQUEST_STATUS_LABELS.rejected },
           ]
-        : [
-            { id: 'pending_manager_approval', label: EXTERNAL_REQUEST_STATUS_LABELS.pending_manager_approval },
-            { id: 'needs_information', label: EXTERNAL_REQUEST_STATUS_LABELS.needs_information },
-            { id: 'rejected', label: EXTERNAL_REQUEST_STATUS_LABELS.rejected },
-          ],
+        : actingRole === 'pic'
+          ? [
+              { id: 'pending_manager_approval', label: EXTERNAL_REQUEST_STATUS_LABELS.pending_manager_approval },
+              { id: 'needs_information', label: EXTERNAL_REQUEST_STATUS_LABELS.needs_information },
+              { id: 'rejected', label: EXTERNAL_REQUEST_STATUS_LABELS.rejected },
+            ]
+          : [],
     [actingRole],
   );
 
@@ -111,7 +122,9 @@ export function ExternalRequestReviewDetailScreen() {
   const stageHelperText =
     actingRole === 'manager'
       ? 'Approving here reserves the configured slot and schedules the external request.'
-      : 'Approving here forwards the request to the Lab Manager for final review.';
+      : actingRole === 'pic'
+        ? 'Approving here forwards the request to the Lab Manager for final review.'
+        : null;
 
   async function handleSave() {
     setFormError(null);
@@ -215,7 +228,9 @@ export function ExternalRequestReviewDetailScreen() {
         >
           <Text style={[styles.blockTitle, { color: theme.colors.primary }]}>Current approval stage</Text>
           <Text style={[styles.blockText, { color: theme.colors.text }]}>{request.current_approval_stage_label}</Text>
-          <Text style={[styles.blockText, { color: theme.colors.textMuted }]}>{stageHelperText}</Text>
+          {stageHelperText ? (
+            <Text style={[styles.blockText, { color: theme.colors.textMuted }]}>{stageHelperText}</Text>
+          ) : null}
         </View>
 
         {request.latest_requester_note ? (
@@ -278,7 +293,7 @@ export function ExternalRequestReviewDetailScreen() {
         ) : null}
       </View>
 
-      <View
+      {isActionable ? <View
         style={[
           styles.card,
           {
@@ -354,7 +369,7 @@ export function ExternalRequestReviewDetailScreen() {
         >
           <Text style={styles.saveButtonText}>Save Review Decision</Text>
         </Pressable>
-      </View>
+      </View> : null}
 
       <SelectionModal
         onClose={() => setShowStatusPicker(false)}
