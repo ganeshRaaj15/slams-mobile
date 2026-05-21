@@ -147,8 +147,8 @@ export function PickerField({
           style={[
             styles.pickerWrap,
             {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
+              backgroundColor: theme.colors.surfaceModal,
+              borderColor: theme.colors.borderStrong,
             },
           ]}
         >

@@ -32,8 +32,8 @@ export function SelectionModal({
           style={[
             styles.sheet,
             {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
+              backgroundColor: theme.colors.surfaceModal,
+              borderColor: theme.colors.borderStrong,
             },
           ]}
         >
