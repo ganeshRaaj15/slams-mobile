@@ -266,7 +266,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       setUnauthorizedHandler(null);
 
       try {
-        const response = await meRequest();
+        // Race the session check against a short deadline. After an app update,
+        // hasValidatedCurrentApiBaseUrl resets and the request interceptor triggers
+        // full URL discovery (LAN scan) before the request is even sent. That scan
+        // can run for well over a minute, leaving the user staring at a spinner with
+        // no feedback. 10 s is generous for a reachable server but cuts off the scan
+        // early so the expired-session error appears promptly.
+        const response = await Promise.race([
+          meRequest(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('BIOMETRIC_CHECK_TIMEOUT')), 10_000),
+          ),
+        ]);
         setUnauthorizedHandler(defaultUnauthorizedHandler);
         set({
           status: 'authenticated',
