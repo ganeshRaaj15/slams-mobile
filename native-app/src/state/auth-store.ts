@@ -260,8 +260,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       setApiAccessToken(token);
 
+      // Disable the global 401 handler before validating the token so the interceptor
+      // does not call clearLocalSession() concurrently with our own cleanup below,
+      // which would cause two simultaneous SecureStore deletes on the same key.
+      setUnauthorizedHandler(null);
+
       try {
         const response = await meRequest();
+        setUnauthorizedHandler(defaultUnauthorizedHandler);
         set({
           status: 'authenticated',
           token,
@@ -270,6 +276,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           biometric: await loadBiometricState(),
         });
       } catch (_error) {
+        setUnauthorizedHandler(defaultUnauthorizedHandler);
         await clearBiometricSession();
         setApiAccessToken(null);
         set({
@@ -281,6 +288,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         });
       }
     } catch (error: unknown) {
+      setUnauthorizedHandler(defaultUnauthorizedHandler);
       await clearBiometricSession();
       setApiAccessToken(null);
       set({
@@ -399,6 +407,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }));
 
-setUnauthorizedHandler(() => {
+function defaultUnauthorizedHandler() {
   void useAuthStore.getState().clearLocalSession();
-});
+}
+
+setUnauthorizedHandler(defaultUnauthorizedHandler);
