@@ -1,5 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, ViewStyle } from 'react-native';
+import { useEffect } from 'react';
+import type { ViewStyle } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withSpring,
+  useReducedMotion,
+} from 'react-native-reanimated';
 
 type Props = {
   children: React.ReactNode;
@@ -7,43 +14,32 @@ type Props = {
   style?: ViewStyle;
 };
 
+const TRANSLATE_SPRING = { damping: 18, stiffness: 200, mass: 0.9 };
+const OPACITY_SPRING  = { damping: 22, stiffness: 260, mass: 0.8 };
+
 export function AnimatedListItem({ children, index, style }: Props) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(12)).current;
-  const [reduceMotion, setReduceMotion] = useState(false);
+  const reduceMotion = useReducedMotion();
+  const opacity    = useSharedValue(reduceMotion ? 1 : 0);
+  const translateY = useSharedValue(reduceMotion ? 0 : 14);
 
   useEffect(() => {
-    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      setReduceMotion(enabled);
-      if (enabled) {
-        opacity.setValue(1);
-        translateY.setValue(0);
-      }
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (reduceMotion) {
+      opacity.value    = 1;
+      translateY.value = 0;
+      return;
+    }
+    const delay = Math.min(index * 40, 200);
+    opacity.value    = withDelay(delay, withSpring(1, OPACITY_SPRING));
+    translateY.value = withDelay(delay, withSpring(0, TRANSLATE_SPRING));
+  }, [reduceMotion, opacity, translateY, index]);
 
-  useEffect(() => {
-    if (reduceMotion) return;
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 220,
-        delay: index * 40,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 220,
-        delay: index * 40,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reduceMotion]);
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
 
   return (
-    <Animated.View style={[{ opacity, transform: [{ translateY }] }, style]}>
+    <Animated.View style={[animStyle, style]}>
       {children}
     </Animated.View>
   );

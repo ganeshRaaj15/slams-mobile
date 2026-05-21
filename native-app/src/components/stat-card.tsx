@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import ReAnimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  useReducedMotion,
+} from 'react-native-reanimated';
 
 import type { ToneKey } from '../types/api';
 import { textStyle } from '../theme/palette';
@@ -61,14 +67,27 @@ export function StatCard({
   tone = 'neutral',
   icon,
   trend,
+  onPress,
 }: {
   label: string;
   value: number | string;
   tone?: ToneKey;
   icon?: IoniconName;
   trend?: TrendProp;
+  onPress?: () => void;
 }) {
   const theme = useAppTheme();
+  const reduceMotion = useReducedMotion();
+  const scale = useSharedValue(1);
+  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  const handlePressIn  = () => {
+    if (onPress && !reduceMotion) scale.value = withSpring(0.96, { damping: 14, stiffness: 400 });
+  };
+  const handlePressOut = () => {
+    if (onPress && !reduceMotion) scale.value = withSpring(1,    { damping: 12, stiffness: 300 });
+  };
+
   const cardShadow = {
     elevation: 4,
     shadowColor: theme.colors.shadow,
@@ -92,11 +111,12 @@ export function StatCard({
     : trend.direction === 'down' ? 'arrow-down-outline'
     : 'remove-outline';
 
-  return (
-    <View
+  const cardBody = (
+    <ReAnimated.View
       style={[
         styles.card,
         cardShadow,
+        pressStyle,
         {
           backgroundColor: theme.colors.surfaceOverlay,
           borderColor: theme.colors.border,
@@ -167,8 +187,18 @@ export function StatCard({
           </Text>
         </View>
       ) : null}
-    </View>
+    </ReAnimated.View>
   );
+
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
+        {cardBody}
+      </Pressable>
+    );
+  }
+
+  return cardBody;
 }
 
 const styles = StyleSheet.create({

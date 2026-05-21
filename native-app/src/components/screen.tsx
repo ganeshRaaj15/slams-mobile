@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '../theme/use-app-theme';
@@ -13,6 +13,7 @@ export function Screen({ children, scroll = true }: ScreenProps) {
   const theme = useAppTheme();
   const reduceMotion = useReducedMotion();
   const entering = reduceMotion ? undefined : FadeIn.duration(180);
+  const exiting  = reduceMotion ? undefined : FadeOut.duration(140);
 
   if (!scroll) {
     return (
@@ -24,7 +25,7 @@ export function Screen({ children, scroll = true }: ScreenProps) {
         },
       ]}
       >
-        <Animated.View entering={entering} style={styles.fill}>{children}</Animated.View>
+        <Animated.View entering={entering} exiting={exiting} style={styles.fill}>{children}</Animated.View>
       </SafeAreaView>
     );
   }
@@ -42,7 +43,7 @@ export function Screen({ children, scroll = true }: ScreenProps) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.fill}
       >
-        <Animated.View entering={entering} style={styles.fill}>
+        <Animated.View entering={entering} exiting={exiting} style={styles.fill}>
           <ScrollView
             contentContainerStyle={[
               styles.content,

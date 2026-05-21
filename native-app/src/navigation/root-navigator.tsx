@@ -2,7 +2,15 @@ import { NavigationContainer, DarkTheme as NavigationDarkTheme, DefaultTheme as 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { TAB_ICONS, TAB_LABELS } from '../constants/navigation';
 import { isExternalRole, isStudentRole } from '../constants/roles';
@@ -69,6 +77,52 @@ function SignOutHeaderAction() {
   );
 }
 
+type TabIconBubbleProps = {
+  color: string;
+  focused: boolean;
+  tabConfig: { active: string; inactive: string };
+  theme: ReturnType<typeof useAppTheme>;
+};
+
+function TabIconBubble({ color, focused, tabConfig, theme }: TabIconBubbleProps) {
+  const reduceMotion = useReducedMotion();
+  const progress = useSharedValue(focused ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withSpring(focused ? 1 : 0, {
+      damping: 18,
+      stiffness: 280,
+      mass: 0.7,
+    });
+  }, [focused, progress]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      ['transparent', theme.colors.tabBarActiveFill]
+    ),
+    borderColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      ['transparent', theme.colors.tabBarActiveBorder]
+    ),
+    transform: reduceMotion
+      ? undefined
+      : [{ scale: 0.88 + progress.value * 0.12 }],
+  }));
+
+  return (
+    <Animated.View style={[styles.tabIconWrap, animStyle]}>
+      <Ionicons
+        color={color}
+        name={focused ? tabConfig.active as never : tabConfig.inactive as never}
+        size={20}
+      />
+    </Animated.View>
+  );
+}
+
 function MainTabs() {
   const user = useAuthStore((state) => state.user);
   const theme = useAppTheme();
@@ -124,21 +178,12 @@ function MainTabs() {
             paddingVertical: 2,
           },
           tabBarIcon: ({ color, focused }) => (
-            <View
-              style={[
-                styles.tabIconWrap,
-                {
-                  backgroundColor: focused ? theme.colors.tabBarActiveFill : 'transparent',
-                  borderColor: focused ? theme.colors.tabBarActiveBorder : 'transparent',
-                },
-              ]}
-            >
-              <Ionicons
-                color={color}
-                name={focused ? tabConfig.active : tabConfig.inactive}
-                size={20}
-              />
-            </View>
+            <TabIconBubble
+              color={color}
+              focused={focused}
+              tabConfig={tabConfig}
+              theme={theme}
+            />
           ),
         };
       }}
