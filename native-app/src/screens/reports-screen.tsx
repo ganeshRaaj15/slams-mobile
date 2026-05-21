@@ -9,7 +9,7 @@ import { Screen } from '../components/screen';
 import { StatCard } from '../components/stat-card';
 import { StatusPill } from '../components/status-pill';
 import { useAppTheme } from '../theme/use-app-theme';
-import { shareProtectedFile } from '../utils/protected-document';
+import { openProtectedFile } from '../utils/protected-document';
 import { formatDateTimeRange } from '../utils/format';
 import { readErrorMessage } from '../utils/error-message';
 import { useState } from 'react';
@@ -32,7 +32,8 @@ export function ReportsScreen() {
   const theme = useAppTheme();
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
-  const [busyExport, setBusyExport] = useState<'pdf' | 'csv' | null>(null);
+  const [busyExport, setBusyExport] = useState<'pdf' | 'excel' | 'csv' | null>(null);
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'excel' | 'csv'>('pdf');
 
   const reportQuery = useQuery({
     queryKey: ['report-snapshot'],
@@ -63,15 +64,22 @@ export function ReportsScreen() {
   const { report, exports } = reportQuery.data;
   const kpiEntries = Object.entries(report.kpis).filter(([, value]) => value !== null);
 
-  async function handleExport(kind: 'pdf' | 'csv') {
+  async function handleExport(kind: 'pdf' | 'excel' | 'csv') {
     setExportMessage(null);
     setExportError(null);
     setBusyExport(kind);
 
     try {
-      const url = kind === 'pdf' ? exports.pdf_url : exports.csv_url;
-      const filename = `slams-report-${report.role}.${kind}`;
-      await shareProtectedFile(url, filename, kind === 'pdf' ? 'application/pdf' : 'text/csv');
+      const urlMap = { pdf: exports.pdf_url, excel: exports.excel_url, csv: exports.csv_url };
+      const mimeMap = {
+        pdf: 'application/pdf',
+        excel: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        csv: 'text/csv',
+      };
+      const ext = kind === 'excel' ? 'xlsx' : kind;
+      const url = urlMap[kind];
+      const filename = `slams-report-${report.role}.${ext}`;
+      await openProtectedFile(url, filename, mimeMap[kind]);
       setExportMessage(`${kind.toUpperCase()} export prepared.`);
     } catch (error) {
       setExportError(readErrorMessage(error, `Unable to export the ${kind.toUpperCase()} report.`));
@@ -95,39 +103,45 @@ export function ReportsScreen() {
         <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>{report.scopeLabel}</Text>
         <Text style={[styles.meta, { color: theme.colors.textMuted }]}>Generated {report.generatedAt}</Text>
 
+        <Text style={[styles.exportLabel, { color: theme.colors.textMuted }]}>Export report as</Text>
         <View style={styles.exportRow}>
-          <Pressable
-            disabled={busyExport !== null}
-            onPress={() => {
-              void handleExport('pdf');
-            }}
-            style={[
-              styles.exportButton,
-              {
-                backgroundColor: theme.colors.primary,
-                opacity: busyExport !== null ? 0.7 : 1,
-              },
-            ]}
-          >
-            <Text style={styles.exportButtonText}>{busyExport === 'pdf' ? 'Preparing PDF...' : 'Export PDF'}</Text>
-          </Pressable>
-          <Pressable
-            disabled={busyExport !== null}
-            onPress={() => {
-              void handleExport('csv');
-            }}
-            style={[
-              styles.secondaryButton,
-              {
-                backgroundColor: theme.colors.surfaceMuted,
-              },
-            ]}
-          >
-            <Text style={[styles.secondaryButtonText, { color: theme.colors.text }]}>
-              {busyExport === 'csv' ? 'Preparing CSV...' : 'Export CSV'}
-            </Text>
-          </Pressable>
+          {(['pdf', 'excel', 'csv'] as const).map((fmt) => (
+            <Pressable
+              key={fmt}
+              onPress={() => { setExportFormat(fmt); }}
+              style={[
+                styles.formatChip,
+                {
+                  backgroundColor: exportFormat === fmt ? theme.colors.primary : theme.colors.surfaceMuted,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.formatChipText,
+                  { color: exportFormat === fmt ? '#ffffff' : theme.colors.textMuted },
+                ]}
+              >
+                {fmt === 'excel' ? 'Excel' : fmt.toUpperCase()}
+              </Text>
+            </Pressable>
+          ))}
         </View>
+        <Pressable
+          disabled={busyExport !== null}
+          onPress={() => { void handleExport(exportFormat); }}
+          style={[
+            styles.exportButton,
+            {
+              backgroundColor: theme.colors.primary,
+              opacity: busyExport !== null ? 0.7 : 1,
+            },
+          ]}
+        >
+          <Text style={styles.exportButtonText}>
+            {busyExport !== null ? `Preparing ${busyExport.toUpperCase()}...` : 'Export'}
+          </Text>
+        </Pressable>
 
         {exportMessage ? <Text style={[styles.feedback, { color: theme.colors.success }]}>{exportMessage}</Text> : null}
         {exportError ? <Text style={[styles.feedback, { color: theme.colors.danger }]}>{exportError}</Text> : null}
@@ -417,29 +431,34 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: 13,
   },
+  exportLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 6,
+  },
   exportRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     marginTop: 6,
+  },
+  formatChip: {
+    borderRadius: 20,
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  formatChipText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   exportButton: {
     alignItems: 'center',
     borderRadius: 12,
-    flex: 1,
     paddingVertical: 12,
+    marginTop: 6,
   },
   exportButtonText: {
     color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  secondaryButton: {
-    alignItems: 'center',
-    borderRadius: 12,
-    flex: 1,
-    paddingVertical: 12,
-  },
-  secondaryButtonText: {
     fontSize: 13,
     fontWeight: '800',
   },

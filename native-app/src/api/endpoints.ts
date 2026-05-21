@@ -213,7 +213,7 @@ export async function getReportSnapshotRequest() {
     ApiEnvelope<
       {
         report?: ReportSnapshot;
-        exports?: { pdf_url?: string; csv_url?: string };
+        exports?: { pdf_url?: string; csv_url?: string; excel_url?: string };
       } & Partial<ReportSnapshot>
     >
   >(
@@ -221,8 +221,9 @@ export async function getReportSnapshotRequest() {
   );
   const payload = response.data;
   const fallbackExports = {
-    pdf_url: '/api/native/reports/export/pdf',
-    csv_url: '/api/native/reports/export/csv',
+    pdf_url:   '/api/native/reports/export/pdf',
+    excel_url: '/api/native/reports/export/excel',
+    csv_url:   '/api/native/reports/export/csv',
   };
 
   const report =
@@ -254,8 +255,9 @@ export async function getReportSnapshotRequest() {
   return {
     report,
     exports: {
-      pdf_url: payload.exports?.pdf_url || fallbackExports.pdf_url,
-      csv_url: payload.exports?.csv_url || fallbackExports.csv_url,
+      pdf_url:   payload.exports?.pdf_url   || fallbackExports.pdf_url,
+      excel_url: payload.exports?.excel_url || fallbackExports.excel_url,
+      csv_url:   payload.exports?.csv_url   || fallbackExports.csv_url,
     },
   };
 }
