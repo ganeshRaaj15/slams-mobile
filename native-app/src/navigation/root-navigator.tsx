@@ -207,6 +207,10 @@ export function RootNavigator({ onReady }: RootNavigatorProps) {
         <Stack.Navigator
           screenOptions={{
             headerRight: () => <SignOutHeaderAction />,
+            animation: 'slide_from_right',
+            animationDuration: 280,
+            gestureEnabled: true,
+            fullScreenGestureEnabled: true,
           }}
         >
           <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
@@ -256,7 +260,7 @@ export function RootNavigator({ onReady }: RootNavigatorProps) {
           />
         </Stack.Navigator>
       ) : (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade', animationDuration: 220 }}>
           <Stack.Screen name="Auth" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
         </Stack.Navigator>
