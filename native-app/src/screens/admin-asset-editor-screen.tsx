@@ -485,7 +485,7 @@ export function AdminAssetEditorScreen() {
                     <StatusPill kind="maintenance" status={record.status} />
                   </View>
                   <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>
-                    Reported by {record.reported_by_name || 'Unknown'} {record.technician_name ? `| Technician ${record.technician_name}` : ''}
+                    Reported by {record.reported_by_name || 'Unknown'} {record.technician_name ? `| Assigned PIC: ${record.technician_name}` : ''}
                   </Text>
                   <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>
                     Quantity affected {record.quantity_affected}  |  Created {formatDateLabel(record.created_at)}
