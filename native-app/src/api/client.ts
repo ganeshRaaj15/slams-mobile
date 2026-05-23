@@ -65,7 +65,7 @@ export function setApiAccessToken(token: string | null) {
   accessToken = token;
 }
 
-export function setUnauthorizedHandler(handler: () => void) {
+export function setUnauthorizedHandler(handler: (() => void) | null) {
   unauthorizedHandler = handler;
 }
 

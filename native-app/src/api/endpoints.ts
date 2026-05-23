@@ -42,6 +42,8 @@ type ApiEnvelope<T> = {
   message?: string;
 } & T;
 
+type LoginResponse = ApiEnvelope<AuthResponse> | OtpChallengeResponse;
+
 type UploadAsset = {
   uri: string;
   name: string;
@@ -61,7 +63,7 @@ export async function loginRequest(payload: {
   password: string;
   device_name: string;
 }) {
-  const response = await api.post<ApiEnvelope<AuthResponse | OtpChallengeResponse>>(
+  const response = await api.post<LoginResponse>(
     '/api/native/auth/token',
     payload,
   );
@@ -243,8 +245,10 @@ export async function getReportSnapshotRequest() {
           maintenanceTrend: payload.maintenanceTrend ?? [],
           topMaintenanceAssets: payload.topMaintenanceAssets ?? [],
           upcomingBookings: payload.upcomingBookings ?? [],
+          labUtilization: payload.labUtilization ?? [],
+          peakHours: payload.peakHours ?? [],
           role: payload.role ?? 'admin',
-        }
+        } satisfies ReportSnapshot
       : null);
 
   if (!report) {

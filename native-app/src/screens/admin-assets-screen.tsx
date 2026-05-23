@@ -14,6 +14,29 @@ import { TextField } from '../components/text-field';
 import { useAppTheme } from '../theme/use-app-theme';
 import { formatDateLabel } from '../utils/format';
 
+function riskTone(band: string, theme: ReturnType<typeof useAppTheme>) {
+  if (band === 'high') {
+    return {
+      accent: theme.colors.danger,
+      background: theme.colors.dangerSoft,
+      label: 'High risk',
+    };
+  }
+  if (band === 'medium') {
+    return {
+      accent: theme.colors.warning,
+      background: theme.colors.warningSoft,
+      label: 'Review soon',
+    };
+  }
+
+  return {
+    accent: theme.colors.success,
+    background: theme.colors.successSoft,
+    label: 'Stable',
+  };
+}
+
 export function AdminAssetsScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
@@ -154,75 +177,91 @@ export function AdminAssetsScreen() {
       {assetsQuery.data.assets.length === 0 ? (
         <EmptyState title="No assets found" message="Adjust the filters or create a new asset record." />
       ) : (
-        assetsQuery.data.assets.map((asset) => (
-          <Pressable
-            key={asset.id}
-            onPress={() => {
-              navigation.navigate('AdminAssetEditor', { assetId: asset.id });
-            }}
-            style={[
-              styles.assetCard,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border,
-              },
-            ]}
-          >
-            <View style={styles.assetHeader}>
-              <View style={styles.assetHeaderMeta}>
-                <Text style={[styles.assetTitle, { color: theme.colors.text }]}>{asset.name}</Text>
-                <Text style={[styles.metaText, { color: theme.colors.primary }]}>
-                  {asset.asset_code}  |  {asset.lab_name || 'No lab'} {asset.lab_room ? `| ${asset.lab_room}` : ''}
-                </Text>
-              </View>
-              <StatusPill kind="asset" status={asset.status} />
-            </View>
+        assetsQuery.data.assets.map((asset) => {
+          const tone = riskTone(asset.risk_band ?? 'low', theme);
 
-            <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>
-              {asset.category || 'General Equipment'} {asset.brand ? `| ${asset.brand}` : ''}{' '}
-              {asset.model ? `| ${asset.model}` : ''}
-            </Text>
-            <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>
-              Available {asset.quantity}/{asset.total_quantity}  |  Under maintenance {asset.maintenance_quantity}
-            </Text>
-            <Text style={[styles.metaText, { color: theme.colors.danger }]}>
-              Risk {asset.risk_percent}%  |  {asset.decision_label}
-            </Text>
-
-            <View style={styles.summaryRow}>
-              <View
-                style={[
-                  styles.summaryPill,
-                  {
-                    backgroundColor: theme.colors.warningSoft,
-                  },
-                ]}
-              >
-                <Text style={[styles.summaryText, { color: theme.colors.warning }]}>
-                  Cases {asset.maintenance_total}
-                </Text>
+          return (
+            <Pressable
+              key={asset.id}
+              onPress={() => {
+                navigation.navigate('AdminAssetEditor', { assetId: asset.id });
+              }}
+              style={[
+                styles.assetCard,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              <View style={styles.assetHeader}>
+                <View style={styles.assetHeaderMeta}>
+                  <Text style={[styles.assetTitle, { color: theme.colors.text }]}>{asset.name}</Text>
+                  <Text style={[styles.metaText, { color: theme.colors.primary }]}>
+                    {asset.asset_code}  |  {asset.lab_name || 'No lab'} {asset.lab_room ? `| ${asset.lab_room}` : ''}
+                  </Text>
+                </View>
+                <StatusPill kind="asset" status={asset.status} />
               </View>
-              <View
-                style={[
-                  styles.summaryPill,
-                  {
-                    backgroundColor: theme.colors.primarySoft,
-                  },
-                ]}
-              >
-                <Text style={[styles.summaryText, { color: theme.colors.primary }]}>
-                  Open {asset.maintenance_open}
-                </Text>
-              </View>
-            </View>
 
-            {asset.last_reported_at ? (
               <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>
-                Last reported {formatDateLabel(asset.last_reported_at)}
+                {asset.category || 'General Equipment'} {asset.brand ? `| ${asset.brand}` : ''}{' '}
+                {asset.model ? `| ${asset.model}` : ''}
               </Text>
-            ) : null}
-          </Pressable>
-        ))
+              <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>
+                Available {asset.quantity}/{asset.total_quantity}  |  Under maintenance {asset.maintenance_quantity}
+              </Text>
+
+              <View style={styles.riskRow}>
+                <View style={[styles.riskPill, { backgroundColor: tone.background }]}>
+                  <Text style={[styles.riskPillText, { color: tone.accent }]}>{tone.label}</Text>
+                </View>
+                <Text style={[styles.metaText, { color: tone.accent, fontWeight: '800' }]}>
+                  Risk {asset.risk_percent}%  |  {asset.decision_label}
+                </Text>
+              </View>
+
+              {asset.reasons?.[0] ? (
+                <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>
+                  {'• '}{asset.reasons[0]}
+                </Text>
+              ) : null}
+
+              <View style={styles.summaryRow}>
+                <View
+                  style={[
+                    styles.summaryPill,
+                    {
+                      backgroundColor: theme.colors.warningSoft,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.summaryText, { color: theme.colors.warning }]}>
+                    Cases {asset.maintenance_total}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.summaryPill,
+                    {
+                      backgroundColor: theme.colors.primarySoft,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.summaryText, { color: theme.colors.primary }]}>
+                    Open {asset.maintenance_open}
+                  </Text>
+                </View>
+              </View>
+
+              {asset.last_reported_at ? (
+                <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>
+                  Last reported {formatDateLabel(asset.last_reported_at)}
+                </Text>
+              ) : null}
+            </Pressable>
+          );
+        })
       )}
 
       <SelectionModal
@@ -327,6 +366,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+  },
+  riskRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
+  riskPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  riskPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
   summaryPill: {
     borderRadius: 999,

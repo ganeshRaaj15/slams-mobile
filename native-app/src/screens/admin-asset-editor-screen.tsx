@@ -30,6 +30,29 @@ type PickedImage = {
   mimeType: string;
 };
 
+function riskTone(band: string, theme: ReturnType<typeof useAppTheme>) {
+  if (band === 'high') {
+    return {
+      accent: theme.colors.danger,
+      background: theme.colors.dangerSoft,
+      label: 'High risk',
+    };
+  }
+  if (band === 'medium') {
+    return {
+      accent: theme.colors.warning,
+      background: theme.colors.warningSoft,
+      label: 'Review soon',
+    };
+  }
+
+  return {
+    accent: theme.colors.success,
+    background: theme.colors.successSoft,
+    label: 'Stable',
+  };
+}
+
 export function AdminAssetEditorScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
@@ -148,6 +171,7 @@ export function AdminAssetEditorScreen() {
 
   const labs = detailQuery.data?.labs ?? catalogQuery.data?.labs ?? [];
   const asset = detailQuery.data?.asset;
+  const assetTone = asset ? riskTone(asset.risk_band ?? 'low', theme) : null;
   const selectedLab = useMemo(() => labs.find((item) => item.id === labId) ?? null, [labId, labs]);
   const imageUri = image?.uri || asset?.image_url || '';
 
@@ -386,13 +410,18 @@ export function AdminAssetEditorScreen() {
           >
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Predictive Maintenance Insight</Text>
             <View style={styles.summaryRow}>
-              <View style={[styles.summaryPill, { backgroundColor: theme.colors.dangerSoft }]}>
-                <Text style={[styles.summaryText, { color: theme.colors.danger }]}>
-                  Risk {asset.risk_percent}%
+              <View style={[styles.summaryPill, { backgroundColor: assetTone?.background ?? theme.colors.successSoft }]}>
+                <Text style={[styles.summaryText, { color: assetTone?.accent ?? theme.colors.success }]}>
+                  {assetTone?.label ?? 'Stable'}
                 </Text>
               </View>
               <View style={[styles.summaryPill, { backgroundColor: theme.colors.primarySoft }]}>
                 <Text style={[styles.summaryText, { color: theme.colors.primary }]}>
+                  Risk {asset.risk_percent}%
+                </Text>
+              </View>
+              <View style={[styles.summaryPill, { backgroundColor: theme.colors.surfaceMuted }]}>
+                <Text style={[styles.summaryText, { color: theme.colors.text }]}>
                   {asset.decision_priority.toUpperCase()} PRIORITY
                 </Text>
               </View>
@@ -406,8 +435,17 @@ export function AdminAssetEditorScreen() {
                 Next estimated due date {formatDateLabel(asset.next_due_at)}
               </Text>
             ) : null}
-            {asset.reasons[0] ? (
-              <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>{asset.reasons[0]}</Text>
+            {asset.reasons.length ? (
+              <View style={styles.reasonGroup}>
+                <Text style={[styles.reasonHeading, { color: theme.colors.textMuted }]}>
+                  Why this asset was flagged
+                </Text>
+                {asset.reasons.map((reason, index) => (
+                  <Text key={`asset-reason-${index}`} style={[styles.metaText, { color: theme.colors.textMuted }]}>
+                    {'• '}{reason}
+                  </Text>
+                ))}
+              </View>
             ) : null}
           </View>
 
@@ -654,6 +692,15 @@ const styles = StyleSheet.create({
   summaryText: {
     fontSize: 12,
     fontWeight: '800',
+  },
+  reasonGroup: {
+    gap: 6,
+  },
+  reasonHeading: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
   },
   historyCard: {
     borderRadius: 14,

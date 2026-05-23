@@ -15,6 +15,29 @@ import { formatDateLabel } from '../utils/format';
 
 type FilterMode = 'mine' | 'all' | 'testing';
 
+function riskTone(band: string, theme: ReturnType<typeof useAppTheme>) {
+  if (band === 'high') {
+    return {
+      accent: theme.colors.danger,
+      background: theme.colors.dangerSoft,
+      label: 'High risk',
+    };
+  }
+  if (band === 'medium') {
+    return {
+      accent: theme.colors.warning,
+      background: theme.colors.warningSoft,
+      label: 'Review soon',
+    };
+  }
+
+  return {
+    accent: theme.colors.success,
+    background: theme.colors.successSoft,
+    label: 'Stable',
+  };
+}
+
 export function MaintenanceScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
@@ -183,41 +206,52 @@ export function MaintenanceScreen() {
           <Text style={[styles.panelMeta, { color: theme.colors.textMuted }]}>
             High-risk assets are prioritized using booking pressure and maintenance history.
           </Text>
-          {maintenanceQuery.data.predictive_alerts.slice(0, 3).map((alert) => (
-            <Pressable
-              key={`${alert.asset_id}-${alert.next_due_at}`}
-              onPress={() =>
-                navigation.navigate('MaintenanceForm', {
-                  assetId: alert.asset_id,
-                })
-              }
-              style={[
-                styles.alertCard,
-                {
-                  backgroundColor: theme.colors.surfaceMuted,
-                },
-              ]}
-            >
-              <View style={styles.cardHeader}>
-                <View style={styles.cardTitleWrap}>
-                  <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{alert.asset_name}</Text>
-                  <Text style={[styles.cardMeta, { color: theme.colors.primary }]}>
-                    {alert.decision_label}
-                  </Text>
+          {maintenanceQuery.data.predictive_alerts.slice(0, 3).map((alert) => {
+            const tone = riskTone(alert.risk_band ?? 'low', theme);
+
+            return (
+              <Pressable
+                key={`${alert.asset_id}-${alert.next_due_at}`}
+                onPress={() =>
+                  navigation.navigate('MaintenanceForm', {
+                    assetId: alert.asset_id,
+                  })
+                }
+                style={[
+                  styles.alertCard,
+                  {
+                    backgroundColor: theme.colors.surfaceMuted,
+                  },
+                ]}
+              >
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitleWrap}>
+                    <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{alert.asset_name}</Text>
+                    <Text style={[styles.cardMeta, { color: theme.colors.primary }]}>
+                      {alert.decision_label}
+                    </Text>
+                  </View>
+                  <View style={styles.riskWrap}>
+                    <View style={[styles.riskBandPill, { backgroundColor: tone.background }]}>
+                      <Text style={[styles.riskBandText, { color: tone.accent }]}>{tone.label}</Text>
+                    </View>
+                    <Text style={[styles.riskBadge, { color: tone.accent }]}>
+                      {alert.risk_percent}%
+                    </Text>
+                  </View>
                 </View>
-                <Text style={[styles.riskBadge, { color: theme.colors.danger }]}>
-                  {alert.risk_percent}%
+                <Text style={[styles.cardBody, { color: theme.colors.textMuted }]}>
+                  {alert.lab_name || 'Unassigned lab'}
+                  {alert.next_due_at ? `  |  Due ${formatDateLabel(alert.next_due_at)}` : ''}
                 </Text>
-              </View>
-              <Text style={[styles.cardBody, { color: theme.colors.textMuted }]}>
-                {alert.lab_name || 'Unassigned lab'}
-                {alert.next_due_at ? `  |  Due ${formatDateLabel(alert.next_due_at)}` : ''}
-              </Text>
-              {alert.reasons[0] ? (
-                <Text style={[styles.cardBody, { color: theme.colors.textMuted }]}>{alert.reasons[0]}</Text>
-              ) : null}
-            </Pressable>
-          ))}
+                {alert.reasons?.slice(0, 2).map((reason, index) => (
+                  <Text key={`${alert.asset_id}-reason-${index}`} style={[styles.reasonText, { color: theme.colors.textMuted }]}>
+                    {'• '}{reason}
+                  </Text>
+                ))}
+              </Pressable>
+            );
+          })}
         </View>
       ) : null}
 
@@ -358,6 +392,25 @@ const styles = StyleSheet.create({
   cardBody: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  reasonText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  riskWrap: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  riskBandPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  riskBandText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
   riskBadge: {
     fontSize: 18,
