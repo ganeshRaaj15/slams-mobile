@@ -148,8 +148,8 @@ export function AdminUserEditorScreen() {
     );
   }
 
-  function toggleRole(role: string) {
-    setRoles((current) => (current.includes(role) ? current.filter((item) => item !== role) : [...current, role]));
+  function selectRole(role: string) {
+    setRoles([role]);
   }
 
   async function handleSave() {
@@ -224,7 +224,7 @@ export function AdminUserEditorScreen() {
         </View>
 
         <View style={styles.fieldWrap}>
-          <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>Roles</Text>
+          <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>Role</Text>
           <View style={styles.roleWrap}>
             {allRoles.map((role) => {
               const selected = roles.includes(role);
@@ -232,7 +232,7 @@ export function AdminUserEditorScreen() {
                 <Pressable
                   key={role}
                   onPress={() => {
-                    toggleRole(role);
+                    selectRole(role);
                   }}
                   style={[
                     styles.roleChip,
@@ -349,7 +349,7 @@ export function AdminUserEditorScreen() {
           </Pressable>
         </View>
       ) : (
-        <EmptyState title="New account" message="Assign at least one role and set a password to create the user." />
+        <EmptyState title="New account" message="Select a role and set a password to create the user." />
       )}
 
       <SelectionModal

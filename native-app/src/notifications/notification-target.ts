@@ -28,7 +28,7 @@ function resolveTarget(payload: TargetPayload, role?: string) {
     return () => navigateToTab('Approvals');
   }
 
-  if (url.includes('/technician/maintenance') || (entityType === 'maintenance' && role === 'technician')) {
+  if (url.includes('/technician/maintenance') || (entityType === 'maintenance' && role === 'pic')) {
     if (entityId > 0) {
       return () => navigateToStack('MaintenanceForm', { maintenanceId: entityId });
     }
@@ -36,7 +36,7 @@ function resolveTarget(payload: TargetPayload, role?: string) {
     return () => navigateToTab('Maintenance');
   }
 
-  if (url.includes('/dashboard/report-issue') || (entityType === 'maintenance' && role !== 'technician')) {
+  if (url.includes('/dashboard/report-issue') || (entityType === 'maintenance' && role !== 'pic')) {
     return () => navigateToTab('Issues');
   }
 

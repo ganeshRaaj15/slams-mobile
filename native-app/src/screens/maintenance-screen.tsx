@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { claimMaintenanceRequest, listMaintenanceRequest } from '../api/endpoints';
+import { listMaintenanceRequest } from '../api/endpoints';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
@@ -21,8 +21,7 @@ export function MaintenanceScreen() {
   const role = useAuthStore((state) => state.user?.primary_role ?? 'student');
   const [filterMode, setFilterMode] = useState<FilterMode>('mine');
 
-  const queryClient = useQueryClient();
-  const canUseMaintenance = role === 'technician';
+  const canUseMaintenance = role === 'pic';
   const queryParams = useMemo(() => {
     if (filterMode === 'testing') {
       return { status: 'testing' };
@@ -37,19 +36,12 @@ export function MaintenanceScreen() {
     enabled: canUseMaintenance,
   });
 
-  const claimMutation = useMutation({
-    mutationFn: claimMaintenanceRequest,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['maintenance-workspace'] });
-    },
-  });
-
   if (!canUseMaintenance) {
     return (
       <Screen>
         <EmptyState
           title="No maintenance workspace"
-          message="The maintenance queue is limited to technician users in SLAMS."
+          message="The maintenance queue is only available to PIC users in SLAMS."
         />
       </Screen>
     );
@@ -232,7 +224,7 @@ export function MaintenanceScreen() {
       {records.length === 0 ? (
         <EmptyState
           title="No maintenance cases"
-          message="The current technician queue is clear for this filter."
+          message="The current maintenance queue is clear for this filter."
         />
       ) : (
         records.map((record) => (
@@ -268,25 +260,6 @@ export function MaintenanceScreen() {
               {record.unit_reference ? `  |  Unit ${record.unit_reference}` : ''}
             </Text>
 
-            {record.technician_name ? (
-              <Text style={[styles.cardBody, { color: theme.colors.textMuted }]}>
-                Claimed by {record.technician_name}
-              </Text>
-            ) : record.status === 'reported' ? (
-              <Pressable
-                onPress={(e) => {
-                  e.stopPropagation();
-                  claimMutation.mutate(record.id);
-                }}
-                style={[styles.claimButton, { backgroundColor: theme.colors.successSoft }]}
-              >
-                <Text style={[styles.claimButtonText, { color: theme.colors.success }]}>
-                  Claim This Case
-                </Text>
-              </Pressable>
-            ) : (
-              <Text style={[styles.cardBody, { color: theme.colors.textMuted }]}>Unassigned</Text>
-            )}
           </Pressable>
         ))
       )}
@@ -388,15 +361,6 @@ const styles = StyleSheet.create({
   },
   riskBadge: {
     fontSize: 18,
-    fontWeight: '800',
-  },
-  claimButton: {
-    alignItems: 'center',
-    borderRadius: 10,
-    paddingVertical: 10,
-  },
-  claimButtonText: {
-    fontSize: 13,
     fontWeight: '800',
   },
 });

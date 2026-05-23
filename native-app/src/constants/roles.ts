@@ -2,7 +2,6 @@ export const ROLE_PRIORITY = [
   'admin',
   'manager',
   'pic',
-  'technician',
   'student',
   'staff',
   'external',
@@ -19,5 +18,5 @@ export function isExternalRole(role: string): boolean {
 }
 
 export function isOperationalRole(role: string): boolean {
-  return ['admin', 'manager', 'pic', 'technician'].includes(role);
+  return ['admin', 'manager', 'pic'].includes(role);
 }

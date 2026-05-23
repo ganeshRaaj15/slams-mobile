@@ -161,8 +161,7 @@ export function IssuesScreen() {
       >
         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Report Asset Issue</Text>
         <Text style={[styles.helperText, { color: theme.colors.textMuted }]}>
-          Corrective maintenance starts here for student, staff, and PIC users. The technician sees
-          the case in the same SLAMS workflow.
+          Corrective maintenance starts here. The assigned lab PIC will see the case in the maintenance workflow.
         </Text>
 
         <Pressable
