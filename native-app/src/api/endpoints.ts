@@ -966,9 +966,9 @@ export async function listExternalRequestDaySlotsRequest(labId: number, date: st
 }
 
 export async function listExternalRequestLabServicesRequest(labId: number) {
-  const response = await api.get<ApiEnvelope<{ services: Array<{ id: number; service_name: string }> }>>(
-    `/api/native/external-requests/labs/${labId}/services`,
-  );
+  const response = await api.get<
+    ApiEnvelope<{ services: Array<{ id: number; service_name: string; equipment_models: string }> }>
+  >(`/api/native/external-requests/labs/${labId}/services`);
   return response.data;
 }
 

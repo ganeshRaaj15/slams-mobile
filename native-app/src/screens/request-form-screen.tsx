@@ -8,7 +8,6 @@ import {
   getExternalRequestRequest,
   listExternalRequestDaySlotsRequest,
   listExternalRequestLabServicesRequest,
-  listExternalRequestServiceAssetsRequest,
   listLabsRequest,
   updateExternalRequestRequest,
 } from '../api/endpoints';
@@ -36,7 +35,7 @@ type FormState = {
   purpose: string;
   equipment_notes: string;
   service_id: number;
-  selected_assets: string[];
+  selected_assets: string;
 };
 
 export function RequestFormScreen() {
@@ -59,7 +58,7 @@ export function RequestFormScreen() {
     purpose: '',
     equipment_notes: '',
     service_id: 0,
-    selected_assets: [],
+    selected_assets: '',
   });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [slotNotice, setSlotNotice] = useState<string | null>(null);
@@ -93,12 +92,6 @@ export function RequestFormScreen() {
     enabled: form.lab_id > 0,
   });
 
-  const serviceAssetsQuery = useQuery({
-    queryKey: ['external-request-service-assets', form.service_id],
-    queryFn: () => listExternalRequestServiceAssetsRequest(form.service_id),
-    enabled: form.service_id > 0,
-  });
-
   useEffect(() => {
     if (!existingRequestQuery.data?.request) {
       return;
@@ -118,9 +111,7 @@ export function RequestFormScreen() {
       purpose: request.purpose,
       equipment_notes: request.equipment_notes,
       service_id: request.service_id ?? 0,
-      selected_assets: request.selected_assets
-        ? request.selected_assets.split(',').map((s) => s.trim()).filter(Boolean)
-        : [],
+      selected_assets: request.selected_assets ?? '',
     });
     setSlotNotice(null);
   }, [existingRequestQuery.data]);
@@ -171,7 +162,7 @@ export function RequestFormScreen() {
         purpose: form.purpose,
         equipment_notes: form.equipment_notes,
         service_id: form.service_id > 0 ? form.service_id : undefined,
-        selected_assets: form.selected_assets.length > 0 ? form.selected_assets.join(',') : undefined,
+        selected_assets: form.selected_assets || undefined,
       };
 
       if (route.params?.requestId) {
@@ -248,7 +239,7 @@ export function RequestFormScreen() {
                     preferred_start_time: '',
                     preferred_end_time: '',
                     service_id: 0,
-                    selected_assets: [],
+                    selected_assets: '',
                   }));
                 }}
                 style={[
@@ -299,10 +290,11 @@ export function RequestFormScreen() {
                   <Pressable
                     key={service.id}
                     onPress={() => {
+                      const isDeselect = service.id === form.service_id;
                       setForm((current) => ({
                         ...current,
-                        service_id: selected ? 0 : service.id,
-                        selected_assets: [],
+                        service_id: isDeselect ? 0 : service.id,
+                        selected_assets: isDeselect ? '' : (service.equipment_models ?? ''),
                       }));
                     }}
                     style={[
@@ -324,68 +316,15 @@ export function RequestFormScreen() {
               No services configured for this laboratory.
             </Text>
           )}
-        </View>
-      ) : null}
 
-      {form.service_id > 0 ? (
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
-            },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Equipment</Text>
-          <Text style={[styles.helperText, { color: theme.colors.textMuted }]}>
-            Optional — select equipment you will need.
-          </Text>
-
-          {serviceAssetsQuery.isLoading ? (
-            <Text style={[styles.slotBodyText, { color: theme.colors.textMuted }]}>Loading equipment...</Text>
-          ) : serviceAssetsQuery.data?.assets?.length ? (
-            <View style={styles.choiceWrap}>
-              {serviceAssetsQuery.data.assets.map((asset) => {
-                const selected = form.selected_assets.includes(asset.name);
-                return (
-                  <Pressable
-                    key={asset.id}
-                    onPress={() => {
-                      setForm((current) => {
-                        const next = selected
-                          ? current.selected_assets.filter((n) => n !== asset.name)
-                          : [...current.selected_assets, asset.name];
-                        return { ...current, selected_assets: next };
-                      });
-                    }}
-                    style={[
-                      styles.choiceChip,
-                      {
-                        backgroundColor: selected ? theme.colors.primarySoft : theme.colors.surfaceMuted,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.choiceText, { color: selected ? theme.colors.primary : theme.colors.text }]}>
-                      {asset.name}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.slotMetaText,
-                        { color: selected ? theme.colors.primary : theme.colors.textMuted },
-                      ]}
-                    >
-                      Qty: {asset.quantity}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+          {form.service_id > 0 && form.selected_assets ? (
+            <View style={[styles.equipmentInfoCard, { backgroundColor: theme.colors.surfaceMuted }]}>
+              <Text style={[styles.helperText, { color: theme.colors.textMuted }]}>
+                <Text style={{ fontWeight: '700' }}>Equipment: </Text>
+                {form.selected_assets}
+              </Text>
             </View>
-          ) : (
-            <Text style={[styles.slotBodyText, { color: theme.colors.textMuted }]}>
-              No equipment listed for this service.
-            </Text>
-          )}
+          ) : null}
         </View>
       ) : null}
 
@@ -669,6 +608,10 @@ const styles = StyleSheet.create({
   choiceText: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  equipmentInfoCard: {
+    borderRadius: 10,
+    padding: 10,
   },
   slotCard: {
     borderRadius: 14,
