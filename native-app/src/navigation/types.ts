@@ -4,6 +4,7 @@ export type RootStackParamList = {
   Main: undefined;
   LabDetail: { labId: number };
   BookingDetail: { bookingId: number };
+  BookingEdit: { bookingId: number };
   BookingComposer: {
     labId: number;
     preselectedServiceId?: number;

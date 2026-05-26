@@ -7,6 +7,8 @@ import {
   createExternalRequestRequest,
   getExternalRequestRequest,
   listExternalRequestDaySlotsRequest,
+  listExternalRequestLabServicesRequest,
+  listExternalRequestServiceAssetsRequest,
   listLabsRequest,
   updateExternalRequestRequest,
 } from '../api/endpoints';
@@ -33,6 +35,8 @@ type FormState = {
   preferred_end_time: string;
   purpose: string;
   equipment_notes: string;
+  service_id: number;
+  selected_assets: string[];
 };
 
 export function RequestFormScreen() {
@@ -54,6 +58,8 @@ export function RequestFormScreen() {
     preferred_end_time: '',
     purpose: '',
     equipment_notes: '',
+    service_id: 0,
+    selected_assets: [],
   });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [slotNotice, setSlotNotice] = useState<string | null>(null);
@@ -81,6 +87,18 @@ export function RequestFormScreen() {
     enabled: Boolean(form.lab_id && form.preferred_date),
   });
 
+  const labServicesQuery = useQuery({
+    queryKey: ['external-request-lab-services', form.lab_id],
+    queryFn: () => listExternalRequestLabServicesRequest(form.lab_id),
+    enabled: form.lab_id > 0,
+  });
+
+  const serviceAssetsQuery = useQuery({
+    queryKey: ['external-request-service-assets', form.service_id],
+    queryFn: () => listExternalRequestServiceAssetsRequest(form.service_id),
+    enabled: form.service_id > 0,
+  });
+
   useEffect(() => {
     if (!existingRequestQuery.data?.request) {
       return;
@@ -99,6 +117,10 @@ export function RequestFormScreen() {
       preferred_end_time: request.preferred_end_time,
       purpose: request.purpose,
       equipment_notes: request.equipment_notes,
+      service_id: request.service_id ?? 0,
+      selected_assets: request.selected_assets
+        ? request.selected_assets.split(',').map((s) => s.trim()).filter(Boolean)
+        : [],
     });
     setSlotNotice(null);
   }, [existingRequestQuery.data]);
@@ -148,6 +170,8 @@ export function RequestFormScreen() {
         preferred_end_time: form.preferred_end_time,
         purpose: form.purpose,
         equipment_notes: form.equipment_notes,
+        service_id: form.service_id > 0 ? form.service_id : undefined,
+        selected_assets: form.selected_assets.length > 0 ? form.selected_assets.join(',') : undefined,
       };
 
       if (route.params?.requestId) {
@@ -223,6 +247,8 @@ export function RequestFormScreen() {
                     lab_id: lab.id,
                     preferred_start_time: '',
                     preferred_end_time: '',
+                    service_id: 0,
+                    selected_assets: [],
                   }));
                 }}
                 style={[
@@ -247,6 +273,121 @@ export function RequestFormScreen() {
           })}
         </View>
       </View>
+
+      {form.lab_id > 0 ? (
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Service / Field of Work</Text>
+          <Text style={[styles.helperText, { color: theme.colors.textMuted }]}>
+            Optional — select the service or field of work you are interested in.
+          </Text>
+
+          {labServicesQuery.isLoading ? (
+            <Text style={[styles.slotBodyText, { color: theme.colors.textMuted }]}>Loading services...</Text>
+          ) : labServicesQuery.data?.services?.length ? (
+            <View style={styles.choiceWrap}>
+              {labServicesQuery.data.services.map((service) => {
+                const selected = service.id === form.service_id;
+                return (
+                  <Pressable
+                    key={service.id}
+                    onPress={() => {
+                      setForm((current) => ({
+                        ...current,
+                        service_id: selected ? 0 : service.id,
+                        selected_assets: [],
+                      }));
+                    }}
+                    style={[
+                      styles.choiceChip,
+                      {
+                        backgroundColor: selected ? theme.colors.primarySoft : theme.colors.surfaceMuted,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.choiceText, { color: selected ? theme.colors.primary : theme.colors.text }]}>
+                      {service.service_name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={[styles.slotBodyText, { color: theme.colors.textMuted }]}>
+              No services configured for this laboratory.
+            </Text>
+          )}
+        </View>
+      ) : null}
+
+      {form.service_id > 0 ? (
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Equipment</Text>
+          <Text style={[styles.helperText, { color: theme.colors.textMuted }]}>
+            Optional — select equipment you will need.
+          </Text>
+
+          {serviceAssetsQuery.isLoading ? (
+            <Text style={[styles.slotBodyText, { color: theme.colors.textMuted }]}>Loading equipment...</Text>
+          ) : serviceAssetsQuery.data?.assets?.length ? (
+            <View style={styles.choiceWrap}>
+              {serviceAssetsQuery.data.assets.map((asset) => {
+                const selected = form.selected_assets.includes(asset.name);
+                return (
+                  <Pressable
+                    key={asset.id}
+                    onPress={() => {
+                      setForm((current) => {
+                        const next = selected
+                          ? current.selected_assets.filter((n) => n !== asset.name)
+                          : [...current.selected_assets, asset.name];
+                        return { ...current, selected_assets: next };
+                      });
+                    }}
+                    style={[
+                      styles.choiceChip,
+                      {
+                        backgroundColor: selected ? theme.colors.primarySoft : theme.colors.surfaceMuted,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.choiceText, { color: selected ? theme.colors.primary : theme.colors.text }]}>
+                      {asset.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.slotMetaText,
+                        { color: selected ? theme.colors.primary : theme.colors.textMuted },
+                      ]}
+                    >
+                      Qty: {asset.quantity}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={[styles.slotBodyText, { color: theme.colors.textMuted }]}>
+              No equipment listed for this service.
+            </Text>
+          )}
+        </View>
+      ) : null}
 
       <View
         style={[
@@ -440,10 +581,10 @@ export function RequestFormScreen() {
           value={form.purpose}
         />
         <TextField
-          label="Equipment Notes"
+          label="Setup Notes"
           multiline
           onChangeText={(value) => setForm((current) => ({ ...current, equipment_notes: value }))}
-          placeholder="Optional equipment requirements"
+          placeholder="Optional setup or equipment notes"
           style={styles.multiline}
           value={form.equipment_notes}
         />

@@ -20,6 +20,7 @@ import { ApprovalsScreen } from '../screens/approvals-screen';
 import { LoadingState } from '../components/loading-state';
 import { Screen } from '../components/screen';
 import { BookingDetailScreen } from '../screens/booking-detail-screen';
+import { BookingEditScreen } from '../screens/booking-edit-screen';
 import { BookingComposerScreen } from '../screens/booking-composer-screen';
 import { BookingsScreen } from '../screens/bookings-screen';
 import { HomeScreen } from '../screens/home-screen';
@@ -261,6 +262,7 @@ export function RootNavigator({ onReady }: RootNavigatorProps) {
           <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
           <Stack.Screen name="LabDetail" component={LabDetailScreen} options={{ title: 'Laboratory' }} />
           <Stack.Screen name="BookingDetail" component={BookingDetailScreen} options={{ title: 'Booking Details' }} />
+          <Stack.Screen name="BookingEdit" component={BookingEditScreen} options={{ title: 'Edit Booking' }} />
           <Stack.Screen name="BookingComposer" component={BookingComposerScreen} options={{ title: 'New Booking' }} />
           <Stack.Screen name="ApprovalDetail" component={ApprovalDetailScreen} options={{ title: 'Approval Review' }} />
           <Stack.Screen name="Reports" component={ReportsScreen} options={{ title: 'Reports' }} />

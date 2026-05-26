@@ -1,5 +1,7 @@
 export const BOOKING_STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pending',
+  PENDING_PIC: 'Awaiting PIC',
+  PENDING_MANAGER: 'Awaiting Manager',
   APPROVED: 'Approved',
   REJECTED: 'Rejected',
   CANCELLED: 'Cancelled',

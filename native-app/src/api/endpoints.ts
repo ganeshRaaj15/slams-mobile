@@ -310,6 +310,7 @@ export async function listDaySlotsRequest(
   params: {
     service_id: number;
     assets: string;
+    exclude_booking_id?: number;
   },
 ) {
   const response = await api.get<ApiEnvelope<{ slots: DaySlot[] }>>(
@@ -378,6 +379,68 @@ export async function cancelBookingRequest(bookingId: number) {
     `/api/native/bookings/${bookingId}/cancel`,
   );
   return response.data;
+}
+
+export async function updateBookingRequest(
+  bookingId: number,
+  payload: {
+    date: string;
+    start_time: string;
+    end_time: string;
+    activity: string;
+    supervisor_name?: string;
+    supervisor_email?: string;
+    supervisor_phone?: string;
+    applicants: BookingApplicantInput[];
+    pdf?: {
+      uri: string;
+      name: string;
+      mimeType: string;
+    } | null;
+  },
+) {
+  const token = getApiAccessToken();
+  const formData = new FormData();
+
+  formData.append('date', payload.date);
+  formData.append('start_time', payload.start_time);
+  formData.append('end_time', payload.end_time);
+  formData.append('activity', payload.activity);
+  formData.append('supervisor_name', payload.supervisor_name ?? '');
+  formData.append('supervisor_email', payload.supervisor_email ?? '');
+  formData.append('supervisor_phone', payload.supervisor_phone ?? '');
+
+  payload.applicants.forEach((applicant) => {
+    formData.append('applicant_name[]', applicant.name);
+    formData.append('applicant_id[]', applicant.matric_id);
+    formData.append('applicant_email[]', applicant.email);
+    formData.append('applicant_phone[]', applicant.phone);
+    formData.append('applicant_faculty[]', String(applicant.faculty_id ?? ''));
+  });
+
+  if (payload.pdf) {
+    appendUploadAsset(formData, 'pdf', payload.pdf);
+  }
+
+  const response = await fetchApi(`/api/native/bookings/${bookingId}/update`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  const data = (await response.json()) as ApiEnvelope<Record<string, never>>;
+  if (!response.ok || data.status === 'error') {
+    throw new Error(
+      typeof data.message === 'string' && data.message.trim() !== ''
+        ? data.message
+        : 'Booking update failed.',
+    );
+  }
+
+  return data;
 }
 
 export async function submitBookingRequest(payload: {
@@ -902,6 +965,20 @@ export async function listExternalRequestDaySlotsRequest(labId: number, date: st
   return response.data;
 }
 
+export async function listExternalRequestLabServicesRequest(labId: number) {
+  const response = await api.get<ApiEnvelope<{ services: Array<{ id: number; service_name: string }> }>>(
+    `/api/native/external-requests/labs/${labId}/services`,
+  );
+  return response.data;
+}
+
+export async function listExternalRequestServiceAssetsRequest(serviceId: number) {
+  const response = await api.get<
+    ApiEnvelope<{ assets: Array<{ id: number; name: string; category: string; quantity: number }> }>
+  >(`/api/native/external-requests/services/${serviceId}/assets`);
+  return response.data;
+}
+
 export async function createExternalRequestRequest(payload: {
   lab_id: number;
   organization_name: string;
@@ -914,6 +991,8 @@ export async function createExternalRequestRequest(payload: {
   preferred_end_time: string;
   purpose: string;
   equipment_notes: string;
+  service_id?: number;
+  selected_assets?: string;
 }) {
   const response = await api.post<ApiEnvelope<{ request_id: number }>>(
     '/api/native/external-requests',
@@ -936,6 +1015,8 @@ export async function updateExternalRequestRequest(
     preferred_end_time: string;
     purpose: string;
     equipment_notes: string;
+    service_id?: number;
+    selected_assets?: string;
   },
 ) {
   const response = await api.post<ApiEnvelope<Record<string, never>>>(

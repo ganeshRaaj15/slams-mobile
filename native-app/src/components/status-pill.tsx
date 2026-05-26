@@ -16,6 +16,8 @@ function getStatusIcon(status: string, kind: string): IoniconName {
   const iconMap: Record<string, IoniconName> = {
     // booking
     'booking:PENDING': 'time-outline',
+    'booking:PENDING_PIC': 'time-outline',
+    'booking:PENDING_MANAGER': 'hourglass-outline',
     'booking:APPROVED': 'checkmark-circle',
     'booking:REJECTED': 'close-circle-outline',
     'booking:CANCELLED': 'ban-outline',
@@ -81,6 +83,8 @@ export function StatusPill({
           }
       : {
           PENDING: { bg: theme.colors.warningSoft, text: theme.colors.warning },
+          PENDING_PIC: { bg: theme.colors.warningSoft, text: theme.colors.warning },
+          PENDING_MANAGER: { bg: theme.colors.primarySoft, text: theme.colors.primary },
           APPROVED: { bg: theme.colors.successSoft, text: theme.colors.success },
           REJECTED: { bg: theme.colors.dangerSoft, text: theme.colors.danger },
           CANCELLED: { bg: theme.colors.surfaceMuted, text: theme.colors.textMuted },

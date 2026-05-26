@@ -98,6 +98,7 @@ export type BookingSummary = {
   created_at: string;
   updated_at: string;
   can_cancel: boolean;
+  can_edit: boolean;
 };
 
 export type BookingAsset = {
@@ -164,6 +165,8 @@ export type ExternalRequest = {
   preferred_end_time: string;
   purpose: string;
   equipment_notes: string;
+  service_id?: number;
+  selected_assets?: string;
   booking_id: number | null;
   status: string;
   status_label: string;

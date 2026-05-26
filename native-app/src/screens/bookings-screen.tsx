@@ -13,6 +13,7 @@ import { isStudentRole } from '../constants/roles';
 import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
 import { formatDateTimeRange } from '../utils/format';
+import { getBookingDisplayStatus } from '../utils/booking-status';
 
 export function BookingsScreen() {
   const theme = useAppTheme();
@@ -120,7 +121,7 @@ export function BookingsScreen() {
                   {booking.service_name || 'General booking'}
                 </Text>
               </View>
-              <StatusPill status={booking.status} />
+              <StatusPill status={getBookingDisplayStatus(booking)} />
             </View>
 
             <Text style={[styles.cardMeta, { color: theme.colors.primary }]}>

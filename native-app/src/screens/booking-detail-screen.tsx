@@ -9,14 +9,17 @@ import { LoadingState } from '../components/loading-state';
 import { Screen } from '../components/screen';
 import { StatusPill } from '../components/status-pill';
 import { useAppTheme } from '../theme/use-app-theme';
+import { useNavigation } from '@react-navigation/native';
 import { openProtectedPdf } from '../utils/protected-document';
 import { formatDateTimeRange } from '../utils/format';
+import { getBookingDisplayStatus, getBookingStageSubtitle } from '../utils/booking-status';
 import type { RootStackParamList } from '../navigation/types';
 import { readErrorMessage } from '../utils/error-message';
 
 export function BookingDetailScreen() {
   const theme = useAppTheme();
   const route = useRoute<RouteProp<RootStackParamList, 'BookingDetail'>>();
+  const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const [documentError, setDocumentError] = useState<string | null>(null);
   const [documentBusy, setDocumentBusy] = useState(false);
@@ -92,8 +95,13 @@ export function BookingDetailScreen() {
               {booking.service_name || 'General booking'}
             </Text>
           </View>
-          <StatusPill status={booking.status} />
+          <StatusPill status={getBookingDisplayStatus(booking)} />
         </View>
+        {getBookingStageSubtitle(booking) ? (
+          <Text style={[styles.stageSub, { color: theme.colors.textMuted }]}>
+            {getBookingStageSubtitle(booking)}
+          </Text>
+        ) : null}
 
         <Text style={[styles.meta, { color: theme.colors.primary }]}>
           {formatDateTimeRange(booking.date, booking.start_time, booking.end_time)}
@@ -135,6 +143,21 @@ export function BookingDetailScreen() {
           </View>
         ) : null}
 
+        {booking.can_edit ? (
+          <Pressable
+            onPress={() => {
+              navigation.navigate('BookingEdit', { bookingId: booking.id });
+            }}
+            style={[
+              styles.editButton,
+              {
+                backgroundColor: theme.colors.primarySoft,
+              },
+            ]}
+          >
+            <Text style={[styles.editButtonText, { color: theme.colors.primary }]}>Edit Booking</Text>
+          </Pressable>
+        ) : null}
         {booking.can_cancel ? (
           <Pressable
             disabled={cancelMutation.isPending}
@@ -236,6 +259,10 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
   },
+  stageSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
   meta: {
     fontSize: 13,
     fontWeight: '700',
@@ -256,6 +283,15 @@ const styles = StyleSheet.create({
   noteText: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  editButton: {
+    alignItems: 'center',
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  editButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
   },
   cancelButton: {
     alignItems: 'center',
