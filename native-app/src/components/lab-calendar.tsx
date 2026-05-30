@@ -46,9 +46,10 @@ function buildWeeks(year: number, month: number): (number | null)[][] {
 
 type Props = {
   labId: number;
+  onSlotSelect?: (date: string, start: string, end: string) => void;
 };
 
-export function LabCalendar({ labId }: Props) {
+export function LabCalendar({ labId, onSlotSelect }: Props) {
   const theme = useAppTheme();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -56,6 +57,7 @@ export function LabCalendar({ labId }: Props) {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{ start: string; end: string } | null>(null);
 
   const calendarQuery = useQuery({
     queryKey: ['lab-calendar', labId, year, month],
@@ -77,17 +79,20 @@ export function LabCalendar({ labId }: Props) {
     if (month === 0) { setYear((y) => y - 1); setMonth(11); }
     else { setMonth((m) => m - 1); }
     setSelectedDate(null);
+    setSelectedSlot(null);
   }
 
   function nextMonth() {
     if (month === 11) { setYear((y) => y + 1); setMonth(0); }
     else { setMonth((m) => m + 1); }
     setSelectedDate(null);
+    setSelectedSlot(null);
   }
 
   function handleDayPress(ds: string, isPast: boolean, isUnavailable: boolean) {
     if (isPast || isUnavailable) return;
     setSelectedDate((prev) => (prev === ds ? null : ds));
+    setSelectedSlot(null);
   }
 
   return (
@@ -219,27 +224,48 @@ export function LabCalendar({ labId }: Props) {
             <ActivityIndicator color={theme.colors.primary} style={styles.loader} />
           ) : dayQuery.data?.slots && dayQuery.data.slots.length > 0 ? (
             <View style={styles.slotList}>
-              {dayQuery.data.slots.map((slot) => (
-                <View
-                  key={`${slot.start}-${slot.end}`}
-                  style={[
-                    styles.slotRow,
-                    { backgroundColor: slot.can_book ? theme.colors.successSoft : theme.colors.dangerSoft },
-                  ]}
-                >
-                  <Text style={[styles.slotTime, { color: theme.colors.text }]}>
-                    {slot.label || `${slot.start} – ${slot.end}`}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.slotStatus,
-                      { color: slot.can_book ? theme.colors.success : theme.colors.danger },
-                    ]}
+              {dayQuery.data.slots.map((slot) => {
+                const isSlotSelected =
+                  !!selectedSlot && selectedSlot.start === slot.start && selectedSlot.end === slot.end;
+                const tappable = slot.can_book && !!onSlotSelect;
+
+                let bg = slot.can_book ? theme.colors.successSoft : theme.colors.dangerSoft;
+                let timeColor = theme.colors.text;
+                let statusColor = slot.can_book ? theme.colors.success : theme.colors.danger;
+
+                if (isSlotSelected) {
+                  bg = theme.colors.primary;
+                  timeColor = '#ffffff';
+                  statusColor = 'rgba(255,255,255,0.85)';
+                }
+
+                return (
+                  <Pressable
+                    key={`${slot.start}-${slot.end}`}
+                    disabled={!tappable}
+                    onPress={() => {
+                      if (!slot.can_book || !onSlotSelect) return;
+                      setSelectedSlot(isSlotSelected ? null : { start: slot.start, end: slot.end });
+                    }}
+                    style={[styles.slotRow, { backgroundColor: bg }]}
                   >
-                    {slot.can_book ? 'Available' : (slot.reason ?? 'Unavailable')}
-                  </Text>
-                </View>
-              ))}
+                    <Text style={[styles.slotTime, { color: timeColor }]}>
+                      {slot.label || `${slot.start} – ${slot.end}`}
+                    </Text>
+                    <Text style={[styles.slotStatus, { color: statusColor }]}>
+                      {isSlotSelected ? 'Selected ✓' : slot.can_book ? 'Available' : (slot.reason ?? 'Unavailable')}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              {selectedSlot && onSlotSelect ? (
+                <Pressable
+                  onPress={() => onSlotSelect(selectedDate!, selectedSlot.start, selectedSlot.end)}
+                  style={[styles.bookSlotButton, { backgroundColor: theme.colors.primary }]}
+                >
+                  <Text style={styles.bookSlotButtonText}>Book this slot</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : (
             <Text style={[styles.noSlots, { color: theme.colors.textMuted }]}>
@@ -359,5 +385,16 @@ const styles = StyleSheet.create({
   noSlots: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  bookSlotButton: {
+    alignItems: 'center',
+    borderRadius: 12,
+    marginTop: 4,
+    paddingVertical: 12,
+  },
+  bookSlotButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

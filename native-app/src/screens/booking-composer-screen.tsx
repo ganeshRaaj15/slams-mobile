@@ -115,6 +115,9 @@ export function BookingComposerScreen() {
   const preselectedServiceId = route.params?.preselectedServiceId ?? null;
   const preselectedAssetId = route.params?.preselectedAssetId ?? null;
   const preselectedAssetQty = Math.max(route.params?.preselectedAssetQty ?? 1, 1);
+  const preselectedDate = route.params?.preselectedDate ?? '';
+  const preselectedStartTime = route.params?.preselectedStartTime ?? '';
+  const preselectedEndTime = route.params?.preselectedEndTime ?? '';
 
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(preselectedServiceId);
   const [selectedAssets, setSelectedAssets] = useState<Record<number, SelectedAssetState>>({});
@@ -128,9 +131,9 @@ export function BookingComposerScreen() {
     },
   ]);
   const [facultyModalIndex, setFacultyModalIndex] = useState<number | null>(null);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const [selectedDate, setSelectedDate] = useState(preselectedDate);
+  const [startTime, setStartTime] = useState(preselectedStartTime);
+  const [endTime, setEndTime] = useState(preselectedEndTime);
   const [deviceNow, setDeviceNow] = useState(() => new Date());
   const [supervisorName, setSupervisorName] = useState('');
   const [supervisorEmail, setSupervisorEmail] = useState('');

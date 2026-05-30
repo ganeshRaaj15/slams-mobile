@@ -10,12 +10,21 @@ export type RootStackParamList = {
     preselectedServiceId?: number;
     preselectedAssetId?: number;
     preselectedAssetQty?: number;
+    preselectedDate?: string;
+    preselectedStartTime?: string;
+    preselectedEndTime?: string;
     source?: 'manual' | 'qr';
   };
   ApprovalDetail: { bookingId: number };
   ExternalRequestReviewDetail: { requestId: number };
   MaintenanceForm: { maintenanceId?: number };
-  RequestForm: { labId?: number; requestId?: number };
+  RequestForm: {
+    labId?: number;
+    requestId?: number;
+    preselectedDate?: string;
+    preselectedStartTime?: string;
+    preselectedEndTime?: string;
+  };
   Reports: undefined;
   AdminWorkspace: undefined;
   AdminUsers: undefined;

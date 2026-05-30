@@ -10,7 +10,7 @@ import { LoadingState } from '../components/loading-state';
 import { Screen } from '../components/screen';
 import { StatCard } from '../components/stat-card';
 import { getShortcutIcon } from '../constants/navigation';
-import { isOperationalRole } from '../constants/roles';
+import { isOperationalRole, isStudentRole } from '../constants/roles';
 import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
 
@@ -110,6 +110,27 @@ export function HomeScreen() {
           {summary.attention_meta}
         </Text>
       </View>
+
+      {user?.primary_role && isStudentRole(user.primary_role) ? (
+        <Pressable
+          onPress={() => navigation.navigate('Labs')}
+          style={[
+            styles.bookingPrompt,
+            {
+              backgroundColor: theme.colors.primary,
+            },
+          ]}
+        >
+          <View style={styles.bookingPromptContent}>
+            <Ionicons color="#ffffff" name="flask-outline" size={28} />
+            <View style={styles.bookingPromptText}>
+              <Text style={styles.bookingPromptTitle}>Book a Laboratory</Text>
+              <Text style={styles.bookingPromptSub}>Browse labs and submit a booking request</Text>
+            </View>
+          </View>
+          <Ionicons color="rgba(255,255,255,0.7)" name="chevron-forward" size={20} />
+        </Pressable>
+      ) : null}
 
       <View style={styles.statsRow}>
         {summary.stats.map((stat) => (
@@ -275,6 +296,18 @@ export function HomeScreen() {
         >
           {summary.message}
         </Text>
+        {user?.primary_role && isStudentRole(user.primary_role) ? (
+          <Text
+            style={[
+              styles.noteHint,
+              {
+                color: theme.colors.textMuted,
+              },
+            ]}
+          >
+            To book a lab: tap the "Book a Laboratory" button above, choose a lab, then tap "Book this Laboratory".
+          </Text>
+        ) : null}
         {user?.primary_role && isOperationalRole(user.primary_role) ? (
           <Text
             style={[
@@ -366,6 +399,33 @@ const styles = StyleSheet.create({
   shortcutText: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  bookingPrompt: {
+    borderRadius: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+  },
+  bookingPromptContent: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 14,
+    flex: 1,
+  },
+  bookingPromptText: {
+    flex: 1,
+    gap: 3,
+  },
+  bookingPromptTitle: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  bookingPromptSub: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 13,
   },
   noteCard: {
     borderRadius: 20,

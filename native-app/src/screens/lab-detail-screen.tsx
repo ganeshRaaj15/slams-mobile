@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { getLabRequest } from '../api/endpoints';
 import { EmptyState } from '../components/empty-state';
@@ -113,33 +113,7 @@ export function LabDetailScreen() {
         </Text>
       </View>
 
-      {isExternalRole(role) ? (
-        <Pressable
-          onPress={() => navigation.navigate('RequestForm', { labId: lab.id })}
-          style={[
-            styles.actionButton,
-            {
-              backgroundColor: theme.colors.primary,
-            },
-          ]}
-        >
-          <Text style={styles.actionButtonText}>Request Access</Text>
-        </Pressable>
-      ) : null}
 
-      {isStudentRole(role) ? (
-        <Pressable
-          onPress={() => navigation.navigate('BookingComposer', { labId: lab.id })}
-          style={[
-            styles.actionButton,
-            {
-              backgroundColor: theme.colors.primary,
-            },
-          ]}
-        >
-          <Text style={styles.actionButtonText}>Launch Booking Composer</Text>
-        </Pressable>
-      ) : null}
 
       {isOperationalRole(role) ? (
         <View
@@ -183,7 +157,28 @@ export function LabDetailScreen() {
         ]}
       >
         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Availability Calendar</Text>
-        <LabCalendar labId={lab.id} />
+        <LabCalendar
+          labId={lab.id}
+          onSlotSelect={
+            isStudentRole(role)
+              ? (date, start, end) =>
+                  navigation.navigate('BookingComposer', {
+                    labId: lab.id,
+                    preselectedDate: date,
+                    preselectedStartTime: start,
+                    preselectedEndTime: end,
+                  })
+              : isExternalRole(role)
+                ? (date, start, end) =>
+                    navigation.navigate('RequestForm', {
+                      labId: lab.id,
+                      preselectedDate: date,
+                      preselectedStartTime: start,
+                      preselectedEndTime: end,
+                    })
+                : undefined
+          }
+        />
       </View>
 
       <View
@@ -386,16 +381,6 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: 13,
     fontWeight: '600',
-  },
-  actionButton: {
-    alignItems: 'center',
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  actionButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '800',
   },
   noticeCard: {
     borderRadius: 18,
