@@ -17,16 +17,38 @@
             <div class="small text-muted mt-2">No assigned laboratories found.</div>
         <?php endif; ?>
     </div>
-    <div class="d-flex flex-wrap gap-2">
-        <a href="/dashboard/report-issue" class="btn btn-outline-danger btn-sm px-3 shadow-sm">
-            <i class="bi bi-tools me-1"></i> Report Asset Issue
+    <div class="d-flex gap-2">
+        <a href="/technician/maintenance/create" class="btn btn-warning btn-sm px-3 shadow-sm">
+            <i class="bi bi-plus-circle me-1"></i> New Maintenance
         </a>
-        <a href="/dashboard/reports/pdf" class="btn btn-outline-primary btn-sm px-3 shadow-sm">
-            <i class="bi bi-file-earmark-pdf me-1"></i> Download Report
-        </a>
-        <a href="/dashboard/reports/csv" class="btn btn-outline-success btn-sm px-3 shadow-sm">
-            <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export CSV
-        </a>
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary btn-sm px-3 shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="bi bi-three-dots me-1"></i> More
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <a class="dropdown-item" href="/technician/maintenance">
+                        <i class="bi bi-wrench me-2 text-warning"></i> Maintenance Records
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="/dashboard/report-issue">
+                        <i class="bi bi-tools me-2 text-danger"></i> Report Asset Issue
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item" href="/dashboard/reports/pdf">
+                        <i class="bi bi-file-earmark-pdf me-2 text-primary"></i> Download Report
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="/dashboard/reports/csv">
+                        <i class="bi bi-file-earmark-spreadsheet me-2 text-success"></i> Export CSV
+                    </a>
+                </li>
+            </ul>
+        </div>
     </div>
 </div>
 
