@@ -80,7 +80,7 @@ class MaintenanceForecastService
     protected function getUpcomingForecastsRaw(int $daysAhead = 90): array
     {
         $assets = $this->db->table('assets a')
-            ->select('a.id, a.name, a.asset_code, l.name AS lab_name, l.room AS lab_room')
+            ->select('a.id, a.name, a.asset_code, a.lab_id, l.name AS lab_name, l.room AS lab_room')
             ->join('laboratories l', 'l.id = a.lab_id', 'left')
             ->orderBy('l.name', 'ASC')
             ->orderBy('a.name', 'ASC')

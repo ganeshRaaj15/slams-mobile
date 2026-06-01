@@ -124,6 +124,94 @@
         </div>
     </div>
 </div>
+<!-- EQUIPMENT RISK -->
+<?php $equipmentRisk = $equipmentRisk ?? ['high' => 0, 'medium' => 0, 'low' => 0, 'topAtRisk' => []]; ?>
+<?php if ($equipmentRisk['high'] + $equipmentRisk['medium'] + $equipmentRisk['low'] > 0): ?>
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="fw-semibold text-dark mb-0">
+                <i class="bi bi-graph-up-arrow me-2 text-warning"></i>Equipment Risk in Your Labs
+            </h5>
+            <small class="text-muted">Predicted maintenance needs for assets in your assigned laboratories.</small>
+        </div>
+        <a href="/technician/maintenance" class="btn btn-outline-warning btn-sm">View Maintenance</a>
+    </div>
+    <div class="card-body">
+        <div class="row g-3 mb-3">
+            <div class="col-4">
+                <div class="text-center p-3 rounded-3" style="background:var(--bs-danger-bg-subtle, #fff5f5);">
+                    <div class="fs-3 fw-bold text-danger"><?= esc($equipmentRisk['high']) ?></div>
+                    <div class="small fw-semibold text-danger">High Risk</div>
+                    <div class="small text-muted">Schedule maintenance now</div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="text-center p-3 rounded-3" style="background:var(--bs-warning-bg-subtle, #fffbf0);">
+                    <div class="fs-3 fw-bold text-warning"><?= esc($equipmentRisk['medium']) ?></div>
+                    <div class="small fw-semibold text-warning">Moderate Risk</div>
+                    <div class="small text-muted">Inspect within 14 days</div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="text-center p-3 rounded-3" style="background:var(--bs-success-bg-subtle, #f0fff4);">
+                    <div class="fs-3 fw-bold text-success"><?= esc($equipmentRisk['low']) ?></div>
+                    <div class="small fw-semibold text-success">Low Risk</div>
+                    <div class="small text-muted">Normal monitoring</div>
+                </div>
+            </div>
+        </div>
+
+        <?php if (! empty($equipmentRisk['topAtRisk'])): ?>
+            <div class="fw-semibold text-dark mb-2 small text-uppercase text-muted">Assets Needing Attention</div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Equipment</th>
+                            <th>Risk</th>
+                            <th>Recommendation</th>
+                            <th>Est. Due Date</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($equipmentRisk['topAtRisk'] as $atRisk): ?>
+                            <?php
+                            $rBand = $atRisk['risk_band'] ?? 'low';
+                            $rBadge = match ($rBand) {
+                                'high'   => 'text-bg-danger',
+                                'medium' => 'text-bg-warning',
+                                default  => 'text-bg-success',
+                            };
+                            $rDue = $atRisk['next_due_at'] ? date('d M Y', strtotime((string) $atRisk['next_due_at'])) : '-';
+                            $rReason = $atRisk['reasons'][0] ?? null;
+                            ?>
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold"><?= esc($atRisk['name']) ?></div>
+                                    <small class="text-muted"><?= esc($atRisk['lab_name']) ?></small>
+                                    <?php if ($rReason): ?>
+                                        <div class="small text-muted fst-italic mt-1"><?= esc($rReason) ?></div>
+                                    <?php endif; ?>
+                                </td>
+                                <td><span class="badge <?= esc($rBadge) ?>"><?= esc($atRisk['risk_percent']) ?>%</span></td>
+                                <td><?= esc($atRisk['decision_label']) ?></td>
+                                <td><?= esc($rDue) ?></td>
+                                <td class="text-end">
+                                    <a href="/technician/maintenance/create?asset_id=<?= esc($atRisk['asset_id']) ?>"
+                                       class="btn btn-outline-primary btn-sm">Plan</a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- CHARTS SECTION -->
 <div class="row mb-4">
     <?php if (!empty($monthlyCounts)): ?>
