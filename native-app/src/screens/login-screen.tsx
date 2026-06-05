@@ -2,13 +2,103 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { VideoView } from 'expo-video';
 
 import { Screen } from '../components/screen';
+import { useHeroVideo } from '../context/hero-video-context';
 import type { RootStackParamList } from '../navigation/types';
 import { TextField } from '../components/text-field';
 import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
+import { useResponsiveLayout } from '../theme/use-responsive-layout';
+
+const appLogo = require('../../assets/icon.png');
+
+function LoginHeroCard() {
+  const theme = useAppTheme();
+  const responsive = useResponsiveLayout();
+  const { dayPlayer, nightPlayer } = useHeroVideo();
+  const heroPlayer = theme.tone === 'dark' ? nightPlayer : dayPlayer;
+  const cardShadow = {
+    elevation: 5,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: theme.tone === 'dark' ? 0.28 : 0.08,
+    shadowRadius: 22,
+  };
+
+  return (
+    <View
+      style={[
+        styles.hero,
+        responsive.isTabletLandscape ? styles.heroWide : null,
+        cardShadow,
+        {
+          backgroundColor: theme.colors.surfaceAccent,
+          borderColor: theme.colors.borderStrong,
+          overflow: 'hidden',
+        },
+      ]}
+    >
+      <VideoView
+        style={StyleSheet.absoluteFillObject}
+        player={heroPlayer}
+        nativeControls={false}
+        contentFit="cover"
+        allowsFullscreen={false}
+        allowsPictureInPicture={false}
+      />
+      <BlurView
+        intensity={theme.tone === 'dark' ? 28 : 34}
+        tint={theme.tone === 'dark' ? 'dark' : 'light'}
+        style={[
+          styles.glassPanel,
+          {
+            borderColor: theme.tone === 'dark'
+              ? 'rgba(255,255,255,0.10)'
+              : 'rgba(255,255,255,0.65)',
+            backgroundColor: theme.tone === 'dark'
+              ? 'rgba(4,16,10,0.35)'
+              : 'rgba(232,248,240,0.30)',
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.eyebrow,
+            {
+              color: theme.tone === 'dark' ? '#2dd4bf' : theme.colors.primary,
+            },
+          ]}
+        >
+          SLAMS Mobile
+        </Text>
+        <Text
+          style={[
+            styles.title,
+            {
+              color: theme.tone === 'dark' ? '#f6faf7' : '#0d1b14',
+            },
+          ]}
+        >
+          Sign in to the mobile workspace
+        </Text>
+        <Text
+          style={[
+            styles.subtitle,
+            {
+              color: theme.tone === 'dark' ? 'rgba(220,236,228,0.90)' : 'rgba(18,44,32,0.85)',
+            },
+          ]}
+        >
+          Use your SLAMS account to access bookings, approvals, requests, notifications, and operational dashboards.
+        </Text>
+      </BlurView>
+    </View>
+  );
+}
 
 export function LoginScreen() {
   const theme = useAppTheme();
@@ -20,6 +110,7 @@ export function LoginScreen() {
   const authError = useAuthStore((state) => state.error);
   const biometric = useAuthStore((state) => state.biometric);
   const isOtpPending = authStatus === 'otp_pending';
+  const responsive = useResponsiveLayout();
   const cardShadow = {
     elevation: 5,
     shadowColor: theme.colors.shadow,
@@ -82,53 +173,22 @@ export function LoginScreen() {
     }
   };
 
-  return (
-    <Screen>
-      <View
-        style={[
-          styles.hero,
-          cardShadow,
-          {
-            backgroundColor: theme.colors.surfaceAccent,
-            borderColor: theme.colors.borderStrong,
-          },
-        ]}
-      >
-        <Text
-          style={[
-            styles.eyebrow,
-            {
-              color: theme.colors.primary,
-            },
-            ]}
-          >
-            SLAMS Mobile
-          </Text>
-        <Text
-          style={[
-            styles.title,
-            {
-              color: theme.colors.heading,
-            },
-          ]}
-        >
-          Sign in to the mobile workspace
-        </Text>
-        <Text
-          style={[
-            styles.subtitle,
-            {
-              color: theme.colors.textMuted,
-            },
-          ]}
-        >
-          Use your SLAMS account to access bookings, approvals, requests, notifications, and operational dashboards.
-        </Text>
-      </View>
+  const landscapeCardHeight = responsive.isTabletLandscape ? responsive.height - 80 : undefined;
 
+  const layout = (
+    <View
+      style={[
+        styles.layout,
+        responsive.isTabletLandscape
+          ? [styles.layoutWide, landscapeCardHeight != null && { minHeight: landscapeCardHeight }]
+          : null,
+      ]}
+    >
+      {responsive.isTablet ? <LoginHeroCard /> : null}
       <View
         style={[
           styles.formCard,
+          responsive.isTabletLandscape ? styles.formCardWide : null,
           cardShadow,
           {
             backgroundColor: theme.colors.surfaceOverlay,
@@ -136,6 +196,22 @@ export function LoginScreen() {
           },
         ]}
       >
+        <View
+          style={[
+            styles.logoBadge,
+            styles.formLogoBadge,
+            {
+              backgroundColor: theme.tone === 'dark'
+                ? 'rgba(255,255,255,0.10)'
+                : 'rgba(245,255,251,0.92)',
+              borderColor: theme.tone === 'dark'
+                ? 'rgba(255,255,255,0.14)'
+                : 'rgba(13, 96, 77, 0.10)',
+            },
+          ]}
+        >
+          <Image source={appLogo} style={styles.logoImage} resizeMode="contain" />
+        </View>
         {isOtpPending ? (
           <>
             <Text style={[styles.otpHeading, { color: theme.colors.heading }]}>
@@ -296,16 +372,67 @@ export function LoginScreen() {
           </>
         ) : null}
       </View>
+      </View>
+  );
+
+  if (responsive.isTablet) {
+    return (
+      <Screen scroll={false} maxWidth="wide" centerContent>
+        {layout}
+      </Screen>
+    );
+  }
+
+  return (
+    <Screen maxWidth="wide">
+      {layout}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  layout: {
+    gap: 18,
+  },
+  layoutWide: {
+    alignItems: 'stretch',
+    flexDirection: 'row',
+  },
   hero: {
     borderRadius: 22,
     borderWidth: 1,
-    gap: 8,
+    justifyContent: 'flex-end',
+    padding: 16,
+  },
+  heroWide: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    minHeight: 400,
     padding: 20,
+  },
+  glassPanel: {
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 6,
+    overflow: 'hidden',
+    padding: 16,
+  },
+  logoBadge: {
+    alignItems: 'center',
+    borderRadius: 22,
+    borderWidth: 1,
+    height: 96,
+    justifyContent: 'center',
+    marginBottom: 12,
+    width: 96,
+  },
+  logoImage: {
+    height: 72,
+    width: 72,
+  },
+  formLogoBadge: {
+    alignSelf: 'center',
+    marginBottom: 4,
   },
   eyebrow: {
     fontSize: 12,
@@ -327,6 +454,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 14,
     padding: 20,
+  },
+  formCardWide: {
+    flex: 1,
+    justifyContent: 'center',
+    maxWidth: 560,
+    padding: 28,
   },
   biometricButton: {
     alignItems: 'center',
