@@ -16,6 +16,46 @@ import { useResponsiveLayout } from '../theme/use-responsive-layout';
 
 const appLogo = require('../../assets/icon.png');
 
+function LoginPhoneHeader() {
+  const theme = useAppTheme();
+
+  return (
+    <View style={styles.phoneHeader}>
+      <View
+        style={[
+          styles.phoneLogoBadge,
+          {
+            backgroundColor: theme.tone === 'dark'
+              ? 'rgba(255,255,255,0.08)'
+              : 'rgba(245,255,251,0.92)',
+            borderColor: theme.tone === 'dark'
+              ? 'rgba(255,255,255,0.12)'
+              : 'rgba(13, 96, 77, 0.10)',
+          },
+        ]}
+      >
+        <Image source={appLogo} style={styles.phoneLogoImage} resizeMode="contain" />
+      </View>
+      <Text
+        style={[
+          styles.eyebrow,
+          { color: theme.tone === 'dark' ? '#2dd4bf' : theme.colors.primary },
+        ]}
+      >
+        SLAMS Mobile
+      </Text>
+      <Text
+        style={[
+          styles.phoneTitle,
+          { color: theme.tone === 'dark' ? '#f6faf7' : '#0d1b14' },
+        ]}
+      >
+        {'Sign in to the\nmobile workspace'}
+      </Text>
+    </View>
+  );
+}
+
 function LoginHeroCard() {
   const theme = useAppTheme();
   const responsive = useResponsiveLayout();
@@ -184,7 +224,7 @@ export function LoginScreen() {
           : null,
       ]}
     >
-      {responsive.isTablet ? <LoginHeroCard /> : null}
+      {responsive.isTablet ? <LoginHeroCard /> : <LoginPhoneHeader />}
       <View
         style={[
           styles.formCard,
@@ -196,22 +236,24 @@ export function LoginScreen() {
           },
         ]}
       >
-        <View
-          style={[
-            styles.logoBadge,
-            styles.formLogoBadge,
-            {
-              backgroundColor: theme.tone === 'dark'
-                ? 'rgba(255,255,255,0.10)'
-                : 'rgba(245,255,251,0.92)',
-              borderColor: theme.tone === 'dark'
-                ? 'rgba(255,255,255,0.14)'
-                : 'rgba(13, 96, 77, 0.10)',
-            },
-          ]}
-        >
-          <Image source={appLogo} style={styles.logoImage} resizeMode="contain" />
-        </View>
+        {responsive.isTablet ? (
+          <View
+            style={[
+              styles.logoBadge,
+              styles.formLogoBadge,
+              {
+                backgroundColor: theme.tone === 'dark'
+                  ? 'rgba(255,255,255,0.10)'
+                  : 'rgba(245,255,251,0.92)',
+                borderColor: theme.tone === 'dark'
+                  ? 'rgba(255,255,255,0.14)'
+                  : 'rgba(13, 96, 77, 0.10)',
+              },
+            ]}
+          >
+            <Image source={appLogo} style={styles.logoImage} resizeMode="contain" />
+          </View>
+        ) : null}
         {isOtpPending ? (
           <>
             <Text style={[styles.otpHeading, { color: theme.colors.heading }]}>
@@ -384,7 +426,7 @@ export function LoginScreen() {
   }
 
   return (
-    <Screen maxWidth="wide">
+    <Screen scroll={false} maxWidth="wide" centerContent>
       {layout}
     </Screen>
   );
@@ -515,5 +557,29 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 15,
     fontWeight: '800',
+  },
+  phoneHeader: {
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 8,
+  },
+  phoneLogoBadge: {
+    alignItems: 'center',
+    borderRadius: 28,
+    borderWidth: 1,
+    height: 120,
+    justifyContent: 'center',
+    marginBottom: 10,
+    width: 120,
+  },
+  phoneLogoImage: {
+    height: 90,
+    width: 90,
+  },
+  phoneTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    lineHeight: 32,
+    textAlign: 'center',
   },
 });
