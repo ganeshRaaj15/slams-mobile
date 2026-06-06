@@ -12,10 +12,12 @@ import { isExternalRole } from '../constants/roles';
 import { ExternalRequestReviewQueueScreen } from './external-request-review-queue-screen';
 import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
+import { useResponsiveLayout } from '../theme/use-responsive-layout';
 import { formatDateLabel } from '../utils/format';
 
 export function RequestsScreen() {
   const theme = useAppTheme();
+  const responsive = useResponsiveLayout();
   const navigation = useNavigation<any>();
   const role = useAuthStore((state) => state.user?.primary_role ?? 'student');
   const canReviewRequests = role === 'pic' || role === 'manager' || role === 'admin';
@@ -32,7 +34,7 @@ export function RequestsScreen() {
 
   if (!isExternalRole(role)) {
     return (
-      <Screen>
+      <Screen maxWidth="wide">
         <EmptyState
           title="No external request access"
           message="This workspace is only for external request submitters and operational reviewers."
@@ -51,7 +53,7 @@ export function RequestsScreen() {
 
   if (requestsQuery.isError || !requestsQuery.data) {
     return (
-      <Screen>
+      <Screen maxWidth="wide">
         <ErrorState
           message="External requests could not be loaded."
           onRetry={() => {
@@ -63,11 +65,12 @@ export function RequestsScreen() {
   }
 
   return (
-    <Screen>
+    <Screen maxWidth="wide">
       <Pressable
         onPress={() => navigation.navigate('RequestForm', {})}
         style={[
           styles.createButton,
+          responsive.isTabletLandscape && styles.createButtonWide,
           {
             backgroundColor: theme.colors.primary,
           },
@@ -82,47 +85,50 @@ export function RequestsScreen() {
           message="Create a request to start the external review workflow."
         />
       ) : (
-        requestsQuery.data.requests.map((request) => (
-          <Pressable
-            key={request.id}
-            onPress={() => {
-              if (request.can_edit) {
-                navigation.navigate('RequestForm', { requestId: request.id });
-              }
-            }}
-            style={[
-              styles.card,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border,
-              },
-            ]}
-          >
-            <View style={styles.header}>
-              <View style={styles.headerText}>
-                <Text style={[styles.title, { color: theme.colors.text }]}>{request.lab_name}</Text>
-                <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
-                  {formatDateLabel(request.preferred_date)}
-                </Text>
+        <View style={styles.cardsGrid}>
+          {requestsQuery.data.requests.map((request) => (
+            <Pressable
+              key={request.id}
+              onPress={() => {
+                if (request.can_edit) {
+                  navigation.navigate('RequestForm', { requestId: request.id });
+                }
+              }}
+              style={[
+                styles.card,
+                responsive.isTabletLandscape && styles.cardWide,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              <View style={styles.header}>
+                <View style={styles.headerText}>
+                  <Text style={[styles.title, { color: theme.colors.text }]}>{request.lab_name}</Text>
+                  <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
+                    {formatDateLabel(request.preferred_date)}
+                  </Text>
+                </View>
+                <StatusPill kind="external" status={request.status} />
               </View>
-              <StatusPill kind="external" status={request.status} />
-            </View>
-            <Text style={[styles.message, { color: theme.colors.textMuted }]}>{request.purpose}</Text>
-            <Text style={[styles.editHint, { color: theme.colors.textMuted }]}>
-              Stage: {request.current_approval_stage_label}
-            </Text>
-            {request.latest_requester_note ? (
-              <Text style={[styles.reviewNotes, { color: theme.colors.primary }]}>
-                Latest note: {request.latest_requester_note}
-              </Text>
-            ) : null}
-            {request.can_edit ? (
+              <Text style={[styles.message, { color: theme.colors.textMuted }]}>{request.purpose}</Text>
               <Text style={[styles.editHint, { color: theme.colors.textMuted }]}>
-                Tap to update and resubmit.
+                Stage: {request.current_approval_stage_label}
               </Text>
-            ) : null}
-          </Pressable>
-        ))
+              {request.latest_requester_note ? (
+                <Text style={[styles.reviewNotes, { color: theme.colors.primary }]}>
+                  Latest note: {request.latest_requester_note}
+                </Text>
+              ) : null}
+              {request.can_edit ? (
+                <Text style={[styles.editHint, { color: theme.colors.textMuted }]}>
+                  Tap to update and resubmit.
+                </Text>
+              ) : null}
+            </Pressable>
+          ))}
+        </View>
       )}
     </Screen>
   );
@@ -134,16 +140,30 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
   },
+  createButtonWide: {
+    alignSelf: 'flex-start',
+    minWidth: 300,
+    paddingHorizontal: 24,
+  },
   createButtonText: {
     color: '#ffffff',
     fontSize: 15,
     fontWeight: '800',
+  },
+  cardsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
   },
   card: {
     borderRadius: 18,
     borderWidth: 1,
     gap: 10,
     padding: 16,
+    width: '100%',
+  },
+  cardWide: {
+    width: '48.8%',
   },
   header: {
     alignItems: 'flex-start',

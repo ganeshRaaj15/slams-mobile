@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { InteractionManager, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   getAdminSettingsRequest,
@@ -9,15 +10,19 @@ import {
   listAdminLabsRequest,
   listAdminUsersRequest,
 } from '../api/endpoints';
+import { AnimatedPageSection } from '../components/animated-page-section';
 import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
 import { Screen } from '../components/screen';
 import { StatCard } from '../components/stat-card';
 import { useAppTheme } from '../theme/use-app-theme';
+import { useResponsiveLayout } from '../theme/use-responsive-layout';
 
 export function AdminWorkspaceScreen() {
   const theme = useAppTheme();
+  const responsive = useResponsiveLayout();
   const navigation = useNavigation<any>();
+  const [heavyContentReady, setHeavyContentReady] = useState(false);
 
   const usersQuery = useQuery({
     queryKey: ['admin-users', 'summary'],
@@ -43,6 +48,28 @@ export function AdminWorkspaceScreen() {
     queryFn: () => listAdminAssetsRequest(),
   });
 
+  useEffect(() => {
+    if (
+      !usersQuery.data ||
+      !settingsQuery.data ||
+      !labsQuery.data ||
+      !reportQuery.data ||
+      !assetsQuery.data
+    ) {
+      setHeavyContentReady(false);
+      return;
+    }
+
+    setHeavyContentReady(false);
+    const task = InteractionManager.runAfterInteractions(() => {
+      setHeavyContentReady(true);
+    });
+
+    return () => {
+      task.cancel();
+    };
+  }, [assetsQuery.data, labsQuery.data, reportQuery.data, settingsQuery.data, usersQuery.data]);
+
   if (usersQuery.isLoading || settingsQuery.isLoading || labsQuery.isLoading || reportQuery.isLoading || assetsQuery.isLoading) {
     return (
       <Screen scroll={false}>
@@ -64,7 +91,7 @@ export function AdminWorkspaceScreen() {
     !assetsQuery.data
   ) {
     return (
-      <Screen>
+      <Screen maxWidth="wide">
         <ErrorState
           message="The admin workspace could not be loaded."
           onRetry={() => {
@@ -96,121 +123,188 @@ export function AdminWorkspaceScreen() {
   };
 
   return (
-    <Screen>
-      <View
-        style={[
-          styles.heroCard,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text style={[styles.title, { color: theme.colors.text }]}>Admin Workspace</Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
-          Manage users, laboratories, assets, settings, and reports from one workspace with predictive asset risk visibility.
-        </Text>
-      </View>
+    <Screen maxWidth="wide">
+      <AnimatedPageSection index={0} variant="hero">
+        {heavyContentReady ? (
+          <View
+            style={[
+              styles.heroCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.title, { color: theme.colors.text }]}>Admin Workspace</Text>
+            <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
+              Manage users, laboratories, assets, settings, and reports from one workspace with predictive asset risk visibility.
+            </Text>
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.heroCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.title, { color: theme.colors.text }]}>Admin Workspace</Text>
+            <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
+              Manage users, laboratories, assets, settings, and reports from one workspace with predictive asset risk visibility.
+            </Text>
+          </View>
+        )}
+      </AnimatedPageSection>
 
       <View style={styles.statsRow}>
-        <StatCard label="Users" tone="primary" value={userStats.total} />
-        <StatCard label="Active Users" tone="success" value={userStats.active} />
-        <StatCard label="Labs" tone="accent" value={labStats.total_labs} />
-        <StatCard label="Assets" tone="warning" value={Number(report.kpis.total_assets ?? 0)} />
-        <StatCard label="High Risk" tone="danger" value={assetStats.high_risk} />
-        <StatCard label="Due Soon" tone="accent" value={assetStats.due_soon} />
-        <StatCard label="Settings" tone="accent" value={managedSettingsCount} />
-        <StatCard label="Booking Slots" tone="warning" value={bookingSlotsCount} />
+        {heavyContentReady ? (
+          <>
+            <AnimatedPageSection index={1} variant="card" style={styles.statCardWrap}>
+              <StatCard label="Users" tone="primary" value={userStats.total} />
+            </AnimatedPageSection>
+            <AnimatedPageSection index={2} variant="card" style={styles.statCardWrap}>
+              <StatCard label="Active Users" tone="success" value={userStats.active} />
+            </AnimatedPageSection>
+            <AnimatedPageSection index={3} variant="card" style={styles.statCardWrap}>
+              <StatCard label="Labs" tone="accent" value={labStats.total_labs} />
+            </AnimatedPageSection>
+            <AnimatedPageSection index={4} variant="card" style={styles.statCardWrap}>
+              <StatCard label="Assets" tone="warning" value={Number(report.kpis.total_assets ?? 0)} />
+            </AnimatedPageSection>
+            <AnimatedPageSection index={5} variant="card" style={styles.statCardWrap}>
+              <StatCard label="High Risk" tone="danger" value={assetStats.high_risk} />
+            </AnimatedPageSection>
+            <AnimatedPageSection index={6} variant="card" style={styles.statCardWrap}>
+              <StatCard label="Due Soon" tone="accent" value={assetStats.due_soon} />
+            </AnimatedPageSection>
+            <AnimatedPageSection index={7} variant="card" style={styles.statCardWrap}>
+              <StatCard label="Settings" tone="accent" value={managedSettingsCount} />
+            </AnimatedPageSection>
+            <AnimatedPageSection index={8} variant="card" style={styles.statCardWrap}>
+              <StatCard label="Booking Slots" tone="warning" value={bookingSlotsCount} />
+            </AnimatedPageSection>
+          </>
+        ) : (
+          <AnimatedPageSection index={1} variant="section" style={styles.pendingCard}>
+            <View
+              style={[
+                styles.pendingCardInner,
+                {
+                  backgroundColor: theme.colors.surfaceMuted,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.pendingText, { color: theme.colors.textMuted }]}>
+                Preparing workspace cards...
+              </Text>
+            </View>
+          </AnimatedPageSection>
+        )}
       </View>
 
-      <Pressable
-        onPress={() => {
-          navigation.navigate('AdminUsers');
-        }}
-        style={[
-          styles.cardButton,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Manage Users</Text>
-        <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
-          Search users, edit roles, trigger recovery links, and remove obsolete accounts.
-        </Text>
-      </Pressable>
+      {heavyContentReady ? <View style={styles.actionsGrid}>
+        <AnimatedPageSection index={9} variant="section" style={responsive.isTabletLandscape ? styles.cardButtonWide : undefined}>
+          <Pressable
+            onPress={() => {
+              navigation.navigate('AdminUsers');
+            }}
+            style={[
+              styles.cardButton,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Manage Users</Text>
+            <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
+              Search users, edit roles, trigger recovery links, and remove obsolete accounts.
+            </Text>
+          </Pressable>
+        </AnimatedPageSection>
 
-      <Pressable
-        onPress={() => {
-          navigation.navigate('AdminLabs');
-        }}
-        style={[
-          styles.cardButton,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Manage Laboratories</Text>
-        <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
-          Update rooms, PIC assignments, images, capacity, and approval-routing readiness.
-        </Text>
-      </Pressable>
+        <AnimatedPageSection index={10} variant="section" style={responsive.isTabletLandscape ? styles.cardButtonWide : undefined}>
+          <Pressable
+            onPress={() => {
+              navigation.navigate('AdminLabs');
+            }}
+            style={[
+              styles.cardButton,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Manage Laboratories</Text>
+            <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
+              Update rooms, PIC assignments, images, capacity, and approval-routing readiness.
+            </Text>
+          </Pressable>
+        </AnimatedPageSection>
 
-      <Pressable
-        onPress={() => {
-          navigation.navigate('AdminAssets');
-        }}
-        style={[
-          styles.cardButton,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Manage Assets</Text>
-        <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
-          Maintain inventory, quantities, serials, images, maintenance traceability, and predictive maintenance risk.
-        </Text>
-      </Pressable>
+        <AnimatedPageSection index={11} variant="section" style={responsive.isTabletLandscape ? styles.cardButtonWide : undefined}>
+          <Pressable
+            onPress={() => {
+              navigation.navigate('AdminAssets');
+            }}
+            style={[
+              styles.cardButton,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Manage Assets</Text>
+            <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
+              Maintain inventory, quantities, serials, images, maintenance traceability, and predictive maintenance risk.
+            </Text>
+          </Pressable>
+        </AnimatedPageSection>
 
-      <Pressable
-        onPress={() => {
-          navigation.navigate('AdminSettings');
-        }}
-        style={[
-          styles.cardButton,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>System Settings</Text>
-        <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
-          Maintain booking routing, reminders, email settings, and booking slots.
-        </Text>
-      </Pressable>
+        <AnimatedPageSection index={12} variant="section" style={responsive.isTabletLandscape ? styles.cardButtonWide : undefined}>
+          <Pressable
+            onPress={() => {
+              navigation.navigate('AdminSettings');
+            }}
+            style={[
+              styles.cardButton,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>System Settings</Text>
+            <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
+              Maintain booking routing, reminders, email settings, and booking slots.
+            </Text>
+          </Pressable>
+        </AnimatedPageSection>
 
-      <Pressable
-        onPress={() => {
-          navigation.navigate('Reports');
-        }}
-        style={[
-          styles.cardButton,
-          {
-            backgroundColor: theme.colors.primarySoft,
-          },
-        ]}
-      >
-        <Text style={[styles.cardTitle, { color: theme.colors.primary }]}>Open Reports</Text>
-        <Text style={[styles.cardText, { color: theme.colors.text }]}>
-          Review analytics and export PDF or CSV reports for operational reporting.
-        </Text>
-      </Pressable>
+        <AnimatedPageSection index={13} variant="section" style={responsive.isTabletLandscape ? styles.cardButtonWide : undefined}>
+          <Pressable
+            onPress={() => {
+              navigation.navigate('Reports');
+            }}
+            style={[
+              styles.cardButton,
+              {
+                backgroundColor: theme.colors.primarySoft,
+              },
+            ]}
+          >
+            <Text style={[styles.cardTitle, { color: theme.colors.primary }]}>Open Reports</Text>
+            <Text style={[styles.cardText, { color: theme.colors.text }]}>
+              Review analytics and export PDF or CSV reports for operational reporting.
+            </Text>
+          </Pressable>
+        </AnimatedPageSection>
+      </View> : null}
     </Screen>
   );
 }
@@ -236,11 +330,35 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: 'space-between',
   },
+  statCardWrap: {
+    width: '47%',
+  },
+  pendingCard: {
+    width: '100%',
+  },
+  pendingCardInner: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+  },
+  pendingText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+  },
   cardButton: {
     borderRadius: 18,
     borderWidth: 1,
     gap: 6,
     padding: 16,
+    width: '100%',
+  },
+  cardButtonWide: {
+    width: '48.8%',
   },
   cardTitle: {
     fontSize: 17,

@@ -12,10 +12,12 @@ import { SelectionModal } from '../components/selection-modal';
 import { StatusPill } from '../components/status-pill';
 import { TextField } from '../components/text-field';
 import { useAppTheme } from '../theme/use-app-theme';
+import { useResponsiveLayout } from '../theme/use-responsive-layout';
 import { formatDateLabel } from '../utils/format';
 
 export function ExternalRequestReviewQueueScreen() {
   const theme = useAppTheme();
+  const responsive = useResponsiveLayout();
   const navigation = useNavigation<any>();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -74,7 +76,7 @@ export function ExternalRequestReviewQueueScreen() {
 
   if (reviewQueueQuery.isError || !reviewQueueQuery.data) {
     return (
-      <Screen>
+      <Screen maxWidth="wide">
         <ErrorState
           message="The external request review queue could not be loaded."
           onRetry={() => {
@@ -88,7 +90,7 @@ export function ExternalRequestReviewQueueScreen() {
   const activeLab = labs.find((lab) => lab.id === labFilterId);
 
   return (
-    <Screen>
+    <Screen maxWidth="wide">
       <View
         style={[
           styles.heroCard,
@@ -134,6 +136,7 @@ export function ExternalRequestReviewQueueScreen() {
             key={stat.id}
             style={[
               styles.statCard,
+              responsive.isTabletLandscape && styles.statCardWide,
               {
                 backgroundColor: theme.colors.surface,
                 borderColor: theme.colors.border,
@@ -149,6 +152,7 @@ export function ExternalRequestReviewQueueScreen() {
       <View
         style={[
           styles.filterCard,
+          responsive.isTabletLandscape && styles.filterCardWide,
           {
             backgroundColor: theme.colors.surface,
             borderColor: theme.colors.border,
@@ -237,45 +241,48 @@ export function ExternalRequestReviewQueueScreen() {
           message="No external requests matched the current queue filters."
         />
       ) : (
-        filteredRequests.map((request) => (
-          <Pressable
-            key={request.id}
-            onPress={() => navigation.navigate('ExternalRequestReviewDetail', { requestId: request.id })}
-            style={[
-              styles.requestCard,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border,
-              },
-            ]}
-          >
-            <View style={styles.requestHeader}>
-              <View style={styles.requestTitleWrap}>
-                <Text style={[styles.requestTitle, { color: theme.colors.text }]}>{request.lab_name}</Text>
-                <Text style={[styles.requestMeta, { color: theme.colors.textMuted }]}>
-                  {request.requester_name}  |  {request.organization_name}
-                </Text>
+        <View style={styles.requestsGrid}>
+          {filteredRequests.map((request) => (
+            <Pressable
+              key={request.id}
+              onPress={() => navigation.navigate('ExternalRequestReviewDetail', { requestId: request.id })}
+              style={[
+                styles.requestCard,
+                responsive.isTabletLandscape && styles.requestCardWide,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              <View style={styles.requestHeader}>
+                <View style={styles.requestTitleWrap}>
+                  <Text style={[styles.requestTitle, { color: theme.colors.text }]}>{request.lab_name}</Text>
+                  <Text style={[styles.requestMeta, { color: theme.colors.textMuted }]}>
+                    {request.requester_name}  |  {request.organization_name}
+                  </Text>
+                </View>
+                <StatusPill kind="external" status={request.status} />
               </View>
-              <StatusPill kind="external" status={request.status} />
-            </View>
 
-            <Text style={[styles.requestMeta, { color: theme.colors.primary }]}>
-              {formatDateLabel(request.preferred_date)}
-              {request.preferred_start_time && request.preferred_end_time
-                ? `  |  ${request.preferred_start_time}-${request.preferred_end_time}`
-                : ''}
-            </Text>
-            <Text style={[styles.requestMeta, { color: theme.colors.textMuted }]}>
-              Stage: {request.current_approval_stage_label}
-            </Text>
-            <Text style={[styles.requestBody, { color: theme.colors.textMuted }]}>{request.purpose}</Text>
-            {request.latest_requester_note ? (
-              <Text style={[styles.reviewNote, { color: theme.colors.textMuted }]}>
-                Latest note: {request.latest_requester_note}
+              <Text style={[styles.requestMeta, { color: theme.colors.primary }]}>
+                {formatDateLabel(request.preferred_date)}
+                {request.preferred_start_time && request.preferred_end_time
+                  ? `  |  ${request.preferred_start_time}-${request.preferred_end_time}`
+                  : ''}
               </Text>
-            ) : null}
-          </Pressable>
-        ))
+              <Text style={[styles.requestMeta, { color: theme.colors.textMuted }]}>
+                Stage: {request.current_approval_stage_label}
+              </Text>
+              <Text style={[styles.requestBody, { color: theme.colors.textMuted }]}>{request.purpose}</Text>
+              {request.latest_requester_note ? (
+                <Text style={[styles.reviewNote, { color: theme.colors.textMuted }]}>
+                  Latest note: {request.latest_requester_note}
+                </Text>
+              ) : null}
+            </Pressable>
+          ))}
+        </View>
       )}
 
       <SelectionModal
@@ -325,6 +332,10 @@ const styles = StyleSheet.create({
     gap: 6,
     padding: 14,
   },
+  statCardWide: {
+    flexBasis: 0,
+    width: '23%',
+  },
   statLabel: {
     fontSize: 13,
     fontWeight: '700',
@@ -338,6 +349,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 12,
     padding: 16,
+  },
+  filterCardWide: {
+    paddingHorizontal: 18,
   },
   statusChips: {
     flexDirection: 'row',
@@ -368,11 +382,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
+  requestsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+  },
   requestCard: {
     borderRadius: 18,
     borderWidth: 1,
     gap: 10,
     padding: 16,
+    width: '100%',
+  },
+  requestCardWide: {
+    width: '48.8%',
   },
   requestHeader: {
     alignItems: 'flex-start',

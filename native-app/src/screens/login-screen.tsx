@@ -91,26 +91,24 @@ function LoginHeroCard() {
         allowsPictureInPicture={false}
       />
       <BlurView
-        intensity={theme.tone === 'dark' ? 28 : 34}
-        tint={theme.tone === 'dark' ? 'dark' : 'light'}
+        intensity={theme.tone === 'dark' ? 32 : 42}
+        tint="dark"
         style={[
           styles.glassPanel,
           {
             borderColor: theme.tone === 'dark'
               ? 'rgba(255,255,255,0.10)'
-              : 'rgba(255,255,255,0.65)',
+              : 'rgba(255,255,255,0.22)',
             backgroundColor: theme.tone === 'dark'
-              ? 'rgba(4,16,10,0.35)'
-              : 'rgba(232,248,240,0.30)',
+              ? 'rgba(4,16,10,0.42)'
+              : 'rgba(6,24,18,0.50)',
           },
         ]}
       >
         <Text
           style={[
             styles.eyebrow,
-            {
-              color: theme.tone === 'dark' ? '#2dd4bf' : theme.colors.primary,
-            },
+            styles.heroEyebrow,
           ]}
         >
           SLAMS Mobile
@@ -119,21 +117,21 @@ function LoginHeroCard() {
           style={[
             styles.title,
             {
-              color: theme.tone === 'dark' ? '#f6faf7' : '#0d1b14',
+              color: '#f6faf7',
             },
           ]}
         >
-          Sign in to the mobile workspace
+          Sign in to SLAMS Mobile
         </Text>
         <Text
           style={[
             styles.subtitle,
             {
-              color: theme.tone === 'dark' ? 'rgba(220,236,228,0.90)' : 'rgba(18,44,32,0.85)',
+              color: 'rgba(232,243,237,0.92)',
             },
           ]}
         >
-          Use your SLAMS account to access bookings, approvals, requests, notifications, and operational dashboards.
+          Access bookings, approvals, requests, alerts, and your workspace tools.
         </Text>
       </BlurView>
     </View>
@@ -324,19 +322,6 @@ export function LoginScreen() {
           </Pressable>
         ) : null}
 
-        {!isOtpPending && biometric.isEnabled && !biometric.isReady ? (
-          <Text
-            style={[
-              styles.hint,
-              {
-                color: theme.colors.textMuted,
-              },
-            ]}
-          >
-            Biometric login is enabled for this device, but the saved session needs one successful password sign-in before it can be used again.
-          </Text>
-        ) : null}
-
         {!isOtpPending ? (
           <>
             <TextField
@@ -482,6 +467,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
+  heroEyebrow: {
+    color: '#c7fff0',
+  },
   title: {
     fontSize: 28,
     fontWeight: '800',
@@ -527,10 +515,6 @@ const styles = StyleSheet.create({
   otpHint: {
     fontSize: 13,
     lineHeight: 20,
-  },
-  hint: {
-    fontSize: 12,
-    lineHeight: 18,
   },
   passwordToggle: {
     alignItems: 'center',

@@ -10,10 +10,12 @@ import { LoadingState } from '../components/loading-state';
 import { Screen } from '../components/screen';
 import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
+import { useResponsiveLayout } from '../theme/use-responsive-layout';
 import { formatDateTimeRange } from '../utils/format';
 
 export function ApprovalsScreen() {
   const theme = useAppTheme();
+  const responsive = useResponsiveLayout();
   const navigation = useNavigation<any>();
   const role = useAuthStore((state) => state.user?.primary_role ?? 'student');
   const canUseApprovals = role === 'pic' || role === 'manager' || role === 'admin';
@@ -26,7 +28,7 @@ export function ApprovalsScreen() {
 
   if (!canUseApprovals) {
     return (
-      <Screen>
+      <Screen maxWidth="wide">
         <EmptyState
           title="No approval queue"
           message="Only PIC, Manager, and Admin roles can review booking approvals."
@@ -45,7 +47,7 @@ export function ApprovalsScreen() {
 
   if (queueQuery.isError || !queueQuery.data) {
     return (
-      <Screen>
+      <Screen maxWidth="wide">
         <ErrorState
           message="Approval items could not be loaded."
           onRetry={() => {
@@ -57,13 +59,15 @@ export function ApprovalsScreen() {
   }
 
   const stats = queueQuery.data.stats;
+  const isTabletLandscape = responsive.isTabletLandscape;
 
   return (
-    <Screen>
+    <Screen maxWidth="wide">
       <View style={styles.statsRow}>
         <View
           style={[
             styles.statBlock,
+            isTabletLandscape && styles.statBlockWide,
             {
               backgroundColor: theme.colors.surface,
               borderColor: theme.colors.border,
@@ -78,6 +82,7 @@ export function ApprovalsScreen() {
           <View
             style={[
               styles.statBlock,
+              isTabletLandscape && styles.statBlockWide,
               {
                 backgroundColor: theme.colors.surface,
                 borderColor: theme.colors.border,
@@ -93,6 +98,7 @@ export function ApprovalsScreen() {
           <View
             style={[
               styles.statBlock,
+              isTabletLandscape && styles.statBlockWide,
               {
                 backgroundColor: theme.colors.surface,
                 borderColor: theme.colors.border,
@@ -107,6 +113,7 @@ export function ApprovalsScreen() {
         <View
           style={[
             styles.statBlock,
+            isTabletLandscape && styles.statBlockWide,
             {
               backgroundColor: theme.colors.surface,
               borderColor: theme.colors.border,
@@ -124,79 +131,85 @@ export function ApprovalsScreen() {
           message="The current approval queue is clear."
         />
       ) : (
-        queueQuery.data.bookings.map((booking, index) => (
-          <AnimatedListItem key={booking.id} index={index}>
-          <Pressable
-            onPress={() => navigation.navigate('ApprovalDetail', { bookingId: booking.id })}
-            style={[
-              styles.card,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border,
-              },
-            ]}
-          >
-            <View style={styles.cardHeader}>
-              <View style={styles.titleWrap}>
-                <Text style={[styles.title, { color: theme.colors.text }]}>{booking.lab_name}</Text>
-                <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
-                  {formatDateTimeRange(booking.date, booking.start_time, booking.end_time)}
-                </Text>
-              </View>
-              <View
+        <View style={styles.cardsGrid}>
+          {queueQuery.data.bookings.map((booking, index) => (
+            <AnimatedListItem
+              key={booking.id}
+              index={index}
+              style={isTabletLandscape ? styles.cardShellWide : styles.cardShell}
+            >
+              <Pressable
+                onPress={() => navigation.navigate('ApprovalDetail', { bookingId: booking.id })}
                 style={[
-                  styles.stagePill,
+                  styles.card,
                   {
-                    backgroundColor:
-                      booking.stage === 'pic_review'
-                        ? theme.colors.warningSoft
-                        : theme.colors.primarySoft,
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.border,
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.stageText,
-                    {
-                      color:
-                        booking.stage === 'pic_review'
-                          ? theme.colors.warning
-                          : theme.colors.primary,
-                    },
-                  ]}
-                >
-                  {booking.stage === 'pic_review' ? 'PIC Review' : 'Manager Review'}
-                </Text>
-              </View>
-            </View>
-
-            <Text style={[styles.bodyText, { color: theme.colors.text }]}>{booking.activity}</Text>
-            <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
-              Faculty: {booking.faculty_name || 'Unknown'}
-            </Text>
-
-            {booking.assets.length > 0 ? (
-              <View style={styles.assetWrap}>
-                {booking.assets.slice(0, 3).map((asset) => (
+                <View style={styles.cardHeader}>
+                  <View style={styles.titleWrap}>
+                    <Text style={[styles.title, { color: theme.colors.text }]}>{booking.lab_name}</Text>
+                    <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
+                      {formatDateTimeRange(booking.date, booking.start_time, booking.end_time)}
+                    </Text>
+                  </View>
                   <View
-                    key={`${booking.id}-${asset.asset_id}`}
                     style={[
-                      styles.assetPill,
+                      styles.stagePill,
                       {
-                        backgroundColor: theme.colors.surfaceMuted,
+                        backgroundColor:
+                          booking.stage === 'pic_review'
+                            ? theme.colors.warningSoft
+                            : theme.colors.primarySoft,
                       },
                     ]}
                   >
-                    <Text style={[styles.assetPillText, { color: theme.colors.text }]}>
-                      {asset.name} x{asset.quantity_used}
+                    <Text
+                      style={[
+                        styles.stageText,
+                        {
+                          color:
+                            booking.stage === 'pic_review'
+                              ? theme.colors.warning
+                              : theme.colors.primary,
+                        },
+                      ]}
+                    >
+                      {booking.stage === 'pic_review' ? 'PIC Review' : 'Manager Review'}
                     </Text>
                   </View>
-                ))}
-              </View>
-            ) : null}
-          </Pressable>
-          </AnimatedListItem>
-        ))
+                </View>
+
+                <Text style={[styles.bodyText, { color: theme.colors.text }]}>{booking.activity}</Text>
+                <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
+                  Faculty: {booking.faculty_name || 'Unknown'}
+                </Text>
+
+                {booking.assets.length > 0 ? (
+                  <View style={styles.assetWrap}>
+                    {booking.assets.slice(0, 3).map((asset) => (
+                      <View
+                        key={`${booking.id}-${asset.asset_id}`}
+                        style={[
+                          styles.assetPill,
+                          {
+                            backgroundColor: theme.colors.surfaceMuted,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.assetPillText, { color: theme.colors.text }]}>
+                          {asset.name} x{asset.quantity_used}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </Pressable>
+            </AnimatedListItem>
+          ))}
+        </View>
       )}
     </Screen>
   );
@@ -215,6 +228,10 @@ const styles = StyleSheet.create({
     minWidth: '47%',
     padding: 14,
   },
+  statBlockWide: {
+    minWidth: 0,
+    width: '23%',
+  },
   statLabel: {
     fontSize: 13,
     fontWeight: '700',
@@ -222,6 +239,17 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 22,
     fontWeight: '800',
+  },
+  cardsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+  },
+  cardShell: {
+    width: '100%',
+  },
+  cardShellWide: {
+    width: '48.8%',
   },
   card: {
     borderRadius: 18,

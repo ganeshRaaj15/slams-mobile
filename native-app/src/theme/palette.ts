@@ -3,6 +3,13 @@ export type ThemeTone = 'light' | 'dark';
 export type AppTheme = ReturnType<typeof buildTheme>;
 
 export const typography = {
+  family: {
+    bodyRegular: 'DMSans_400Regular',
+    bodyMedium: 'DMSans_500Medium',
+    bodyBold: 'DMSans_700Bold',
+    displayMedium: 'SpaceGrotesk_500Medium',
+    displayBold: 'SpaceGrotesk_700Bold',
+  },
   size: {
     xs: 11,
     sm: 13,
@@ -41,64 +48,64 @@ export const typography = {
 export const textStyle = {
   /** Large page/screen titles — 30px, extrabold, tight leading */
   displayLg: {
+    fontFamily: typography.family.displayBold,
     fontSize: typography.size['3xl'],
-    fontWeight: typography.weight.extrabold,
     lineHeight: typography.size['3xl'] * typography.lineHeight.tight,
     letterSpacing: typography.letterSpacing.tight,
   },
   /** Section/card titles — 24px, extrabold */
   display: {
+    fontFamily: typography.family.displayBold,
     fontSize: typography.size['2xl'],
-    fontWeight: typography.weight.extrabold,
     lineHeight: typography.size['2xl'] * typography.lineHeight.tight,
     letterSpacing: typography.letterSpacing.tight,
   },
   /** Primary headings — 20px, bold, tight leading */
   heading: {
+    fontFamily: typography.family.displayBold,
     fontSize: typography.size.xl,
-    fontWeight: typography.weight.bold,
     lineHeight: typography.size.xl * typography.lineHeight.tight,
     letterSpacing: typography.letterSpacing.normal,
   },
   /** Sub-headings — 17px, semibold */
   subheading: {
+    fontFamily: typography.family.displayMedium,
     fontSize: typography.size.lg,
-    fontWeight: typography.weight.semibold,
     lineHeight: typography.size.lg * typography.lineHeight.normal,
     letterSpacing: typography.letterSpacing.normal,
   },
   /** Body copy — 15px, regular, normal leading */
   body: {
+    fontFamily: typography.family.bodyRegular,
     fontSize: typography.size.md,
-    fontWeight: typography.weight.regular,
     lineHeight: typography.size.md * typography.lineHeight.normal,
     letterSpacing: typography.letterSpacing.normal,
   },
   /** Emphasized body copy — same size, semibold */
   bodyStrong: {
+    fontFamily: typography.family.bodyMedium,
     fontSize: typography.size.md,
-    fontWeight: typography.weight.semibold,
     lineHeight: typography.size.md * typography.lineHeight.normal,
     letterSpacing: typography.letterSpacing.normal,
   },
   /** Small auxiliary text — 13px, regular */
   caption: {
+    fontFamily: typography.family.bodyRegular,
     fontSize: typography.size.sm,
-    fontWeight: typography.weight.regular,
     lineHeight: typography.size.sm * typography.lineHeight.relaxed,
     letterSpacing: typography.letterSpacing.normal,
   },
   /** Form/card labels — 13px, bold */
   label: {
+    fontFamily: typography.family.bodyBold,
     fontSize: typography.size.sm,
-    fontWeight: typography.weight.bold,
     lineHeight: typography.size.sm * typography.lineHeight.normal,
     letterSpacing: typography.letterSpacing.normal,
   },
   /** Eyebrow / section category labels — 11px, extrabold, wide tracking */
   overline: {
+    fontFamily: typography.family.bodyBold,
     fontSize: typography.size.xs,
-    fontWeight: typography.weight.extrabold,
     lineHeight: typography.size.xs * typography.lineHeight.normal,
     letterSpacing: typography.letterSpacing.wider,
     textTransform: 'uppercase' as const,
@@ -120,16 +127,22 @@ export function buildTheme(tone: ThemeTone) {
     tone,
     typography,
     textStyle,
+    fonts: typography.family,
     iconSize,
     colors: {
       background: dark ? '#101411' : '#f5f8f6',
       backgroundMuted: dark ? '#1d241f' : '#edf3ef',
+      backgroundCanvas: dark ? '#07110e' : '#f7fbf9',
       surface: dark ? '#171d19' : '#ffffff',
       surfaceMuted: dark ? 'rgba(255, 255, 255, 0.08)' : '#edf3ef',
       surfaceElevated: dark ? '#1d241f' : '#ffffff',
       surfaceAccent: dark ? 'rgba(45, 212, 191, 0.1)' : '#e7f5ef',
       surfaceOverlay: dark ? 'rgba(27, 35, 30, 0.97)' : 'rgba(255, 255, 255, 0.94)',
       surfaceModal: dark ? 'rgba(35, 44, 38, 0.99)' : 'rgba(255, 255, 255, 0.98)',
+      glass: dark ? 'rgba(20, 27, 23, 0.72)' : 'rgba(255, 255, 255, 0.74)',
+      glassStrong: dark ? 'rgba(20, 27, 23, 0.84)' : 'rgba(255, 255, 255, 0.86)',
+      glassBorder: dark ? 'rgba(222, 232, 226, 0.24)' : 'rgba(255, 255, 255, 0.56)',
+      glassHighlight: dark ? 'rgba(222, 232, 226, 0.18)' : 'rgba(255, 255, 255, 0.64)',
       border: dark ? 'rgba(222, 232, 226, 0.14)' : 'rgba(29, 41, 37, 0.12)',
       borderStrong: dark ? 'rgba(222, 232, 226, 0.24)' : 'rgba(29, 41, 37, 0.2)',
       text: dark ? '#e7eee9' : '#1b2622',
@@ -149,6 +162,11 @@ export function buildTheme(tone: ThemeTone) {
       neutral: dark ? '#cbd5e1' : '#475569',
       neutralSoft: dark ? 'rgba(203, 213, 225, 0.14)' : 'rgba(71, 85, 105, 0.12)',
       shadow: dark ? '#000000' : '#1c2723',
+      shadowSoft: dark ? 'rgba(0, 0, 0, 0.28)' : 'rgba(28, 39, 35, 0.08)',
+      shadowLift: dark ? 'rgba(0, 0, 0, 0.34)' : 'rgba(28, 39, 35, 0.14)',
+      glow: dark ? 'rgba(45, 212, 191, 0.14)' : 'rgba(15, 118, 110, 0.16)',
+      heroOrbA: dark ? 'rgba(45, 212, 191, 0.18)' : 'rgba(15, 118, 110, 0.12)',
+      heroOrbB: dark ? 'rgba(20, 184, 166, 0.14)' : 'rgba(20, 184, 166, 0.1)',
       tabBar: dark ? 'rgba(18, 28, 25, 0.96)' : 'rgba(255, 255, 255, 0.94)',
       tabBarBorder: dark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(29, 41, 37, 0.12)',
       tabBarActiveFill: dark ? 'rgba(45, 212, 191, 0.16)' : 'rgba(15, 118, 110, 0.1)',

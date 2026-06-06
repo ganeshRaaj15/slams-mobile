@@ -78,7 +78,7 @@ export function BookingDetailScreen() {
   }
 
   return (
-    <Screen>
+    <Screen maxWidth="narrow">
       <View
         style={[
           styles.card,

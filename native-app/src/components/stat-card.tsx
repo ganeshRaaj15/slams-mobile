@@ -68,6 +68,7 @@ export function StatCard({
   icon,
   trend,
   onPress,
+  flex,
 }: {
   label: string;
   value: number | string;
@@ -75,6 +76,7 @@ export function StatCard({
   icon?: IoniconName;
   trend?: TrendProp;
   onPress?: () => void;
+  flex?: boolean;
 }) {
   const theme = useAppTheme();
   const reduceMotion = useReducedMotion();
@@ -92,8 +94,8 @@ export function StatCard({
     elevation: 4,
     shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: theme.tone === 'dark' ? 0.26 : 0.08,
-    shadowRadius: 20,
+    shadowOpacity: theme.tone === 'dark' ? 0.34 : 0.1,
+    shadowRadius: 22,
   };
 
   const toneStyle = {
@@ -117,12 +119,21 @@ export function StatCard({
         styles.card,
         cardShadow,
         pressStyle,
+        flex && styles.cardFlex,
         {
-          backgroundColor: theme.colors.surfaceOverlay,
-          borderColor: theme.colors.border,
+          backgroundColor: theme.colors.glassStrong,
+          borderColor: theme.colors.glassBorder,
         },
       ]}
     >
+      <View
+        style={[
+          styles.highlight,
+          {
+            backgroundColor: theme.colors.glassHighlight,
+          },
+        ]}
+      />
       {icon ? (
         <View
           style={[
@@ -206,8 +217,22 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     gap: 10,
+    minHeight: 132,
     minWidth: '47%',
+    overflow: 'hidden',
     padding: 15,
+  },
+  cardFlex: {
+    flex: 1,
+    minWidth: 0,
+  },
+  highlight: {
+    borderRadius: 999,
+    height: 88,
+    position: 'absolute',
+    right: -18,
+    top: -28,
+    width: 88,
   },
   iconCircle: {
     alignItems: 'center',

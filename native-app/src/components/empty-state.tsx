@@ -28,8 +28,8 @@ export function EmptyState({
       style={[
         styles.card,
         {
-          backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.border,
+          backgroundColor: theme.colors.glassStrong,
+          borderColor: theme.colors.glassBorder,
         },
       ]}
     >
@@ -43,6 +43,16 @@ export function EmptyState({
       >
         <Ionicons color={theme.colors.primary} name={icon} size={theme.iconSize.lg} />
       </View>
+      <Text
+        style={[
+          textStyle.overline,
+          {
+            color: theme.colors.primary,
+          },
+        ]}
+      >
+        Workspace
+      </Text>
       <Text
         style={[
           textStyle.heading,
@@ -90,6 +100,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     gap: 10,
+    overflow: 'hidden',
     padding: 28,
   },
   iconWrap: {

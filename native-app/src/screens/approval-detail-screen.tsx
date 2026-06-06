@@ -94,7 +94,7 @@ export function ApprovalDetailScreen() {
   }
 
   return (
-    <Screen>
+    <Screen maxWidth="narrow">
       <View
         style={[
           styles.card,

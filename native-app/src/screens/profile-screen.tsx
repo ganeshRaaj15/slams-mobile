@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { getNativePushStatusRequest, getProfileWorkspaceRequest, toggleTwofaRequest, updateProfileRequest } from '../api/endpoints';
+import { AnimatedPageSection } from '../components/animated-page-section';
 import { EmptyState } from '../components/empty-state';
 import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
@@ -13,12 +14,14 @@ import { TextField } from '../components/text-field';
 import { syncNativePushRegistration, unregisterNativePushRegistration } from '../notifications/native-push';
 import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
+import { useResponsiveLayout } from '../theme/use-responsive-layout';
 import { readErrorMessage } from '../utils/error-message';
 
 const MAX_PROFILE_PHOTO_BYTES = 4 * 1024 * 1024;
 
 export function ProfileScreen() {
   const theme = useAppTheme();
+  const responsive = useResponsiveLayout();
   const biometric = useAuthStore((state) => state.biometric);
   const replaceUser = useAuthStore((state) => state.replaceUser);
   const refreshBiometricState = useAuthStore((state) => state.refreshBiometricState);
@@ -106,7 +109,7 @@ export function ProfileScreen() {
 
   if (profileQuery.isError || !profileQuery.data) {
     return (
-      <Screen>
+      <Screen maxWidth="wide">
         <ErrorState
           message="The profile workspace could not be loaded."
           onRetry={() => {
@@ -118,6 +121,7 @@ export function ProfileScreen() {
   }
 
   const { user, editable, editable_reason, faculties } = profileQuery.data;
+  const isAdmin = user.primary_role === 'admin';
   const selectedFaculty =
     faculties.find((faculty) => faculty.id === facultyId)?.label || 'No faculty assigned';
   const avatarUrl = user.profile_photo_url?.trim() || '';
@@ -255,277 +259,298 @@ export function ProfileScreen() {
   const hasNativePush = (nativePushQuery.data?.active_tokens ?? 0) > 0;
 
   return (
-    <Screen>
-      <View
-        style={[
-          styles.heroCard,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <View style={styles.heroHeader}>
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-          ) : (
-            <View
-              style={[
-                styles.avatarFallback,
-                {
-                  backgroundColor: theme.colors.primarySoft,
-                },
-              ]}
-            >
-              <Text style={[styles.avatarFallbackText, { color: theme.colors.primary }]}>
-                {(user.full_name || user.username || 'S').trim().charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
-          <View style={styles.heroMeta}>
-            <Text style={[styles.name, { color: theme.colors.text }]}>{user.full_name || user.username}</Text>
-            <Text style={[styles.role, { color: theme.colors.primary }]}>{user.primary_role.toUpperCase()}</Text>
-            <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{user.email}</Text>
-          </View>
-        </View>
-      </View>
-
-      {editable ? (
+    <Screen maxWidth="wide">
+      <AnimatedPageSection index={0} variant="hero">
         <View
           style={[
-            styles.card,
+            styles.heroCard,
+            responsive.isTabletLandscape && styles.heroCardWide,
             {
               backgroundColor: theme.colors.surface,
               borderColor: theme.colors.border,
             },
           ]}
         >
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Edit Profile</Text>
-          <TextField autoCapitalize="none" label="Username" onChangeText={setUsername} value={username} />
-          <TextField label="Full name" onChangeText={setFullName} value={fullName} />
-          <TextField
-            autoCapitalize="none"
-            keyboardType="email-address"
-            label="Email"
-            onChangeText={setEmail}
-            value={email}
-          />
-          <TextField keyboardType="phone-pad" label="Phone" onChangeText={setPhone} value={phone} />
+          <View style={styles.heroHeader}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            ) : (
+              <View
+                style={[
+                  styles.avatarFallback,
+                  {
+                    backgroundColor: theme.colors.primarySoft,
+                  },
+                ]}
+              >
+                <Text style={[styles.avatarFallbackText, { color: theme.colors.primary }]}>
+                  {(user.full_name || user.username || 'S').trim().charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+            <View style={styles.heroMeta}>
+              <Text style={[styles.name, { color: theme.colors.text }]}>{user.full_name || user.username}</Text>
+              <Text style={[styles.role, { color: theme.colors.primary }]}>{user.primary_role.toUpperCase()}</Text>
+              <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{user.email}</Text>
+            </View>
+          </View>
+        </View>
+      </AnimatedPageSection>
 
-          <View style={styles.fieldWrap}>
-            <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>Faculty</Text>
-            <Pressable
-              onPress={() => {
-                setFacultyModalOpen(true);
-              }}
+      <View style={responsive.isTabletLandscape ? styles.contentGrid : undefined}>
+        <AnimatedPageSection
+          index={1}
+          variant="section"
+          style={responsive.isTabletLandscape ? styles.primaryColumn : undefined}
+        >
+          {editable ? (
+            <View
               style={[
-                styles.selector,
+                styles.card,
                 {
                   backgroundColor: theme.colors.surface,
                   borderColor: theme.colors.border,
                 },
               ]}
             >
-              <Text style={[styles.selectorText, { color: theme.colors.text }]}>{selectedFaculty}</Text>
-            </Pressable>
-          </View>
-
-          <TextField
-            autoCapitalize="none"
-            label="New password"
-            onChangeText={setPassword}
-            placeholder="Leave blank to keep the current password"
-            secureTextEntry
-            value={password}
-          />
-          <TextField
-            autoCapitalize="none"
-            label="Confirm password"
-            onChangeText={setPasswordConfirm}
-            placeholder="Repeat the new password"
-            secureTextEntry
-            value={passwordConfirm}
-          />
-
-          <Pressable
-            onPress={() => {
-              void pickProfilePhoto();
-            }}
-            style={[
-              styles.secondaryButton,
-              {
-                backgroundColor: theme.colors.primarySoft,
-              },
-            ]}
-          >
-            <Text style={[styles.secondaryButtonText, { color: theme.colors.primary }]}>
-              {photoAsset ? `Change photo: ${photoAsset.name}` : 'Choose Profile Photo'}
-            </Text>
-          </Pressable>
-
-          {localMessage ? <Text style={[styles.feedback, { color: theme.colors.success }]}>{localMessage}</Text> : null}
-          {localError ? <Text style={[styles.feedback, { color: theme.colors.danger }]}>{localError}</Text> : null}
-
-          <Pressable
-            disabled={saveMutation.isPending}
-            onPress={() => {
-              void handleSave();
-            }}
-            style={[
-              styles.primaryButton,
-              {
-                backgroundColor: theme.colors.primary,
-                opacity: saveMutation.isPending ? 0.7 : 1,
-              },
-            ]}
-          >
-            <Text style={styles.primaryButtonText}>{saveMutation.isPending ? 'Saving...' : 'Save Profile'}</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <EmptyState
-          title="Profile editing handled by admin"
-          message={editable_reason || 'This role cannot update profile details from the mobile app.'}
-        />
-      )}
-
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Biometric Login</Text>
-        <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
-          Use Face ID, fingerprint, or the device biometric prompt to unlock the saved SLAMS session on this device.
-        </Text>
-        {biometric.isSupported ? (
-          <>
-            <View style={styles.switchRow}>
-              <View style={styles.switchCopy}>
-                <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>Enable on this device</Text>
-                <Text style={[styles.switchHint, { color: theme.colors.textMuted }]}>
-                  Requires one successful sign-in and stores the session in protected device storage.
-                </Text>
-              </View>
-              <Switch
-                disabled={biometricPending}
-                onValueChange={(value) => {
-                  void handleBiometricToggle(value);
-                }}
-                value={biometric.isEnabled}
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Edit Profile</Text>
+              <TextField autoCapitalize="none" label="Username" onChangeText={setUsername} value={username} />
+              <TextField label="Full name" onChangeText={setFullName} value={fullName} />
+              <TextField
+                autoCapitalize="none"
+                keyboardType="email-address"
+                label="Email"
+                onChangeText={setEmail}
+                value={email}
               />
-            </View>
-            <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
-              {biometric.isReady
-                ? 'Biometric sign-in is ready on this device.'
-                : biometric.isEnabled
-                  ? 'Biometric login is enabled and will be ready after the current session is saved again.'
-                  : 'Biometric login is currently disabled.'}
-            </Text>
-          </>
-        ) : (
-          <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
-            This device does not currently expose a supported biometric method to the app.
-          </Text>
-        )}
-      </View>
+              <TextField keyboardType="phone-pad" label="Phone" onChangeText={setPhone} value={phone} />
 
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Two-Factor Authentication</Text>
-        <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
-          When enabled, a one-time code is emailed to you each time you sign in.
-        </Text>
-        <View style={styles.switchRow}>
-          <View style={styles.switchCopy}>
-            <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>
-              {user.twofa_enabled ? 'Enabled' : 'Disabled'}
-            </Text>
-            <Text style={[styles.switchHint, { color: theme.colors.textMuted }]}>
-              Applies to both the web and mobile sign-in.
-            </Text>
-          </View>
-          <Switch
-            disabled={twofaPending}
-            onValueChange={(value) => {
-              void handleTwofaToggle(value);
-            }}
-            value={user.twofa_enabled}
-          />
-        </View>
-      </View>
+              <View style={styles.fieldWrap}>
+                <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>Faculty</Text>
+                <Pressable
+                  onPress={() => {
+                    setFacultyModalOpen(true);
+                  }}
+                  style={[
+                    styles.selector,
+                    {
+                      backgroundColor: theme.colors.surface,
+                      borderColor: theme.colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.selectorText, { color: theme.colors.text }]}>{selectedFaculty}</Text>
+                </Pressable>
+              </View>
 
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Push Notifications</Text>
-        <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
-          Receive booking and approval alerts on this device while you remain signed in.
-        </Text>
-        <View style={styles.switchRow}>
-          <View style={styles.switchCopy}>
-            <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>Enable on this device</Text>
-            <Text style={[styles.switchHint, { color: theme.colors.textMuted }]}>
-              Turn this off to stop device notifications from SLAMS on this phone.
-            </Text>
-          </View>
-          <Switch
-            disabled={pushPending || nativePushQuery.isLoading}
-            onValueChange={(value) => {
-              void handlePushToggle(value);
-            }}
-            value={hasNativePush}
-          />
-        </View>
+              <TextField
+                autoCapitalize="none"
+                label="New password"
+                onChangeText={setPassword}
+                placeholder="Leave blank to keep the current password"
+                secureTextEntry
+                value={password}
+              />
+              <TextField
+                autoCapitalize="none"
+                label="Confirm password"
+                onChangeText={setPasswordConfirm}
+                placeholder="Repeat the new password"
+                secureTextEntry
+                value={passwordConfirm}
+              />
 
-        {nativePushQuery.data?.devices?.length ? (
-          <View style={styles.deviceList}>
-            <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>Registered devices</Text>
-            {nativePushQuery.data.devices.map((device) => (
-              <View
-                key={device.id}
+              <Pressable
+                onPress={() => {
+                  void pickProfilePhoto();
+                }}
                 style={[
-                  styles.deviceRow,
+                  styles.secondaryButton,
                   {
-                    borderColor: theme.colors.border,
+                    backgroundColor: theme.colors.primarySoft,
                   },
                 ]}
               >
-                <View style={styles.deviceCopy}>
-                  <Text style={[styles.deviceTitle, { color: theme.colors.text }]}>
-                    {device.device_name || 'SLAMS Mobile Device'} ({device.platform || 'unknown'})
+                <Text style={[styles.secondaryButtonText, { color: theme.colors.primary }]}>
+                  {photoAsset ? `Change photo: ${photoAsset.name}` : 'Choose Profile Photo'}
+                </Text>
+              </Pressable>
+
+              {localMessage ? <Text style={[styles.feedback, { color: theme.colors.success }]}>{localMessage}</Text> : null}
+              {localError ? <Text style={[styles.feedback, { color: theme.colors.danger }]}>{localError}</Text> : null}
+
+              <Pressable
+                disabled={saveMutation.isPending}
+                onPress={() => {
+                  void handleSave();
+                }}
+                style={[
+                  styles.primaryButton,
+                  {
+                    backgroundColor: theme.colors.primary,
+                    opacity: saveMutation.isPending ? 0.7 : 1,
+                  },
+                ]}
+              >
+                <Text style={styles.primaryButtonText}>{saveMutation.isPending ? 'Saving...' : 'Save Profile'}</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <EmptyState
+              title="Profile editing handled by admin"
+              message={editable_reason || 'This role cannot update profile details from the mobile app.'}
+            />
+          )}
+        </AnimatedPageSection>
+
+        <View style={responsive.isTabletLandscape ? styles.secondaryColumn : undefined}>
+          <AnimatedPageSection index={2} variant="section">
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Biometric Login</Text>
+              <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
+                Use Face ID, fingerprint, or the device biometric prompt to unlock the saved SLAMS session on this device.
+              </Text>
+              {biometric.isSupported ? (
+                <>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchCopy}>
+                      <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>Enable on this device</Text>
+                      <Text style={[styles.switchHint, { color: theme.colors.textMuted }]}>
+                        Requires one successful sign-in and stores the session in protected device storage.
+                      </Text>
+                    </View>
+                    <Switch
+                      disabled={biometricPending}
+                      onValueChange={(value) => {
+                        void handleBiometricToggle(value);
+                      }}
+                      value={biometric.isEnabled}
+                    />
+                  </View>
+                  <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
+                    {biometric.isReady
+                      ? 'Biometric sign-in is ready on this device.'
+                      : biometric.isEnabled
+                        ? 'Biometric login is enabled and will be ready after the current session is saved again.'
+                        : 'Biometric login is currently disabled.'}
                   </Text>
-                  <Text style={[styles.deviceMeta, { color: theme.colors.textMuted }]}>
-                    {device.is_active ? 'Active' : 'Inactive'}
-                    {device.last_used_at ? ` - Last confirmed ${device.last_used_at}` : ''}
+                </>
+              ) : (
+                <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
+                  This device does not currently expose a supported biometric method to the app.
+                </Text>
+              )}
+            </View>
+          </AnimatedPageSection>
+
+          <AnimatedPageSection index={3} variant="section">
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Two-Factor Authentication</Text>
+              <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
+                {isAdmin
+                  ? 'When enabled, a one-time code is emailed to you each time you sign in.'
+                  : 'Non-admin accounts must enter an email verification code whenever they sign in after the session expires.'}
+              </Text>
+              <View style={styles.switchRow}>
+                <View style={styles.switchCopy}>
+                  <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>
+                    {user.twofa_enabled ? 'Enabled' : 'Disabled'}
                   </Text>
-                  {device.last_error_message ? (
-                    <Text style={[styles.deviceError, { color: theme.colors.warning }]}>
-                      {device.is_active ? 'Last delivery issue' : 'Inactive reason'}: {device.last_error_message}
-                    </Text>
-                  ) : null}
+                  <Text style={[styles.switchHint, { color: theme.colors.textMuted }]}>
+                    Applies to both the web and mobile sign-in.
+                  </Text>
                 </View>
+                <Switch
+                  disabled={twofaPending}
+                  onValueChange={(value) => {
+                    void handleTwofaToggle(value);
+                  }}
+                  value={user.twofa_enabled}
+                />
               </View>
-            ))}
-          </View>
-        ) : null}
+            </View>
+          </AnimatedPageSection>
+
+          <AnimatedPageSection index={4} variant="section">
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Push Notifications</Text>
+              <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
+                Receive booking and approval alerts on this device while you remain signed in.
+              </Text>
+              <View style={styles.switchRow}>
+                <View style={styles.switchCopy}>
+                  <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>Enable on this device</Text>
+                  <Text style={[styles.switchHint, { color: theme.colors.textMuted }]}>
+                    Turn this off to stop device notifications from SLAMS on this phone.
+                  </Text>
+                </View>
+                <Switch
+                  disabled={pushPending || nativePushQuery.isLoading}
+                  onValueChange={(value) => {
+                    void handlePushToggle(value);
+                  }}
+                  value={hasNativePush}
+                />
+              </View>
+
+              {nativePushQuery.data?.devices?.length ? (
+                <View style={styles.deviceList}>
+                  <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>Registered devices</Text>
+                  {nativePushQuery.data.devices.map((device) => (
+                    <View
+                      key={device.id}
+                      style={[
+                        styles.deviceRow,
+                        {
+                          borderColor: theme.colors.border,
+                        },
+                      ]}
+                    >
+                      <View style={styles.deviceCopy}>
+                        <Text style={[styles.deviceTitle, { color: theme.colors.text }]}>
+                          {device.device_name || 'SLAMS Mobile Device'} ({device.platform || 'unknown'})
+                        </Text>
+                        <Text style={[styles.deviceMeta, { color: theme.colors.textMuted }]}>
+                          {device.is_active ? 'Active' : 'Inactive'}
+                          {device.last_used_at ? ` - Last confirmed ${device.last_used_at}` : ''}
+                        </Text>
+                        {device.last_error_message ? (
+                          <Text style={[styles.deviceError, { color: theme.colors.warning }]}>
+                            {device.is_active ? 'Last delivery issue' : 'Inactive reason'}: {device.last_error_message}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          </AnimatedPageSection>
+        </View>
       </View>
 
       <SelectionModal
@@ -552,11 +577,26 @@ export function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  contentGrid: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 18,
+  },
   heroCard: {
     borderRadius: 18,
     borderWidth: 1,
     gap: 14,
     padding: 16,
+  },
+  heroCardWide: {
+    paddingHorizontal: 20,
+  },
+  primaryColumn: {
+    flex: 1.15,
+  },
+  secondaryColumn: {
+    flex: 0.85,
+    gap: 18,
   },
   heroHeader: {
     flexDirection: 'row',

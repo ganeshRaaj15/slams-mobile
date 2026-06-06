@@ -94,7 +94,7 @@ export function MaintenanceScreen() {
   const { stats, records } = maintenanceQuery.data;
 
   return (
-    <Screen>
+    <Screen maxWidth="wide">
       <View style={styles.statsRow}>
         <View
           style={[

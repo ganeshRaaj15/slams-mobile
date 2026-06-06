@@ -13,6 +13,7 @@ import { StatusPill } from '../components/status-pill';
 import { TextField } from '../components/text-field';
 import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
+import { useResponsiveLayout } from '../theme/use-responsive-layout';
 import { readErrorMessage } from '../utils/error-message';
 import { formatDateLabel } from '../utils/format';
 
@@ -20,6 +21,7 @@ const REPORTER_ROLES = ['student', 'staff', 'pic'];
 
 export function IssuesScreen() {
   const theme = useAppTheme();
+  const responsive = useResponsiveLayout();
   const queryClient = useQueryClient();
   const role = useAuthStore((state) => state.user?.primary_role ?? 'student');
   const canReport = REPORTER_ROLES.includes(role);
@@ -76,7 +78,7 @@ export function IssuesScreen() {
 
   if (!canReport) {
     return (
-      <Screen>
+      <Screen maxWidth="wide">
         <EmptyState
           title="No issue reporting"
           message="This mobile workspace is available to student, staff, and PIC roles that report equipment problems."
@@ -95,7 +97,7 @@ export function IssuesScreen() {
 
   if (workspaceQuery.isError || !workspaceQuery.data) {
     return (
-      <Screen>
+      <Screen maxWidth="wide">
         <ErrorState
           message="Issue reporting data could not be loaded."
           onRetry={() => {
@@ -149,182 +151,186 @@ export function IssuesScreen() {
   }
 
   return (
-    <Screen>
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Report Asset Issue</Text>
-        <Text style={[styles.helperText, { color: theme.colors.textMuted }]}>
-          Corrective maintenance starts here. The assigned lab PIC will see the case in the maintenance workflow.
-        </Text>
-
-        <Pressable
-          onPress={() => setShowAssetPicker(true)}
+    <Screen maxWidth="wide">
+      <View style={responsive.isTabletLandscape ? styles.contentGrid : undefined}>
+        <View
           style={[
-            styles.selector,
+            styles.card,
+            responsive.isTabletLandscape && styles.primaryColumn,
             {
-              backgroundColor: theme.colors.surfaceMuted,
+              backgroundColor: theme.colors.surface,
               borderColor: theme.colors.border,
             },
           ]}
         >
-          <Text style={[styles.selectorLabel, { color: theme.colors.text }]}>Affected equipment</Text>
-          <Text style={[styles.selectorValue, { color: theme.colors.primary }]}>
-            {selectedAsset ? `${selectedAsset.name} (${selectedAsset.asset_code || 'No code'})` : 'Select asset'}
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Report Asset Issue</Text>
+          <Text style={[styles.helperText, { color: theme.colors.textMuted }]}>
+            Corrective maintenance starts here. The assigned lab PIC will see the case in the maintenance workflow.
           </Text>
-          {selectedAsset ? (
-            <Text style={[styles.selectorMeta, { color: theme.colors.textMuted }]}>
-              {selectedAsset.lab_name}  |  Available {selectedAsset.quantity}/{selectedAsset.total_quantity}
-            </Text>
-          ) : null}
-        </Pressable>
 
-        <TextField
-          keyboardType="number-pad"
-          label="Affected quantity"
-          onChangeText={setQuantityAffected}
-          placeholder="1"
-          value={quantityAffected}
-        />
-
-        <TextField
-          label="Unit reference"
-          hint="Required for multi-unit equipment. Use workstation number, seat number, or physical label."
-          onChangeText={setUnitReference}
-          placeholder="Workstation A-03"
-          value={unitReference}
-        />
-
-        <TextField
-          label="Issue title"
-          onChangeText={setTitle}
-          placeholder="Microscope objective not focusing"
-          value={title}
-        />
-
-        <Pressable
-          onPress={() => setShowPriorityPicker(true)}
-          style={[
-            styles.selector,
-            {
-              backgroundColor: theme.colors.surfaceMuted,
-              borderColor: theme.colors.border,
-            },
-          ]}
-        >
-          <Text style={[styles.selectorLabel, { color: theme.colors.text }]}>Priority</Text>
-          <Text style={[styles.selectorValue, { color: theme.colors.primary }]}>
-            {priority.replace('_', ' ').toUpperCase()}
-          </Text>
-        </Pressable>
-
-        <TextField
-          label="Description"
-          multiline
-          numberOfLines={5}
-          onChangeText={setDescription}
-          placeholder="Describe the fault, the symptoms, and what happened before the problem occurred."
-          style={styles.multilineInput}
-          textAlignVertical="top"
-          value={description}
-        />
-
-        <View style={styles.actionRow}>
           <Pressable
-            onPress={() => {
-              void pickPhoto();
-            }}
+            onPress={() => setShowAssetPicker(true)}
             style={[
-              styles.secondaryButton,
+              styles.selector,
               {
                 backgroundColor: theme.colors.surfaceMuted,
+                borderColor: theme.colors.border,
               },
             ]}
           >
-            <Text style={[styles.secondaryButtonText, { color: theme.colors.text }]}>
-              {pickedPhoto ? 'Replace Photo' : 'Attach Photo'}
+            <Text style={[styles.selectorLabel, { color: theme.colors.text }]}>Affected equipment</Text>
+            <Text style={[styles.selectorValue, { color: theme.colors.primary }]}>
+              {selectedAsset ? `${selectedAsset.name} (${selectedAsset.asset_code || 'No code'})` : 'Select asset'}
+            </Text>
+            {selectedAsset ? (
+              <Text style={[styles.selectorMeta, { color: theme.colors.textMuted }]}>
+                {selectedAsset.lab_name}  |  Available {selectedAsset.quantity}/{selectedAsset.total_quantity}
+              </Text>
+            ) : null}
+          </Pressable>
+
+          <TextField
+            keyboardType="number-pad"
+            label="Affected quantity"
+            onChangeText={setQuantityAffected}
+            placeholder="1"
+            value={quantityAffected}
+          />
+
+          <TextField
+            label="Unit reference"
+            hint="Required for multi-unit equipment. Use workstation number, seat number, or physical label."
+            onChangeText={setUnitReference}
+            placeholder="Workstation A-03"
+            value={unitReference}
+          />
+
+          <TextField
+            label="Issue title"
+            onChangeText={setTitle}
+            placeholder="Microscope objective not focusing"
+            value={title}
+          />
+
+          <Pressable
+            onPress={() => setShowPriorityPicker(true)}
+            style={[
+              styles.selector,
+              {
+                backgroundColor: theme.colors.surfaceMuted,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.selectorLabel, { color: theme.colors.text }]}>Priority</Text>
+            <Text style={[styles.selectorValue, { color: theme.colors.primary }]}>
+              {priority.replace('_', ' ').toUpperCase()}
             </Text>
           </Pressable>
 
-          <Pressable
-            disabled={submitMutation.isPending}
-            onPress={() => {
-              void handleSubmit();
-            }}
-            style={[
-              styles.primaryButton,
-              {
-                backgroundColor: theme.colors.primary,
-                opacity: submitMutation.isPending ? 0.7 : 1,
-              },
-            ]}
-          >
-            <Text style={styles.primaryButtonText}>Submit Issue</Text>
-          </Pressable>
-        </View>
-
-        {pickedPhoto ? (
-          <Text style={[styles.fileName, { color: theme.colors.textMuted }]}>
-            Attached photo: {pickedPhoto.name}
-          </Text>
-        ) : null}
-
-        {localError ? (
-          <Text style={[styles.errorText, { color: theme.colors.danger }]}>{localError}</Text>
-        ) : null}
-      </View>
-
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent Reports</Text>
-        {workspaceQuery.data.recent_reports.length === 0 ? (
-          <EmptyState
-            title="No reports yet"
-            message="Issue reports you submit from SLAMS will appear here for quick status tracking."
+          <TextField
+            label="Description"
+            multiline
+            numberOfLines={5}
+            onChangeText={setDescription}
+            placeholder="Describe the fault, the symptoms, and what happened before the problem occurred."
+            style={styles.multilineInput}
+            textAlignVertical="top"
+            value={description}
           />
-        ) : (
-          workspaceQuery.data.recent_reports.map((report) => (
-            <View
-              key={report.id}
+
+          <View style={[styles.actionRow, responsive.isTabletLandscape && styles.actionRowWide]}>
+            <Pressable
+              onPress={() => {
+                void pickPhoto();
+              }}
               style={[
-                styles.reportCard,
+                styles.secondaryButton,
                 {
                   backgroundColor: theme.colors.surfaceMuted,
                 },
               ]}
             >
-              <View style={styles.reportHeader}>
-                <View style={styles.reportTitleWrap}>
-                  <Text style={[styles.reportTitle, { color: theme.colors.text }]}>{report.title}</Text>
-                  <Text style={[styles.reportMeta, { color: theme.colors.textMuted }]}>
-                    {report.asset_name}  |  {report.lab_name}
-                  </Text>
+              <Text style={[styles.secondaryButtonText, { color: theme.colors.text }]}>
+                {pickedPhoto ? 'Replace Photo' : 'Attach Photo'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              disabled={submitMutation.isPending}
+              onPress={() => {
+                void handleSubmit();
+              }}
+              style={[
+                styles.primaryButton,
+                {
+                  backgroundColor: theme.colors.primary,
+                  opacity: submitMutation.isPending ? 0.7 : 1,
+                },
+              ]}
+            >
+              <Text style={styles.primaryButtonText}>Submit Issue</Text>
+            </Pressable>
+          </View>
+
+          {pickedPhoto ? (
+            <Text style={[styles.fileName, { color: theme.colors.textMuted }]}>
+              Attached photo: {pickedPhoto.name}
+            </Text>
+          ) : null}
+
+          {localError ? (
+            <Text style={[styles.errorText, { color: theme.colors.danger }]}>{localError}</Text>
+          ) : null}
+        </View>
+
+        <View
+          style={[
+            styles.card,
+            responsive.isTabletLandscape && styles.secondaryColumn,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent Reports</Text>
+          {workspaceQuery.data.recent_reports.length === 0 ? (
+            <EmptyState
+              title="No reports yet"
+              message="Issue reports you submit from SLAMS will appear here for quick status tracking."
+            />
+          ) : (
+            workspaceQuery.data.recent_reports.map((report) => (
+              <View
+                key={report.id}
+                style={[
+                  styles.reportCard,
+                  {
+                    backgroundColor: theme.colors.surfaceMuted,
+                  },
+                ]}
+              >
+                <View style={styles.reportHeader}>
+                  <View style={styles.reportTitleWrap}>
+                    <Text style={[styles.reportTitle, { color: theme.colors.text }]}>{report.title}</Text>
+                    <Text style={[styles.reportMeta, { color: theme.colors.textMuted }]}>
+                      {report.asset_name}  |  {report.lab_name}
+                    </Text>
+                  </View>
+                  <StatusPill kind="maintenance" status={report.status} />
                 </View>
-                <StatusPill kind="maintenance" status={report.status} />
+                <Text style={[styles.reportMeta, { color: theme.colors.primary }]}>
+                  Submitted {formatDateLabel(report.created_at)}
+                </Text>
+                <Text style={[styles.reportMeta, { color: theme.colors.textMuted }]}>
+                  Quantity: {report.quantity_affected}
+                  {report.unit_reference ? `  |  Unit ${report.unit_reference}` : ''}
+                </Text>
               </View>
-              <Text style={[styles.reportMeta, { color: theme.colors.primary }]}>
-                Submitted {formatDateLabel(report.created_at)}
-              </Text>
-              <Text style={[styles.reportMeta, { color: theme.colors.textMuted }]}>
-                Quantity: {report.quantity_affected}
-                {report.unit_reference ? `  |  Unit ${report.unit_reference}` : ''}
-              </Text>
-            </View>
-          ))
-        )}
+            ))
+          )}
+        </View>
       </View>
 
       <SelectionModal
@@ -352,11 +358,22 @@ export function IssuesScreen() {
 }
 
 const styles = StyleSheet.create({
+  contentGrid: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 18,
+  },
   card: {
     borderRadius: 18,
     borderWidth: 1,
     gap: 12,
     padding: 16,
+  },
+  primaryColumn: {
+    flex: 1.2,
+  },
+  secondaryColumn: {
+    flex: 0.9,
   },
   sectionTitle: {
     fontSize: 19,
@@ -390,6 +407,9 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  actionRowWide: {
+    paddingTop: 4,
   },
   secondaryButton: {
     alignItems: 'center',

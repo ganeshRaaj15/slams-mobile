@@ -101,6 +101,8 @@ npm run android:release
 npm run install:android:release
 ```
 
+On Windows, these scripts call `.\gradlew.bat` inside `android/`. Calling `gradlew.bat` without `.\` can fail in `cmd` even after `cd android`.
+
 EAS standalone builds:
 
 ```bash

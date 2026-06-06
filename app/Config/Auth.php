@@ -104,7 +104,7 @@ class Auth extends ShieldAuth
      */
     public array $actions = [
         'register' => null,
-        'login'    => null,
+        'login'    => \App\Authentication\Actions\OptionalEmail2FA::class,
     ];
 
     /**

@@ -18,7 +18,7 @@ export function ErrorState({
       style={[
         styles.card,
         {
-          backgroundColor: theme.colors.surface,
+          backgroundColor: theme.colors.glassStrong,
           borderColor: theme.colors.danger,
         },
       ]}
@@ -33,6 +33,16 @@ export function ErrorState({
       >
         <Ionicons color={theme.colors.danger} name="alert-circle" size={theme.iconSize.lg} />
       </View>
+      <Text
+        style={[
+          textStyle.overline,
+          {
+            color: theme.colors.danger,
+          },
+        ]}
+      >
+        Attention
+      </Text>
       <Text
         style={[
           textStyle.heading,
@@ -82,6 +92,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     gap: 10,
+    overflow: 'hidden',
     padding: 28,
   },
   iconWrap: {

@@ -16,7 +16,7 @@ class NativeUserSerializer
     public function serialize(User $user): array
     {
         $profile = db_connect()->table('users')
-            ->select('id, username, full_name, phone, faculty_id, profile_photo, active')
+            ->select('id, username, full_name, phone, faculty_id, profile_photo, active, twofa_enabled')
             ->where('id', $user->id)
             ->get()
             ->getRowArray() ?? [];
@@ -33,6 +33,7 @@ class NativeUserSerializer
             'profile_photo' => (string) ($profile['profile_photo'] ?? ''),
             'profile_photo_url' => $this->profilePhotoUrl((string) ($profile['profile_photo'] ?? '')),
             'active' => isset($profile['active']) ? (bool) $profile['active'] : true,
+            'twofa_enabled' => isset($profile['twofa_enabled']) ? (bool) $profile['twofa_enabled'] : false,
             'roles' => $roles,
             'primary_role' => $this->primaryRole($roles),
             'dashboard_path' => $this->dashboardPath($roles),

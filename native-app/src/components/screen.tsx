@@ -1,19 +1,21 @@
 import type { PropsWithChildren } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, useReducedMotion } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '../theme/use-app-theme';
+import { useResponsiveLayout } from '../theme/use-responsive-layout';
 
 type ScreenProps = PropsWithChildren<{
   scroll?: boolean;
+  maxWidth?: 'narrow' | 'default' | 'wide' | 'full';
+  centerContent?: boolean;
 }>;
 
-export function Screen({ children, scroll = true }: ScreenProps) {
+export function Screen({ children, scroll = true, maxWidth = 'default', centerContent = false }: ScreenProps) {
   const theme = useAppTheme();
-  const reduceMotion = useReducedMotion();
-  const entering = reduceMotion ? undefined : FadeIn.duration(180);
-  const exiting  = reduceMotion ? undefined : FadeOut.duration(140);
+  const insets = useSafeAreaInsets();
+  const responsive = useResponsiveLayout();
+  const contentMaxWidth = responsive.getContentMaxWidth(maxWidth);
 
   if (!scroll) {
     return (
@@ -25,7 +27,42 @@ export function Screen({ children, scroll = true }: ScreenProps) {
         },
       ]}
       >
-        <Animated.View entering={entering} exiting={exiting} style={styles.fill}>{children}</Animated.View>
+        <View pointerEvents="none" style={styles.backdrop}>
+          <View
+            style={[
+              styles.orb,
+              styles.orbPrimary,
+              { backgroundColor: theme.colors.heroOrbA },
+            ]}
+          />
+          <View
+            style={[
+              styles.orb,
+              styles.orbSecondary,
+              { backgroundColor: theme.colors.heroOrbB },
+            ]}
+          />
+        </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.fill}
+      >
+          <View style={styles.fill}>
+            <View
+              style={[
+                styles.staticContent,
+                { maxWidth: contentMaxWidth },
+                centerContent && {
+                  justifyContent: 'center',
+                  paddingHorizontal: theme.spacing.lg,
+                  paddingVertical: theme.spacing.xl,
+                },
+              ]}
+            >
+              {children}
+            </View>
+          </View>
+      </KeyboardAvoidingView>
       </SafeAreaView>
     );
   }
@@ -39,24 +76,45 @@ export function Screen({ children, scroll = true }: ScreenProps) {
         },
       ]}
     >
+      <View pointerEvents="none" style={styles.backdrop}>
+        <View
+          style={[
+            styles.orb,
+            styles.orbPrimary,
+            { backgroundColor: theme.colors.heroOrbA },
+          ]}
+        />
+        <View
+          style={[
+            styles.orb,
+            styles.orbSecondary,
+            { backgroundColor: theme.colors.heroOrbB },
+          ]}
+        />
+      </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.fill}
       >
-        <Animated.View entering={entering} exiting={exiting} style={styles.fill}>
+        <View style={styles.fill}>
           <ScrollView
             contentContainerStyle={[
               styles.content,
               {
-                padding: theme.spacing.lg,
+                alignItems: 'center',
+                paddingHorizontal: theme.spacing.lg,
+                paddingTop: theme.spacing.xl,
+                paddingBottom: Math.max(theme.spacing.xl * 2, insets.bottom + 88),
               },
             ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {children}
+            <View style={[styles.innerContent, { maxWidth: contentMaxWidth }]}>
+              {children}
+            </View>
           </ScrollView>
-        </Animated.View>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -67,11 +125,38 @@ const styles = StyleSheet.create({
     flex: 1,
     overflow: 'hidden',
   },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
   fill: {
     flex: 1,
   },
+  staticContent: {
+    alignSelf: 'center',
+    flex: 1,
+    width: '100%',
+  },
   content: {
-    gap: 14,
-    paddingBottom: 44,
+    gap: 18,
+  },
+  innerContent: {
+    gap: 18,
+    width: '100%',
+  },
+  orb: {
+    borderRadius: 999,
+    position: 'absolute',
+  },
+  orbPrimary: {
+    height: 260,
+    left: -72,
+    top: -28,
+    width: 260,
+  },
+  orbSecondary: {
+    height: 220,
+    right: -88,
+    top: 110,
+    width: 220,
   },
 });

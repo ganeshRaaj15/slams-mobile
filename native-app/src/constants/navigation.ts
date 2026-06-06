@@ -4,7 +4,7 @@ import type { ComponentProps } from 'react';
 import type { MainTabParamList } from '../navigation/types';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
-type MainTabName = keyof MainTabParamList;
+export type MainTabName = keyof MainTabParamList;
 
 export const TAB_LABELS: Record<MainTabName, string> = {
   Home: 'Home',
@@ -21,33 +21,74 @@ export const TAB_LABELS: Record<MainTabName, string> = {
 };
 
 export const TAB_ICONS: Record<MainTabName, { active: IoniconName; inactive: IoniconName }> = {
-  Home: { active: 'home', inactive: 'home-outline' },
-  Labs: { active: 'flask', inactive: 'flask-outline' },
-  Bookings: { active: 'calendar', inactive: 'calendar-outline' },
-  Approvals: { active: 'checkmark-done-circle', inactive: 'checkmark-done-circle-outline' },
-  Issues: { active: 'alert-circle', inactive: 'alert-circle-outline' },
-  Maintenance: { active: 'build', inactive: 'build-outline' },
-  Requests: { active: 'document-text', inactive: 'document-text-outline' },
-  Reports: { active: 'stats-chart', inactive: 'stats-chart-outline' },
-  AdminWorkspace: { active: 'grid', inactive: 'grid-outline' },
-  Notifications: { active: 'notifications', inactive: 'notifications-outline' },
-  Profile: { active: 'person', inactive: 'person-outline' },
+  Home: { active: 'compass', inactive: 'compass-outline' },
+  Labs: { active: 'business', inactive: 'business-outline' },
+  Bookings: { active: 'bookmark', inactive: 'bookmark-outline' },
+  Approvals: { active: 'shield-checkmark', inactive: 'shield-checkmark-outline' },
+  Issues: { active: 'warning', inactive: 'warning-outline' },
+  Maintenance: { active: 'construct', inactive: 'construct-outline' },
+  Requests: { active: 'mail-unread', inactive: 'mail-unread-outline' },
+  Reports: { active: 'bar-chart', inactive: 'bar-chart-outline' },
+  AdminWorkspace: { active: 'layers', inactive: 'layers-outline' },
+  Notifications: { active: 'megaphone', inactive: 'megaphone-outline' },
+  Profile: { active: 'person-circle', inactive: 'person-circle-outline' },
 };
 
 const shortcutIcons: Record<string, IoniconName> = {
-  home: 'home-outline',
-  labs: 'flask-outline',
-  bookings: 'calendar-outline',
-  approvals: 'checkmark-done-circle-outline',
-  issues: 'alert-circle-outline',
-  maintenance: 'build-outline',
-  requests: 'document-text-outline',
-  notifications: 'notifications-outline',
-  profile: 'person-outline',
-  reports: 'stats-chart-outline',
-  admin: 'grid-outline',
+  home: 'compass-outline',
+  labs: 'business-outline',
+  bookings: 'bookmark-outline',
+  approvals: 'shield-checkmark-outline',
+  issues: 'warning-outline',
+  maintenance: 'construct-outline',
+  requests: 'mail-unread-outline',
+  notifications: 'megaphone-outline',
+  profile: 'person-circle-outline',
+  reports: 'bar-chart-outline',
+  admin: 'layers-outline',
 };
 
 export function getShortcutIcon(shortcutId: string): IoniconName {
   return shortcutIcons[shortcutId] ?? 'ellipse-outline';
+}
+
+export function getAvailableTabsForRole(role: string): MainTabName[] {
+  switch (role) {
+    case 'student':
+      return ['Home', 'Labs', 'Bookings', 'Notifications', 'Profile'];
+    case 'staff':
+      return ['Home', 'Labs', 'Issues', 'Notifications', 'Profile'];
+    case 'pic':
+      return ['Home', 'Approvals', 'Maintenance', 'Requests', 'Labs', 'Notifications', 'Profile', 'Issues'];
+    case 'manager':
+      return ['Home', 'Approvals', 'Requests', 'Notifications', 'Profile'];
+    case 'admin':
+      return ['Home', 'AdminWorkspace', 'Reports', 'Notifications', 'Profile'];
+    case 'external':
+      return ['Home', 'Requests', 'Notifications', 'Profile'];
+    default:
+      return ['Home', 'Notifications', 'Profile'];
+  }
+}
+
+type TabLayoutContext = {
+  isTablet: boolean;
+  isTabletLandscape: boolean;
+  width: number;
+};
+
+export function getPrimaryTabsForRole(role: string, layout: TabLayoutContext): MainTabName[] {
+  if (role === 'pic') {
+    if (layout.isTabletLandscape || layout.width >= 1180) {
+      return ['Home', 'Approvals', 'Maintenance', 'Requests', 'Labs', 'Notifications', 'Profile'];
+    }
+
+    if (layout.isTablet || layout.width >= 820) {
+      return ['Home', 'Approvals', 'Maintenance', 'Requests', 'Notifications', 'Profile'];
+    }
+
+    return ['Home', 'Approvals', 'Maintenance', 'Notifications', 'Profile'];
+  }
+
+  return getAvailableTabsForRole(role);
 }

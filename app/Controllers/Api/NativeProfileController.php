@@ -192,6 +192,45 @@ class NativeProfileController extends BaseController
         ]);
     }
 
+    public function toggleTwofa()
+    {
+        $user = auth()->user();
+        if (! $user instanceof User) {
+            return $this->response
+                ->setStatusCode(401)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'Unauthenticated.',
+                ]);
+        }
+
+        $payload = $this->requestPayload();
+
+        if (! isset($payload['twofa_enabled'])) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'twofa_enabled field is required.',
+                ]);
+        }
+
+        $enabled = (bool) $payload['twofa_enabled'];
+
+        db_connect()
+            ->table('users')
+            ->where('id', $user->id)
+            ->update(['twofa_enabled' => $enabled ? 1 : 0]);
+
+        return $this->response->setJSON([
+            'status'        => 'success',
+            'twofa_enabled' => $enabled,
+            'message'       => $enabled
+                ? 'Two-factor authentication enabled.'
+                : 'Two-factor authentication disabled.',
+        ]);
+    }
+
     protected function canEditProfile(User $user): bool
     {
         return ! $user->inGroup('pic') && ! $user->inGroup('manager');

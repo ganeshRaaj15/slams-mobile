@@ -2,35 +2,7 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
-def googleServicesConfig = file("google-services.json")
-if (googleServicesConfig.exists()) {
-    apply plugin: "com.google.gms.google-services"
-} else {
-    println('google-services.json was not found in android/app. Native push will remain unavailable until Firebase is configured.')
-}
-
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
-def keystoreProperties = new Properties()
-def keystorePropertiesFile = rootProject.file('keystore.properties')
-
-if (keystorePropertiesFile.exists()) {
-    keystorePropertiesFile.withInputStream { stream ->
-        keystoreProperties.load(stream)
-    }
-}
-
-def releaseStoreFile = (findProperty('SLAMS_UPLOAD_STORE_FILE') ?: System.getenv('SLAMS_UPLOAD_STORE_FILE') ?: keystoreProperties.getProperty('SLAMS_UPLOAD_STORE_FILE') ?: '').toString().trim()
-def releaseStorePassword = (findProperty('SLAMS_UPLOAD_STORE_PASSWORD') ?: System.getenv('SLAMS_UPLOAD_STORE_PASSWORD') ?: keystoreProperties.getProperty('SLAMS_UPLOAD_STORE_PASSWORD') ?: '').toString().trim()
-def releaseKeyAlias = (findProperty('SLAMS_UPLOAD_KEY_ALIAS') ?: System.getenv('SLAMS_UPLOAD_KEY_ALIAS') ?: keystoreProperties.getProperty('SLAMS_UPLOAD_KEY_ALIAS') ?: '').toString().trim()
-def releaseKeyPassword = (findProperty('SLAMS_UPLOAD_KEY_PASSWORD') ?: System.getenv('SLAMS_UPLOAD_KEY_PASSWORD') ?: keystoreProperties.getProperty('SLAMS_UPLOAD_KEY_PASSWORD') ?: '').toString().trim()
-def resolvedReleaseStoreFile = releaseStoreFile == ''
-    ? null
-    : (new File(releaseStoreFile).isAbsolute() ? file(releaseStoreFile) : rootProject.file(releaseStoreFile))
-def hasReleaseSigning = releaseStoreFile != '' && releaseStorePassword != '' && releaseKeyAlias != '' && releaseKeyPassword != ''
-
-if (!hasReleaseSigning) {
-    println('SLAMS Mobile release signing keys are not configured. Local release builds will fall back to the debug keystore.')
-}
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -132,21 +104,15 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
-        release {
-            if (hasReleaseSigning) {
-                storeFile resolvedReleaseStoreFile
-                storePassword releaseStorePassword
-                keyAlias releaseKeyAlias
-                keyPassword releaseKeyPassword
-            }
-        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
+            // Caution! In production, you need to generate your own keystore file.
+            // see https://reactnative.dev/docs/signed-apk-android.
+            signingConfig signingConfigs.debug
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
@@ -214,3 +180,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+apply plugin: 'com.google.gms.google-services'

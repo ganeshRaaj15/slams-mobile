@@ -2,6 +2,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { textStyle } from '../theme/palette';
 import { useAppTheme } from '../theme/use-app-theme';
 
 type TextFieldProps = ComponentProps<typeof TextInput> & {
@@ -42,13 +43,14 @@ export function TextField({ label, hint, rightAccessory, style, onFocus, onBlur,
 
   const backgroundColor = focusAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [theme.colors.surfaceMuted, theme.colors.surface],
+    outputRange: [theme.colors.glassStrong, theme.colors.surface],
   });
 
   return (
     <View style={styles.wrap}>
       <Text
         style={[
+          textStyle.label,
           styles.label,
           {
             color: focused ? theme.colors.primary : theme.colors.text,
@@ -60,6 +62,7 @@ export function TextField({ label, hint, rightAccessory, style, onFocus, onBlur,
       {hint ? (
         <Text
           style={[
+            textStyle.caption,
             styles.hint,
             {
               color: theme.colors.textMuted,
@@ -85,6 +88,7 @@ export function TextField({ label, hint, rightAccessory, style, onFocus, onBlur,
               styles.input,
               {
                 color: theme.colors.text,
+                fontFamily: theme.fonts.bodyRegular,
               },
               rightAccessory ? styles.inputWithAccessory : null,
               style,
@@ -105,12 +109,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '700',
   },
   hint: {
-    fontSize: 12,
-    lineHeight: 18,
   },
   inputWrap: {
     justifyContent: 'center',
@@ -122,8 +122,8 @@ const styles = StyleSheet.create({
   },
   input: {
     fontSize: 15,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   inputWithAccessory: {
     paddingRight: 48,

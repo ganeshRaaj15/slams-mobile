@@ -10,10 +10,12 @@ import { LoadingState } from '../components/loading-state';
 import { Screen } from '../components/screen';
 import { TextField } from '../components/text-field';
 import { useAppTheme } from '../theme/use-app-theme';
+import { useResponsiveLayout } from '../theme/use-responsive-layout';
 
 export function LabsScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
+  const responsive = useResponsiveLayout();
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search.trim().toLowerCase());
 
@@ -53,7 +55,7 @@ export function LabsScreen() {
   });
 
   return (
-    <Screen>
+    <Screen maxWidth="wide">
       <TextField
         autoCapitalize="none"
         autoCorrect={false}
@@ -73,99 +75,113 @@ export function LabsScreen() {
           message="Try a different search term."
         />
       ) : (
-        filteredLabs.map((lab) => (
-          <Pressable
-            key={lab.id}
-            onPress={() => navigation.navigate('LabDetail', { labId: lab.id })}
-            style={[
-              styles.card,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border,
-              },
-            ]}
-          >
-            <View style={styles.headerRow}>
-              <View style={styles.titleWrap}>
-                <Text
-                  style={[
-                    styles.title,
-                    {
-                      color: theme.colors.text,
-                    },
-                  ]}
-                >
-                  {lab.name}
-                </Text>
-                <Text
-                  style={[
-                    styles.room,
-                    {
-                      color: theme.colors.primary,
-                    },
-                  ]}
-                >
-                  {lab.room}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.capacityBadge,
-                  {
-                    backgroundColor: theme.colors.primarySoft,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.capacityText,
-                    {
-                      color: theme.colors.primary,
-                    },
-                  ]}
-                >
-                  Cap {lab.capacity || '-'}
-                </Text>
-              </View>
-            </View>
-
-            {lab.description ? (
-              <Text
-                numberOfLines={3}
-                style={[
-                  styles.description,
-                  {
-                    color: theme.colors.textMuted,
-                  },
-                ]}
-              >
-                {lab.description}
-              </Text>
-            ) : null}
-
-            <Text
+        <View style={[styles.grid, responsive.isWide ? styles.gridWide : null]}>
+          {filteredLabs.map((lab) => (
+            <Pressable
+              key={lab.id}
+              onPress={() => navigation.navigate('LabDetail', { labId: lab.id })}
               style={[
-                styles.pic,
+                styles.card,
+                responsive.isWide ? styles.cardWide : null,
                 {
-                  color: theme.colors.text,
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
                 },
               ]}
             >
-              PIC: {lab.pic_name || 'Not assigned'}
-            </Text>
-          </Pressable>
-        ))
+              <View style={styles.headerRow}>
+                <View style={styles.titleWrap}>
+                  <Text
+                    style={[
+                      styles.title,
+                      {
+                        color: theme.colors.text,
+                      },
+                    ]}
+                  >
+                    {lab.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.room,
+                      {
+                        color: theme.colors.primary,
+                      },
+                    ]}
+                  >
+                    {lab.room}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.capacityBadge,
+                    {
+                      backgroundColor: theme.colors.primarySoft,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.capacityText,
+                      {
+                        color: theme.colors.primary,
+                      },
+                    ]}
+                  >
+                    Cap {lab.capacity || '-'}
+                  </Text>
+                </View>
+              </View>
+
+              {lab.description ? (
+                <Text
+                  numberOfLines={3}
+                  style={[
+                    styles.description,
+                    {
+                      color: theme.colors.textMuted,
+                    },
+                  ]}
+                >
+                  {lab.description}
+                </Text>
+              ) : null}
+
+              <Text
+                style={[
+                  styles.pic,
+                  {
+                    color: theme.colors.text,
+                  },
+                ]}
+              >
+                PIC: {lab.pic_name || 'Not assigned'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  grid: {
+    gap: 18,
+  },
+  gridWide: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
   card: {
     borderRadius: 18,
     borderWidth: 1,
     gap: 10,
     padding: 16,
+  },
+  cardWide: {
+    minWidth: '48%',
+    width: '48%',
   },
   headerRow: {
     alignItems: 'flex-start',

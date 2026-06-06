@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Animated, StyleSheet, Text, View } from 'react-native';
 
+import { textStyle } from '../theme/palette';
 import { useAppTheme } from '../theme/use-app-theme';
 
 function SkeletonRow({ opacity, width = '100%' }: { opacity: Animated.Value; width?: string | number }) {
@@ -41,6 +42,7 @@ function SkeletonCard({ opacity }: { opacity: Animated.Value }) {
 }
 
 export function LoadingState({ label = 'Loading...', rows = 3 }: { label?: string; rows?: number }) {
+  const theme = useAppTheme();
   const [reduceMotion, setReduceMotion] = useState(false);
   const opacity = useRef(new Animated.Value(0.3)).current;
 
@@ -73,6 +75,27 @@ export function LoadingState({ label = 'Loading...', rows = 3 }: { label?: strin
 
   return (
     <View style={styles.container}>
+      <View style={styles.headerCopy}>
+        <Text
+          style={[
+            textStyle.overline,
+            styles.label,
+            {
+              color: theme.colors.primary,
+            },
+          ]}
+        >
+          {label}
+        </Text>
+        <View
+          style={[
+            styles.badge,
+            {
+              backgroundColor: theme.colors.primarySoft,
+            },
+          ]}
+        />
+      </View>
       {Array.from({ length: rows }).map((_, i) => (
         <SkeletonCard key={i} opacity={displayOpacity} />
       ))}
@@ -84,6 +107,17 @@ const styles = StyleSheet.create({
   container: {
     gap: 14,
     padding: 4,
+  },
+  headerCopy: {
+    marginBottom: 4,
+  },
+  label: {
+    marginBottom: 8,
+  },
+  badge: {
+    borderRadius: 999,
+    height: 14,
+    width: 120,
   },
   skeletonCard: {
     borderRadius: 18,

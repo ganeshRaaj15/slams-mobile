@@ -2,6 +2,7 @@
 
 namespace App\Controllers\Api;
 
+use App\Authentication\OtpPolicy;
 use App\Controllers\BaseController;
 use App\Libraries\NativeUserSerializer;
 use CodeIgniter\Events\Events;
@@ -9,6 +10,7 @@ use CodeIgniter\Shield\Entities\User;
 use CodeIgniter\Shield\Exceptions\ValidationException;
 use CodeIgniter\Shield\Models\UserModel;
 use CodeIgniter\Shield\Validation\ValidationRules;
+use Random\RandomException;
 
 class NativeAuthController extends BaseController
 {
@@ -70,12 +72,91 @@ class NativeAuthController extends BaseController
                 ]);
         }
 
+        if ((new OtpPolicy())->requiresOtp($user)) {
+            return $this->issueOtpChallenge($user, trim((string) $payload['device_name']));
+        }
+
         $token = $user->generateAccessToken(trim((string) $payload['device_name']));
 
         return $this->response->setJSON([
             'status' => 'success',
             'token' => $token->raw_token,
             'user' => $this->serializer->serialize($user),
+        ]);
+    }
+
+    public function verifyOtp()
+    {
+        $payload = $this->requestPayload();
+
+        $rules = [
+            'otp_token' => 'required|string|max_length[64]',
+            'otp_code'  => 'required|string|min_length[6]|max_length[6]',
+            'device_name' => [
+                'label' => 'Device Name',
+                'rules' => 'required|string|max_length[255]',
+            ],
+        ];
+
+        if (! $this->validateData($payload, $rules)) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'Invalid OTP payload.',
+                    'errors' => $this->validator->getErrors(),
+                ]);
+        }
+
+        $db = db_connect();
+        $otpToken = trim((string) ($payload['otp_token'] ?? ''));
+        $otpCode  = trim((string) ($payload['otp_code'] ?? ''));
+
+        $record = $db->table('native_otp_tokens')
+            ->where('otp_token', $otpToken)
+            ->where('expires_at >', date('Y-m-d H:i:s'))
+            ->get()
+            ->getRowArray();
+
+        if (! $record) {
+            return $this->response
+                ->setStatusCode(401)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'Invalid or expired OTP session.',
+                ]);
+        }
+
+        if (! password_verify($otpCode, (string) $record['otp_hash'])) {
+            return $this->response
+                ->setStatusCode(401)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'Incorrect OTP code.',
+                ]);
+        }
+
+        $db->table('native_otp_tokens')->where('id', $record['id'])->delete();
+
+        $users = $this->userProvider();
+        $user  = $users->findById((int) $record['user_id']);
+
+        if (! $user instanceof User) {
+            return $this->response
+                ->setStatusCode(500)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'User could not be resolved.',
+                ]);
+        }
+
+        $deviceName = trim((string) ($payload['device_name'] ?? $record['device_name'] ?? 'mobile'));
+        $token = $user->generateAccessToken($deviceName);
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'token'  => $token->raw_token,
+            'user'   => $this->serializer->serialize($user),
         ]);
     }
 
@@ -265,5 +346,60 @@ class NativeAuthController extends BaseController
         }
 
         return $fallback;
+    }
+
+    /**
+     * @throws RandomException
+     */
+    protected function issueOtpChallenge(User $user, string $deviceName): \CodeIgniter\HTTP\ResponseInterface
+    {
+        $otp     = (string) random_int(100000, 999999);
+        $token   = bin2hex(random_bytes(24));
+        $expires = date('Y-m-d H:i:s', time() + 600);
+
+        $db = db_connect();
+
+        $db->table('native_otp_tokens')->where('user_id', $user->id)->delete();
+
+        $db->table('native_otp_tokens')->insert([
+            'user_id'     => $user->id,
+            'otp_token'   => $token,
+            'otp_hash'    => password_hash($otp, PASSWORD_DEFAULT),
+            'device_name' => $deviceName,
+            'expires_at'  => $expires,
+            'created_at'  => date('Y-m-d H:i:s'),
+        ]);
+
+        $identity = $db->table('auth_identities')
+            ->where('user_id', $user->id)
+            ->where('type', 'email_password')
+            ->get()
+            ->getRowArray();
+
+        $email = $identity['secret'] ?? '';
+
+        if ($email !== '') {
+            try {
+                $mailer = service('email');
+                $mailer->clear(true);
+                $mailer->setTo($email);
+                $mailer->setSubject('Your SLAMS login verification code');
+                $mailer->setMessage(
+                    '<p>Hi ' . esc($user->username ?? 'there') . ',</p>'
+                    . '<p>Your one-time login code is:</p>'
+                    . '<h2 style="letter-spacing:0.3em">' . $otp . '</h2>'
+                    . '<p>This code expires in 10 minutes. Do not share it with anyone.</p>'
+                );
+                $mailer->send();
+            } catch (\Throwable $e) {
+                log_message('error', '[NativeAuthController] OTP email failed: ' . $e->getMessage());
+            }
+        }
+
+        return $this->response->setJSON([
+            'status'    => 'otp_required',
+            'otp_token' => $token,
+            'message'   => 'A verification code has been sent to your email address.',
+        ]);
     }
 }

@@ -49,7 +49,7 @@ export function LabDetailScreen() {
   const role = user?.primary_role ?? 'student';
 
   return (
-    <Screen>
+    <Screen maxWidth="default">
       <View
         style={[
           styles.hero,

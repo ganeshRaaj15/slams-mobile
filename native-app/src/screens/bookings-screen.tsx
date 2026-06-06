@@ -12,6 +12,7 @@ import { StatusPill } from '../components/status-pill';
 import { isStudentRole } from '../constants/roles';
 import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
+import { useResponsiveLayout } from '../theme/use-responsive-layout';
 import { formatDateTimeRange } from '../utils/format';
 import { getBookingDisplayStatus } from '../utils/booking-status';
 
@@ -19,6 +20,7 @@ export function BookingsScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
+  const responsive = useResponsiveLayout();
   const role = useAuthStore((state) => state.user?.primary_role ?? 'student');
 
   const bookingsQuery = useQuery({
@@ -68,7 +70,7 @@ export function BookingsScreen() {
   }
 
   return (
-    <Screen>
+    <Screen maxWidth="wide">
       <View style={styles.statsRow}>
         <View
           style={[
@@ -102,52 +104,54 @@ export function BookingsScreen() {
           message="Bookings you submit in SLAMS will appear here."
         />
       ) : (
-        bookingsQuery.data.bookings.map((booking, index) => (
-          <AnimatedListItem key={booking.id} index={index}>
-          <Pressable
-            onPress={() => navigation.navigate('BookingDetail', { bookingId: booking.id })}
-            style={[
-              styles.card,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border,
-              },
-            ]}
-          >
-            <View style={styles.cardHeader}>
-              <View style={styles.cardTitleWrap}>
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{booking.lab_name}</Text>
-                <Text style={[styles.cardSubtitle, { color: theme.colors.textMuted }]}>
-                  {booking.service_name || 'General booking'}
-                </Text>
-              </View>
-              <StatusPill status={getBookingDisplayStatus(booking)} />
-            </View>
-
-            <Text style={[styles.cardMeta, { color: theme.colors.primary }]}>
-              {formatDateTimeRange(booking.date, booking.start_time, booking.end_time)}
-            </Text>
-            <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>{booking.activity}</Text>
-
-            {booking.can_cancel ? (
+        <View style={[styles.grid, responsive.isWide ? styles.gridWide : null]}>
+          {bookingsQuery.data.bookings.map((booking, index) => (
+            <AnimatedListItem key={booking.id} index={index} style={responsive.isWide ? styles.gridItemWide : undefined}>
               <Pressable
-                disabled={cancelMutation.isPending}
-                onPress={() => {
-                  void cancelMutation.mutateAsync(booking.id);
-                }}
+                onPress={() => navigation.navigate('BookingDetail', { bookingId: booking.id })}
                 style={[
-                  styles.cancelButton,
+                  styles.card,
                   {
-                    backgroundColor: theme.colors.dangerSoft,
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.border,
                   },
                 ]}
               >
-                <Text style={[styles.cancelButtonText, { color: theme.colors.danger }]}>Cancel Pending Booking</Text>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitleWrap}>
+                    <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{booking.lab_name}</Text>
+                    <Text style={[styles.cardSubtitle, { color: theme.colors.textMuted }]}>
+                      {booking.service_name || 'General booking'}
+                    </Text>
+                  </View>
+                  <StatusPill status={getBookingDisplayStatus(booking)} />
+                </View>
+
+                <Text style={[styles.cardMeta, { color: theme.colors.primary }]}>
+                  {formatDateTimeRange(booking.date, booking.start_time, booking.end_time)}
+                </Text>
+                <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>{booking.activity}</Text>
+
+                {booking.can_cancel ? (
+                  <Pressable
+                    disabled={cancelMutation.isPending}
+                    onPress={() => {
+                      void cancelMutation.mutateAsync(booking.id);
+                    }}
+                    style={[
+                      styles.cancelButton,
+                      {
+                        backgroundColor: theme.colors.dangerSoft,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.cancelButtonText, { color: theme.colors.danger }]}>Cancel Pending Booking</Text>
+                  </Pressable>
+                ) : null}
               </Pressable>
-            ) : null}
-          </Pressable>
-          </AnimatedListItem>
-        ))
+            </AnimatedListItem>
+          ))}
+        </View>
       )}
     </Screen>
   );
@@ -172,6 +176,17 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 22,
     fontWeight: '800',
+  },
+  grid: {
+    gap: 18,
+  },
+  gridWide: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  gridItemWide: {
+    minWidth: '48%',
+    width: '48%',
   },
   card: {
     borderRadius: 18,

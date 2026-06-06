@@ -20,10 +20,11 @@ async function downloadProtectedFile(url: string, filename: string, mimeType: st
 
   const outputDirectory = new Directory(Paths.cache, directoryName);
   outputDirectory.create({ idempotent: true, intermediates: true });
+  const outputFile = new File(outputDirectory, filename);
 
   let downloadedFile;
   try {
-    downloadedFile = await File.downloadFileAsync(resolvedUrl, outputDirectory, {
+    downloadedFile = await File.downloadFileAsync(resolvedUrl, outputFile, {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: mimeType,
