@@ -16,6 +16,7 @@ import { openProtectedPdf } from '../utils/protected-document';
 import { formatDateTimeRange } from '../utils/format';
 import type { RootStackParamList } from '../navigation/types';
 import { readErrorMessage } from '../utils/error-message';
+import { useAuthStore } from '../state/auth-store';
 
 export function ApprovalDetailScreen() {
   const theme = useAppTheme();
@@ -25,6 +26,8 @@ export function ApprovalDetailScreen() {
   const [documentError, setDocumentError] = useState<string | null>(null);
   const [documentBusy, setDocumentBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const role = useAuthStore((state) => state.user?.primary_role ?? 'student');
+  const canActOnBooking = role === 'pic' || role === 'manager';
 
   const detailQuery = useQuery({
     queryKey: ['approval-queue-item', route.params.bookingId],
@@ -233,39 +236,43 @@ export function ApprovalDetailScreen() {
         </View>
       ) : null}
 
-      {actionError ? (
-        <Text style={[styles.actionError, { color: theme.colors.danger }]}>{actionError}</Text>
+      {canActOnBooking ? (
+        <>
+          {actionError ? (
+            <Text style={[styles.actionError, { color: theme.colors.danger }]}>{actionError}</Text>
+          ) : null}
+          <View style={styles.actionRow}>
+            <Pressable
+              disabled={rejectMutation.isPending || approveMutation.isPending}
+              onPress={() => {
+                void rejectMutation.mutateAsync(booking.id);
+              }}
+              style={[
+                styles.rejectButton,
+                {
+                  backgroundColor: theme.colors.dangerSoft,
+                },
+              ]}
+            >
+              <Text style={[styles.rejectButtonText, { color: theme.colors.danger }]}>Reject</Text>
+            </Pressable>
+            <Pressable
+              disabled={approveMutation.isPending || rejectMutation.isPending}
+              onPress={() => {
+                void approveMutation.mutateAsync(booking.id);
+              }}
+              style={[
+                styles.approveButton,
+                {
+                  backgroundColor: theme.colors.success,
+                },
+              ]}
+            >
+              <Text style={styles.approveButtonText}>Approve</Text>
+            </Pressable>
+          </View>
+        </>
       ) : null}
-      <View style={styles.actionRow}>
-        <Pressable
-          disabled={rejectMutation.isPending || approveMutation.isPending}
-          onPress={() => {
-            void rejectMutation.mutateAsync(booking.id);
-          }}
-          style={[
-            styles.rejectButton,
-            {
-              backgroundColor: theme.colors.dangerSoft,
-            },
-          ]}
-        >
-          <Text style={[styles.rejectButtonText, { color: theme.colors.danger }]}>Reject</Text>
-        </Pressable>
-        <Pressable
-          disabled={approveMutation.isPending || rejectMutation.isPending}
-          onPress={() => {
-            void approveMutation.mutateAsync(booking.id);
-          }}
-          style={[
-            styles.approveButton,
-            {
-              backgroundColor: theme.colors.success,
-            },
-          ]}
-        >
-          <Text style={styles.approveButtonText}>Approve</Text>
-        </Pressable>
-      </View>
     </Screen>
   );
 }
