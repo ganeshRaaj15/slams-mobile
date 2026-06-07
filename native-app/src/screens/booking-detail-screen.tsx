@@ -103,6 +103,20 @@ export function BookingDetailScreen() {
           </Text>
         ) : null}
 
+        {booking.status === 'CANCELLED' && booking.cancellation_reason ? (
+          <View
+            style={[
+              styles.note,
+              {
+                backgroundColor: theme.colors.dangerSoft,
+              },
+            ]}
+          >
+            <Text style={[styles.noteTitle, { color: theme.colors.danger }]}>Booking Cancelled</Text>
+            <Text style={[styles.noteText, { color: theme.colors.text }]}>{booking.cancellation_reason}</Text>
+          </View>
+        ) : null}
+
         <Text style={[styles.meta, { color: theme.colors.primary }]}>
           {formatDateTimeRange(booking.date, booking.start_time, booking.end_time)}
         </Text>

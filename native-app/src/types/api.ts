@@ -99,6 +99,7 @@ export type BookingSummary = {
   updated_at: string;
   can_cancel: boolean;
   can_edit: boolean;
+  cancellation_reason: string | null;
 };
 
 export type BookingAsset = {
