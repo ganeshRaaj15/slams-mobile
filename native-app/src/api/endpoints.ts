@@ -25,6 +25,8 @@ import type {
   LabSummary,
   MaintenanceDetailResponse,
   MaintenanceWorkspaceResponse,
+  ReservationDetailResponse,
+  ReservationListResponse,
   NativeBootstrap,
   NativePushStatus,
   NativeUser,
@@ -1209,4 +1211,67 @@ export async function updateMaintenanceRequest(
   }
 
   return data;
+}
+
+export async function listReservationsRequest(params?: {
+  lab_id?: number;
+  type?: string;
+}) {
+  const response = await api.get<ApiEnvelope<ReservationListResponse>>('/api/native/reservations', { params });
+  return response.data;
+}
+
+export async function getReservationRequest(reservationId: number) {
+  const response = await api.get<ApiEnvelope<ReservationDetailResponse>>(
+    `/api/native/reservations/${reservationId}`,
+  );
+  return response.data;
+}
+
+export async function createReservationRequest(payload: {
+  lab_id: number;
+  type: string;
+  title: string;
+  recurrence: string;
+  date?: string;
+  day_of_week?: number;
+  start_time: string;
+  end_time: string;
+  valid_from?: string;
+  valid_until?: string;
+  notes?: string;
+}) {
+  const response = await api.post<ApiEnvelope<{ reservation_id: number }>>('/api/native/reservations', payload);
+  return response.data;
+}
+
+export async function updateReservationRequest(
+  reservationId: number,
+  payload: {
+    lab_id: number;
+    type: string;
+    title: string;
+    recurrence: string;
+    date?: string;
+    day_of_week?: number;
+    start_time: string;
+    end_time: string;
+    valid_from?: string;
+    valid_until?: string;
+    notes?: string;
+  },
+) {
+  const response = await api.post<ApiEnvelope<Record<string, never>>>(
+    `/api/native/reservations/${reservationId}`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function deleteReservationRequest(reservationId: number) {
+  const response = await api.post<ApiEnvelope<Record<string, never>>>(
+    `/api/native/reservations/${reservationId}/delete`,
+    {},
+  );
+  return response.data;
 }

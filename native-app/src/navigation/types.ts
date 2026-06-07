@@ -17,7 +17,9 @@ export type RootStackParamList = {
   };
   ApprovalDetail: { bookingId: number };
   ExternalRequestReviewDetail: { requestId: number };
-  MaintenanceForm: { maintenanceId?: number };
+  MaintenanceForm: { maintenanceId?: number; assetId?: number };
+  Reservations: undefined;
+  ReservationForm: { reservationId?: number };
   RequestForm: {
     labId?: number;
     requestId?: number;
@@ -43,6 +45,7 @@ export type MainTabParamList = {
   Approvals: undefined;
   Issues: undefined;
   Maintenance: undefined;
+  Reservations: undefined;
   Requests: undefined;
   Reports: undefined;
   AdminWorkspace: undefined;

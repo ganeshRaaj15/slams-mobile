@@ -599,6 +599,38 @@ export type MaintenanceDetailResponse = {
   assets: MaintenanceAssetOption[];
 };
 
+export type LabReservation = {
+  id: number;
+  lab_id: number;
+  lab_name: string;
+  type: 'manual' | 'class';
+  title: string;
+  recurrence: 'none' | 'weekly';
+  date: string;
+  day_of_week: number | null;
+  start_time: string;
+  end_time: string;
+  valid_from: string;
+  valid_until: string;
+  notes: string;
+  created_at: string;
+};
+
+export type ReservationLabOption = {
+  id: number;
+  name: string;
+};
+
+export type ReservationListResponse = {
+  reservations: LabReservation[];
+  labs: ReservationLabOption[];
+};
+
+export type ReservationDetailResponse = {
+  reservation: LabReservation;
+  labs: ReservationLabOption[];
+};
+
 export type NativePushStatus = {
   active_tokens: number;
   devices: Array<{

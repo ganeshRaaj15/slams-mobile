@@ -64,6 +64,7 @@ export function MaintenanceFormScreen() {
   const queryClient = useQueryClient();
   const role = useAuthStore((state) => state.user?.primary_role ?? 'student');
   const maintenanceId = route.params?.maintenanceId;
+  const preselectedAssetId = route.params?.assetId;
   const isEdit = typeof maintenanceId === 'number' && maintenanceId > 0;
 
   const [selectedAssetId, setSelectedAssetId] = useState<number | null>(null);
@@ -170,11 +171,11 @@ export function MaintenanceFormScreen() {
 
   useEffect(() => {
     if (isEdit || !createMetaQuery.data || initialized) return;
-    setSelectedAssetId(createMetaQuery.data.assets[0]?.id ?? null);
+    setSelectedAssetId(preselectedAssetId ?? createMetaQuery.data.assets[0]?.id ?? null);
     setIssueType(createMetaQuery.data.issue_types[0] ?? 'preventive');
     setPriority(createMetaQuery.data.priorities[1] ?? createMetaQuery.data.priorities[0] ?? 'medium');
     setInitialized(true);
-  }, [createMetaQuery.data, initialized, isEdit]);
+  }, [createMetaQuery.data, initialized, isEdit, preselectedAssetId]);
 
   if (!canUseMaintenance) {
     return (

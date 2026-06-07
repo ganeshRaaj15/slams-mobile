@@ -23,6 +23,7 @@ const routeMap: Record<string, string> = {
   approvals: 'Approvals',
   issues: 'Issues',
   maintenance: 'Maintenance',
+  reservations: 'Reservations',
   requests: 'Requests',
   notifications: 'Notifications',
   profile: 'Profile',

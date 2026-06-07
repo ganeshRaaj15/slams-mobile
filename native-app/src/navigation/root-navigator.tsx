@@ -40,6 +40,8 @@ import { LabsScreen } from '../screens/labs-screen';
 import { LoginScreen } from '../screens/login-screen';
 import { MaintenanceFormScreen } from '../screens/maintenance-form-screen';
 import { MaintenanceScreen } from '../screens/maintenance-screen';
+import { ReservationFormScreen } from '../screens/reservation-form-screen';
+import { ReservationsScreen } from '../screens/reservations-screen';
 import { navigationRef } from './navigation-service';
 import { NotificationsScreen } from '../screens/notifications-screen';
 import { ProfileScreen } from '../screens/profile-screen';
@@ -284,6 +286,7 @@ function MainTabs() {
         <Tabs.Screen name="Issues" component={IssuesScreen} options={tabOptions('Issues')} />
       ) : null}
       {role === 'pic' ? <Tabs.Screen name="Maintenance" component={MaintenanceScreen} options={tabOptions('Maintenance')} /> : null}
+      {role === 'pic' ? <Tabs.Screen name="Reservations" component={ReservationsScreen} options={tabOptions('Reservations')} /> : null}
       {(isExternalRole(role) || role === 'pic' || role === 'manager') ? (
         <Tabs.Screen
           name="Requests"
@@ -410,6 +413,14 @@ export function RootNavigator({ onReady }: RootNavigatorProps) {
             component={MaintenanceFormScreen}
             options={({ route }) => ({
               title: route.params?.maintenanceId ? 'Maintenance Case' : 'Plan Maintenance',
+            })}
+          />
+          <Stack.Screen name="Reservations" component={ReservationsScreen} options={{ title: 'Lab Reservations' }} />
+          <Stack.Screen
+            name="ReservationForm"
+            component={ReservationFormScreen}
+            options={({ route }) => ({
+              title: route.params?.reservationId ? 'Edit Reservation' : 'New Reservation',
             })}
           />
           <Stack.Screen

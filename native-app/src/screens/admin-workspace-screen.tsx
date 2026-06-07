@@ -269,6 +269,26 @@ export function AdminWorkspaceScreen() {
         <AnimatedPageSection index={12} variant="section" style={responsive.isTabletLandscape ? styles.cardButtonWide : undefined}>
           <Pressable
             onPress={() => {
+              navigation.navigate('Reservations');
+            }}
+            style={[
+              styles.cardButton,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Lab Reservations</Text>
+            <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
+              Manage one-off and recurring time blocks that prevent student bookings during classes and events.
+            </Text>
+          </Pressable>
+        </AnimatedPageSection>
+
+        <AnimatedPageSection index={13} variant="section" style={responsive.isTabletLandscape ? styles.cardButtonWide : undefined}>
+          <Pressable
+            onPress={() => {
               navigation.navigate('AdminSettings');
             }}
             style={[
@@ -286,7 +306,7 @@ export function AdminWorkspaceScreen() {
           </Pressable>
         </AnimatedPageSection>
 
-        <AnimatedPageSection index={13} variant="section" style={responsive.isTabletLandscape ? styles.cardButtonWide : undefined}>
+        <AnimatedPageSection index={14} variant="section" style={responsive.isTabletLandscape ? styles.cardButtonWide : undefined}>
           <Pressable
             onPress={() => {
               navigation.navigate('Reports');
