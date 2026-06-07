@@ -8,11 +8,9 @@ export function formatDateLabel(value: string) {
     return value;
   }
 
-  return new Intl.DateTimeFormat('en-MY', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(date);
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  return `${d}-${m}-${date.getFullYear()}`;
 }
 
 export function formatDateTimeRange(date: string, start: string, end: string) {
