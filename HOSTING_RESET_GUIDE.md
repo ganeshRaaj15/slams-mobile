@@ -117,13 +117,13 @@ The website currently depends on:
 
 - tracked static images under `public/images/`
 - runtime uploads in `public_html/images/` and `public_html/uploads/`
-- a hero video at `public/images/uthm-aerial.mp4`
+- a hero video at `public/images/night-time-aerial-compressed.mp4`
 
 Important:
 
-- The hero video is tracked with Git LFS.
-- If the server cannot run `git lfs pull`, the deployed file will be only a small pointer file and the video will not play.
-- If Git LFS is unavailable on the server, replace that video with a normal Git-tracked asset under 100 MB or sync it manually after deploy.
+- The active hero video is a normal Git-tracked asset under 100 MB, so it does not depend on Git LFS.
+- The legacy `public/images/uthm-aerial.mp4` file still uses Git LFS on older branches.
+- If you deploy an older branch that still references the legacy file, make sure `git lfs pull` succeeds or replace it manually.
 
 ## 8. Website acceptance checks
 
@@ -136,7 +136,7 @@ Verify these URLs in a browser:
 
 Then verify individual assets:
 
-- `https://slams.cloud/images/uthm-aerial.mp4`
+- `https://slams.cloud/images/night-time-aerial-compressed.mp4`
 - `https://slams.cloud/images/labs/<known-file>.png`
 - `https://slams.cloud/images/pic/<known-file>.png`
 - `https://slams.cloud/images/assets/<known-file>.png`

@@ -146,9 +146,9 @@ class AuditDeployment extends BaseCommand
             $passes++;
         }
 
-        $heroVideoPath = FCPATH . 'images/uthm-aerial.mp4';
+        $heroVideoPath = FCPATH . 'images/night-time-aerial-compressed.mp4';
         if (! is_file($heroVideoPath)) {
-            $this->warn('Hero Video', 'public/images/uthm-aerial.mp4 is missing.');
+            $this->warn('Hero Video', 'public/images/night-time-aerial-compressed.mp4 is missing.');
             $warnings++;
         } elseif ($this->isGitLfsPointerFile($heroVideoPath)) {
             $this->warn('Hero Video', 'The deployed hero video is still a Git LFS pointer file instead of the real MP4 binary.');

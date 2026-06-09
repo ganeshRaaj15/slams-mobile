@@ -4,7 +4,7 @@ import { useVideoPlayer } from 'expo-video';
 import type { VideoPlayer } from 'expo-video';
 
 const dayVideo = require('../../assets/videos/day-aerial.mp4');
-const nightVideo = require('../../assets/videos/night-aerial.mp4');
+const nightVideo = require('../../assets/videos/night-time-aerial-compressed.mp4');
 
 type HeroVideoContextValue = {
   dayPlayer: VideoPlayer;

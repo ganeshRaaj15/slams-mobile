@@ -28,10 +28,13 @@ to your `app` folder. The affected files can be copied or merged from
 Copy `env` to `.env` and tailor for your app, specifically the baseURL
 and any database settings.
 
-## Git LFS
+## Hero Video Assets
 
-This repo stores `public/images/uthm-aerial.mp4` using Git LFS (file is >100 MB).
-Make sure Git LFS is installed and run:
+The active dark-mode hero video is `public/images/night-time-aerial-compressed.mp4`.
+It is tracked as a normal Git asset and does not require Git LFS.
+
+The legacy source file `public/images/uthm-aerial.mp4` remains in Git LFS.
+If you need that older asset locally, make sure Git LFS is installed and run:
 
 ```bash
 git lfs install

@@ -17,7 +17,7 @@ $heroPoster = base_url('images/fkmp/FKMP.jpeg');
     <!-- Video Background -->
     <div class="video-background">
         <video id="uthmVideo" autoplay muted loop playsinline preload="metadata" poster="<?= esc($heroPoster) ?>">
-            <source src="<?= base_url('images/uthm-aerial.mp4') ?>" type="video/mp4">
+            <source src="<?= base_url('images/night-time-aerial-compressed.mp4') ?>" type="video/mp4">
         </video>
     </div>
     
