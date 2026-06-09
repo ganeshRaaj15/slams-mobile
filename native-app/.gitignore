@@ -38,6 +38,9 @@ credentials.json
 
 # QA artifacts
 .qa-logs/
+tmp-*
+tmp_*
+tmp_apk_debug/
 
 # typescript
 *.tsbuildinfo

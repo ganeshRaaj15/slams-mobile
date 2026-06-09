@@ -165,3 +165,8 @@ _modules/*
 
 /results/
 /phpunit*.xml
+
+# Generated local debug/session captures
+cookies_live.txt
+live_*.html
+live_*.txt

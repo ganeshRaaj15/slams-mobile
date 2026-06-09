@@ -314,12 +314,13 @@ export function AdminWorkspaceScreen() {
             style={[
               styles.cardButton,
               {
-                backgroundColor: theme.colors.primarySoft,
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
               },
             ]}
           >
-            <Text style={[styles.cardTitle, { color: theme.colors.primary }]}>Open Reports</Text>
-            <Text style={[styles.cardText, { color: theme.colors.text }]}>
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Open Reports</Text>
+            <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
               Review analytics and export PDF or CSV reports for operational reporting.
             </Text>
           </Pressable>
