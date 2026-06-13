@@ -34,6 +34,8 @@ class ExternalRequestModel extends Model
         'preferred_date',
         'preferred_start_time',
         'preferred_end_time',
+        'service_id',
+        'selected_assets',
         'purpose',
         'equipment_notes',
         'status',

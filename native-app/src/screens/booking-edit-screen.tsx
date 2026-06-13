@@ -90,13 +90,22 @@ export function BookingEditScreen() {
     setSupervisorPhone(booking.supervisor_phone);
     setApplicants(
       booking.applicants.length > 0
-        ? booking.applicants.map((a) => ({
-            name: a.name,
-            matric_id: a.matric_id,
-            email: a.email,
-            phone: a.phone,
-            faculty_id: a.faculty ? Number(a.faculty) : null,
-          }))
+        ? booking.applicants.map((a) => {
+            const parsedFacultyId =
+              typeof a.faculty_id === 'number'
+                ? a.faculty_id
+                : Number.isFinite(Number(a.faculty)) && Number(a.faculty) > 0
+                  ? Number(a.faculty)
+                  : null;
+
+            return {
+              name: a.name,
+              matric_id: a.matric_id,
+              email: a.email,
+              phone: a.phone,
+              faculty_id: parsedFacultyId,
+            };
+          })
         : [emptyApplicant()],
     );
     setInitialized(true);
@@ -130,6 +139,8 @@ export function BookingEditScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['bookings'] });
       await queryClient.invalidateQueries({ queryKey: ['booking', route.params.bookingId] });
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
       navigation.goBack();
     },
     onError: (error: unknown) => {
@@ -460,7 +471,7 @@ export function BookingEditScreen() {
                           },
                         ]}
                       >
-                        {slot.can_book ? `${slot.start}–${slot.end}` : (slot.reason ?? 'Unavailable')}
+                        {slot.can_book ? `${slot.start}-${slot.end}` : (slot.reason ?? 'Unavailable')}
                       </Text>
                     </Pressable>
                   );

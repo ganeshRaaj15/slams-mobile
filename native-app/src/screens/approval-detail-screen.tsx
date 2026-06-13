@@ -36,6 +36,7 @@ export function ApprovalDetailScreen() {
     onMutate: () => { setActionError(null); },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['approval-queue'] });
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
       navigation.goBack();
     },
@@ -49,6 +50,7 @@ export function ApprovalDetailScreen() {
     onMutate: () => { setActionError(null); },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['approval-queue'] });
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
       navigation.goBack();
     },

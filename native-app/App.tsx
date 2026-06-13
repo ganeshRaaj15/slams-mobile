@@ -42,7 +42,12 @@ type PendingBookingDetailTarget = {
   bookingId: number;
 };
 
-type PendingLinkTarget = PendingQrBookingTarget | PendingBookingDetailTarget;
+type PendingMagicLinkTarget = {
+  type: 'magic-link-sign-in';
+  token: string;
+};
+
+type PendingLinkTarget = PendingQrBookingTarget | PendingBookingDetailTarget | PendingMagicLinkTarget;
 
 async function maybeOfferBiometricEnrollment(setBiometricPreference: (enabled: boolean) => Promise<void>) {
   if (!await shouldPromptToEnableBiometrics()) {
@@ -154,11 +159,24 @@ function parseIncomingLinkUrl(url: string): PendingLinkTarget | null {
     };
   }
 
+  if (route === 'auth/magic-link') {
+    const token = String(parsed.queryParams?.token ?? '').trim();
+    if (token === '') {
+      return null;
+    }
+
+    return {
+      type: 'magic-link-sign-in',
+      token,
+    };
+  }
+
   return null;
 }
 
 function AppShell() {
   const bootstrap = useAuthStore((state) => state.bootstrap);
+  const signInWithMagicLink = useAuthStore((state) => state.signInWithMagicLink);
   const user = useAuthStore((state) => state.user);
   const role = useAuthStore((state) => state.user?.primary_role ?? 'student');
   const setBiometricPreference = useAuthStore((state) => state.setBiometricPreference);
@@ -203,7 +221,30 @@ function AppShell() {
   }, []);
 
   useEffect(() => {
-    if (!pendingLinkTarget || !navigationReady || status !== 'authenticated') {
+    if (!pendingLinkTarget || !navigationReady) {
+      return;
+    }
+
+    if (pendingLinkTarget.type === 'magic-link-sign-in') {
+      if (status === 'booting') {
+        return;
+      }
+
+      if (status === 'authenticated') {
+        Alert.alert(
+          'Already signed in',
+          'Sign out first if you want to use a secure sign-in link for another account.',
+        );
+        setPendingLinkTarget(null);
+        return;
+      }
+
+      setPendingLinkTarget(null);
+      void signInWithMagicLink(pendingLinkTarget.token).catch(() => undefined);
+      return;
+    }
+
+    if (status !== 'authenticated') {
       return;
     }
 
@@ -229,7 +270,7 @@ function AppShell() {
       source: 'qr',
     });
     setPendingLinkTarget(null);
-  }, [navigationReady, pendingLinkTarget, status, user?.primary_role]);
+  }, [navigationReady, pendingLinkTarget, signInWithMagicLink, status, user?.primary_role]);
 
   useEffect(() => {
     if (runtimeIssues.length > 0) {

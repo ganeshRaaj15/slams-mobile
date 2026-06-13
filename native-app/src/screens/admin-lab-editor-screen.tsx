@@ -16,6 +16,7 @@ import { LoadingState } from '../components/loading-state';
 import { Screen } from '../components/screen';
 import { TextField } from '../components/text-field';
 import type { RootStackParamList } from '../navigation/types';
+import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
 import { readErrorMessage } from '../utils/error-message';
 
@@ -30,6 +31,8 @@ export function AdminLabEditorScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RootStackParamList, 'AdminLabEditor'>>();
   const queryClient = useQueryClient();
+  const role = useAuthStore((state) => state.user?.primary_role ?? 'student');
+  const canEditPicAssignment = role === 'admin';
   const labId = route.params?.labId ?? null;
   const isEditMode = labId !== null;
 
@@ -279,15 +282,21 @@ export function AdminLabEditorScreen() {
         ]}
       >
         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>PIC Assignment</Text>
-        <TextField label="PIC name" onChangeText={setPicName} value={picName} />
+        <TextField editable={canEditPicAssignment} label="PIC name" onChangeText={setPicName} value={picName} />
         <TextField
           autoCapitalize="none"
+          editable={canEditPicAssignment}
           keyboardType="email-address"
           label="PIC email"
           onChangeText={setPicEmail}
           value={picEmail}
         />
-        <TextField keyboardType="phone-pad" label="PIC phone" onChangeText={setPicPhone} value={picPhone} />
+        <TextField editable={canEditPicAssignment} keyboardType="phone-pad" label="PIC phone" onChangeText={setPicPhone} value={picPhone} />
+        {!canEditPicAssignment ? (
+          <Text style={[styles.warningText, { color: theme.colors.textMuted }]}>
+            PIC assignment can only be changed by an administrator.
+          </Text>
+        ) : null}
 
         {lab?.pic_email && !lab.pic_account_linked ? (
           <Text style={[styles.warningText, { color: theme.colors.warning }]}>
@@ -461,7 +470,7 @@ export function AdminLabEditorScreen() {
         </Text>
       </Pressable>
 
-      {isEditMode ? (
+      {isEditMode && canEditPicAssignment ? (
         <View
           style={[
             styles.card,

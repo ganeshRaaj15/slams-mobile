@@ -121,6 +121,7 @@ export function ProfileScreen() {
   const selectedFaculty =
     faculties.find((faculty) => faculty.id === facultyId)?.label || 'No faculty assigned';
   const avatarUrl = user.profile_photo_url?.trim() || '';
+  const supportsTwofa = typeof user.twofa_enabled === 'boolean';
 
   async function pickProfilePhoto() {
     setLocalError(null);
@@ -434,37 +435,39 @@ export function ProfileScreen() {
         )}
       </View>
 
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Two-Factor Authentication</Text>
-        <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
-          When enabled, a one-time code is emailed to you each time you sign in.
-        </Text>
-        <View style={styles.switchRow}>
-          <View style={styles.switchCopy}>
-            <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>
-              {user.twofa_enabled ? 'Enabled' : 'Disabled'}
-            </Text>
-            <Text style={[styles.switchHint, { color: theme.colors.textMuted }]}>
-              Applies to both the web and mobile sign-in.
-            </Text>
+      {supportsTwofa ? (
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Two-Factor Authentication</Text>
+          <Text style={[styles.feedback, { color: theme.colors.textMuted }]}>
+            When enabled, a one-time code is emailed to you each time you sign in.
+          </Text>
+          <View style={styles.switchRow}>
+            <View style={styles.switchCopy}>
+              <Text style={[styles.fieldLabel, { color: theme.colors.text }]}>
+                {user.twofa_enabled ? 'Enabled' : 'Disabled'}
+              </Text>
+              <Text style={[styles.switchHint, { color: theme.colors.textMuted }]}>
+                Applies to both the web and mobile sign-in.
+              </Text>
+            </View>
+            <Switch
+              disabled={twofaPending}
+              onValueChange={(value) => {
+                void handleTwofaToggle(value);
+              }}
+              value={Boolean(user.twofa_enabled)}
+            />
           </View>
-          <Switch
-            disabled={twofaPending}
-            onValueChange={(value) => {
-              void handleTwofaToggle(value);
-            }}
-            value={user.twofa_enabled}
-          />
         </View>
-      </View>
+      ) : null}
 
       <View
         style={[

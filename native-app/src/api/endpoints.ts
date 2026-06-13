@@ -6,6 +6,10 @@ import type {
   AdminAssetListResponse,
   AdminLabDetailResponse,
   AdminLabListResponse,
+  AdminLabReservationDetailResponse,
+  AdminLabReservationListResponse,
+  AdminServiceDetailResponse,
+  AdminServiceListResponse,
   AdminUserDetailResponse,
   AdminUserListResponse,
   ApprovalQueueDetail,
@@ -25,6 +29,7 @@ import type {
   LabSummary,
   MaintenanceDetailResponse,
   MaintenanceWorkspaceResponse,
+  MagicLinkMessageResponse,
   NativeBootstrap,
   NativePushStatus,
   NativeUser,
@@ -50,6 +55,55 @@ type UploadAsset = {
   mimeType: string;
 };
 
+function parseEmbeddedJson<T>(rawBody: string): T | null {
+  const trimmedBody = rawBody.trim();
+  if (trimmedBody === '') {
+    return null;
+  }
+
+  try {
+    return JSON.parse(trimmedBody) as T;
+  } catch (_error) {
+    const firstObject = trimmedBody.indexOf('{');
+    const lastObject = trimmedBody.lastIndexOf('}');
+    if (firstObject !== -1 && lastObject > firstObject) {
+      try {
+        return JSON.parse(trimmedBody.slice(firstObject, lastObject + 1)) as T;
+      } catch (_innerError) {
+        return null;
+      }
+    }
+  }
+
+  return null;
+}
+
+async function readJsonResponse<T>(
+  response: Response,
+  options: {
+    emptyMessage: string;
+    unreadableMessage: string;
+  },
+): Promise<T> {
+  const rawBody = await response.text();
+  const trimmedBody = rawBody.trim();
+  const parsed = parseEmbeddedJson<T>(rawBody);
+
+  if (parsed) {
+    return parsed;
+  }
+
+  if (trimmedBody.startsWith('<')) {
+    throw new Error(`The server returned an HTML response instead of JSON (HTTP ${response.status}).`);
+  }
+
+  if (trimmedBody !== '') {
+    throw new Error(response.ok ? options.unreadableMessage : trimmedBody);
+  }
+
+  throw new Error(response.ok ? options.emptyMessage : `Request failed (HTTP ${response.status}).`);
+}
+
 function appendUploadAsset(formData: FormData, fieldName: string, asset: UploadAsset | null | undefined) {
   if (!asset?.uri) {
     return;
@@ -65,6 +119,27 @@ export async function loginRequest(payload: {
 }) {
   const response = await api.post<LoginResponse>(
     '/api/native/auth/token',
+    payload,
+  );
+  return response.data;
+}
+
+export async function requestMagicLinkRequest(payload: {
+  account: string;
+}) {
+  const response = await api.post<ApiEnvelope<MagicLinkMessageResponse>>(
+    '/api/native/auth/magic-link/request',
+    payload,
+  );
+  return response.data;
+}
+
+export async function consumeMagicLinkRequest(payload: {
+  token: string;
+  device_name: string;
+}) {
+  const response = await api.post<ApiEnvelope<AuthResponse>>(
+    '/api/native/auth/magic-link/consume',
     payload,
   );
   return response.data;
@@ -173,31 +248,10 @@ export async function updateProfileRequest(payload: {
     body: formData,
   });
 
-  const rawBody = await response.text();
-  const trimmedBody = rawBody.trim();
-  let data: ApiEnvelope<{ user: NativeUser }> | null = null;
-
-  if (trimmedBody !== '') {
-    try {
-      data = JSON.parse(trimmedBody) as ApiEnvelope<{ user: NativeUser }>;
-    } catch (_error) {
-      throw new Error(
-        trimmedBody.startsWith('<')
-          ? `The server returned an HTML response while uploading the profile photo (HTTP ${response.status}).`
-          : response.ok
-            ? 'The server returned an unreadable response while uploading the profile photo.'
-            : trimmedBody,
-      );
-    }
-  }
-
-  if (!data) {
-    throw new Error(
-      response.ok
-        ? 'The server returned an empty response while uploading the profile photo.'
-        : `Profile photo upload failed (HTTP ${response.status}).`,
-    );
-  }
+  const data = await readJsonResponse<ApiEnvelope<{ user: NativeUser }>>(response, {
+    emptyMessage: 'The server returned an empty response while uploading the profile photo.',
+    unreadableMessage: 'The server returned an unreadable response while uploading the profile photo.',
+  });
 
   if (!response.ok || data.status === 'error') {
     throw new Error(
@@ -210,7 +264,16 @@ export async function updateProfileRequest(payload: {
   return data;
 }
 
-export async function getReportSnapshotRequest() {
+export async function getReportSnapshotRequest(params?: {
+  date_from?: string;
+  date_to?: string;
+  lab_id?: string;
+  asset_id?: string;
+  booking_status?: string;
+  maintenance_status?: string;
+  asset_category?: string;
+  asset_status?: string;
+}) {
   const response = await api.get<
     ApiEnvelope<
       {
@@ -220,6 +283,9 @@ export async function getReportSnapshotRequest() {
     >
   >(
     '/api/native/reports',
+    {
+      params,
+    },
   );
   const payload = response.data;
   const fallbackExports = {
@@ -234,6 +300,11 @@ export async function getReportSnapshotRequest() {
           reportTitle: payload.reportTitle,
           scopeLabel: payload.scopeLabel ?? 'Operational Scope',
           generatedAt: payload.generatedAt ?? '',
+          roleDisplay: payload.roleDisplay,
+          scopeDescription: payload.scopeDescription,
+          uiProfile: payload.uiProfile,
+          filters: payload.filters,
+          availableFilters: payload.availableFilters,
           kpis: payload.kpis,
           assetTotals: payload.assetTotals ?? {},
           statusMap: payload.statusMap ?? {},
@@ -348,7 +419,10 @@ export async function checkBookingSlotRequest(payload: {
     body,
   });
 
-  const data = (await response.json()) as { conflict: boolean; reason?: string };
+  const data = await readJsonResponse<{ conflict: boolean; reason?: string }>(response, {
+    emptyMessage: 'The server returned an empty response while checking slot availability.',
+    unreadableMessage: 'The server returned an unreadable response while checking slot availability.',
+  });
   if (!response.ok) {
     throw new Error(
       typeof data.reason === 'string' && data.reason.trim() !== ''
@@ -431,7 +505,10 @@ export async function updateBookingRequest(
     body: formData,
   });
 
-  const data = (await response.json()) as ApiEnvelope<Record<string, never>>;
+  const data = await readJsonResponse<ApiEnvelope<Record<string, never>>>(response, {
+    emptyMessage: 'The server returned an empty response while updating the booking.',
+    unreadableMessage: 'The server returned an unreadable response while updating the booking.',
+  });
   if (!response.ok || data.status === 'error') {
     throw new Error(
       typeof data.message === 'string' && data.message.trim() !== ''
@@ -494,7 +571,10 @@ export async function submitBookingRequest(payload: {
     body: formData,
   });
 
-  const data = (await response.json()) as ApiEnvelope<Record<string, never>>;
+  const data = await readJsonResponse<ApiEnvelope<Record<string, never>>>(response, {
+    emptyMessage: 'The server returned an empty response while submitting the booking.',
+    unreadableMessage: 'The server returned an unreadable response while submitting the booking.',
+  });
 
   if (!response.ok || data.status === 'error') {
     const message =
@@ -705,7 +785,12 @@ export async function createAdminLabRequest(payload: {
     body: formData,
   });
 
-  const data = (await response.json()) as ApiEnvelope<{ lab: AdminLabDetailResponse['lab']; warning?: string | null }>;
+  const data = await readJsonResponse<
+    ApiEnvelope<{ lab: AdminLabDetailResponse['lab']; warning?: string | null }>
+  >(response, {
+    emptyMessage: 'The server returned an empty response while saving the laboratory.',
+    unreadableMessage: 'The server returned an unreadable response while saving the laboratory.',
+  });
   if (!response.ok || data.status === 'error') {
     throw new Error(
       typeof data.message === 'string' && data.message.trim() !== ''
@@ -752,7 +837,12 @@ export async function updateAdminLabRequest(
     body: formData,
   });
 
-  const data = (await response.json()) as ApiEnvelope<{ lab: AdminLabDetailResponse['lab']; warning?: string | null }>;
+  const data = await readJsonResponse<
+    ApiEnvelope<{ lab: AdminLabDetailResponse['lab']; warning?: string | null }>
+  >(response, {
+    emptyMessage: 'The server returned an empty response while updating the laboratory.',
+    unreadableMessage: 'The server returned an unreadable response while updating the laboratory.',
+  });
   if (!response.ok || data.status === 'error') {
     throw new Error(
       typeof data.message === 'string' && data.message.trim() !== ''
@@ -830,7 +920,10 @@ export async function createAdminAssetRequest(payload: {
     body: formData,
   });
 
-  const data = (await response.json()) as ApiEnvelope<{ asset: AdminAssetDetailResponse['asset'] }>;
+  const data = await readJsonResponse<ApiEnvelope<{ asset: AdminAssetDetailResponse['asset'] }>>(response, {
+    emptyMessage: 'The server returned an empty response while saving the asset.',
+    unreadableMessage: 'The server returned an unreadable response while saving the asset.',
+  });
   if (!response.ok || data.status === 'error') {
     throw new Error(
       typeof data.message === 'string' && data.message.trim() !== ''
@@ -873,7 +966,10 @@ export async function updateAdminAssetRequest(
     body: formData,
   });
 
-  const data = (await response.json()) as ApiEnvelope<{ asset: AdminAssetDetailResponse['asset'] }>;
+  const data = await readJsonResponse<ApiEnvelope<{ asset: AdminAssetDetailResponse['asset'] }>>(response, {
+    emptyMessage: 'The server returned an empty response while updating the asset.',
+    unreadableMessage: 'The server returned an unreadable response while updating the asset.',
+  });
   if (!response.ok || data.status === 'error') {
     throw new Error(
       typeof data.message === 'string' && data.message.trim() !== ''
@@ -887,6 +983,110 @@ export async function updateAdminAssetRequest(
 
 export async function deleteAdminAssetRequest(assetId: number) {
   const response = await api.post<ApiEnvelope<Record<string, never>>>(`/api/native/admin/assets/${assetId}/delete`);
+  return response.data;
+}
+
+export async function listAdminServicesRequest(params?: {
+  q?: string;
+  lab_id?: number;
+  active?: string;
+}) {
+  const response = await api.get<ApiEnvelope<AdminServiceListResponse>>('/api/native/admin/services', {
+    params,
+  });
+  return response.data;
+}
+
+export async function getAdminServiceRequest(serviceId: number) {
+  const response = await api.get<ApiEnvelope<AdminServiceDetailResponse>>(`/api/native/admin/services/${serviceId}`);
+  return response.data;
+}
+
+export async function createAdminServiceRequest(payload: {
+  laboratory_id: number;
+  field_name: string;
+  service_name: string;
+  acceptance_criteria: string;
+  calibration_status: string;
+  service_notes: string;
+  is_active: boolean;
+  requirements: Array<{
+    asset_id: number;
+    quantity_required: number;
+  }>;
+}) {
+  const response = await api.post<ApiEnvelope<{ service: AdminServiceDetailResponse['service'] }>>(
+    '/api/native/admin/services',
+    payload,
+  );
+  return response.data;
+}
+
+export async function updateAdminServiceRequest(
+  serviceId: number,
+  payload: Parameters<typeof createAdminServiceRequest>[0],
+) {
+  const response = await api.post<ApiEnvelope<{ service: AdminServiceDetailResponse['service'] }>>(
+    `/api/native/admin/services/${serviceId}`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function deleteAdminServiceRequest(serviceId: number) {
+  const response = await api.post<ApiEnvelope<Record<string, never>>>(`/api/native/admin/services/${serviceId}/delete`);
+  return response.data;
+}
+
+export async function listAdminReservationsRequest(params?: {
+  q?: string;
+  lab_id?: number;
+  status?: string;
+}) {
+  const response = await api.get<ApiEnvelope<AdminLabReservationListResponse>>('/api/native/admin/reservations', {
+    params,
+  });
+  return response.data;
+}
+
+export async function getAdminReservationRequest(reservationId: number) {
+  const response = await api.get<ApiEnvelope<AdminLabReservationDetailResponse>>(
+    `/api/native/admin/reservations/${reservationId}`,
+  );
+  return response.data;
+}
+
+export async function createAdminReservationRequest(payload: {
+  lab_id: number;
+  title: string;
+  reservation_type: string;
+  start_at: string;
+  end_at: string;
+  notes: string;
+  status: string;
+}) {
+  const response = await api.post<ApiEnvelope<{ reservation: AdminLabReservationDetailResponse['reservation'] }>>(
+    '/api/native/admin/reservations',
+    payload,
+  );
+  return response.data;
+}
+
+export async function updateAdminReservationRequest(
+  reservationId: number,
+  payload: Parameters<typeof createAdminReservationRequest>[0],
+) {
+  const response = await api.post<ApiEnvelope<{ reservation: AdminLabReservationDetailResponse['reservation'] }>>(
+    `/api/native/admin/reservations/${reservationId}`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function deleteAdminReservationRequest(reservationId: number) {
+  const response = await api.post<ApiEnvelope<Record<string, never>>>(
+    `/api/native/admin/reservations/${reservationId}/delete`,
+  );
   return response.data;
 }
 
@@ -958,16 +1158,25 @@ export async function getExternalRequestRequest(requestId: number) {
   return response.data;
 }
 
-export async function listExternalRequestDaySlotsRequest(labId: number, date: string) {
+export async function listExternalRequestDaySlotsRequest(
+  labId: number,
+  date: string,
+  options?: { service_id?: number },
+) {
   const response = await api.get<ApiEnvelope<{ slots: DaySlot[] }>>(
     `/api/native/external-requests/labs/${labId}/slots/${date}`,
+    {
+      params: {
+        service_id: options?.service_id,
+      },
+    },
   );
   return response.data;
 }
 
 export async function listExternalRequestLabServicesRequest(labId: number) {
   const response = await api.get<
-    ApiEnvelope<{ services: Array<{ id: number; service_name: string; equipment_models: string }> }>
+    ApiEnvelope<{ services: Array<{ id: number; service_name: string; equipment_models: string; bundle_summary?: string; is_bookable?: boolean }> }>
   >(`/api/native/external-requests/labs/${labId}/services`);
   return response.data;
 }
@@ -1101,7 +1310,10 @@ export async function createIssueReportRequest(payload: {
     body: formData,
   });
 
-  const data = (await response.json()) as ApiEnvelope<{ report_id: number }>;
+  const data = await readJsonResponse<ApiEnvelope<{ report_id: number }>>(response, {
+    emptyMessage: 'The server returned an empty response while submitting the issue report.',
+    unreadableMessage: 'The server returned an unreadable response while submitting the issue report.',
+  });
   if (!response.ok || data.status === 'error') {
     throw new Error(
       typeof data.message === 'string' && data.message.trim() !== ''
@@ -1199,7 +1411,10 @@ export async function updateMaintenanceRequest(
     body: formData,
   });
 
-  const data = (await response.json()) as ApiEnvelope<{ maintenance_id: number; new_status: string }>;
+  const data = await readJsonResponse<ApiEnvelope<{ maintenance_id: number; new_status: string }>>(response, {
+    emptyMessage: 'The server returned an empty response while updating the maintenance record.',
+    unreadableMessage: 'The server returned an unreadable response while updating the maintenance record.',
+  });
   if (!response.ok || data.status === 'error') {
     throw new Error(
       typeof data.message === 'string' && data.message.trim() !== ''

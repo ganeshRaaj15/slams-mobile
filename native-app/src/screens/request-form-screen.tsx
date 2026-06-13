@@ -81,8 +81,11 @@ export function RequestFormScreen() {
   });
 
   const daySlotsQuery = useQuery({
-    queryKey: ['external-request-day-slots', form.lab_id, form.preferred_date],
-    queryFn: () => listExternalRequestDaySlotsRequest(form.lab_id, form.preferred_date),
+    queryKey: ['external-request-day-slots', form.lab_id, form.preferred_date, form.service_id],
+    queryFn: () =>
+      listExternalRequestDaySlotsRequest(form.lab_id, form.preferred_date, {
+        service_id: form.service_id > 0 ? form.service_id : undefined,
+      }),
     enabled: Boolean(form.lab_id && form.preferred_date),
   });
 
@@ -173,6 +176,7 @@ export function RequestFormScreen() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['external-requests'] });
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
       navigation.goBack();
     },
@@ -277,7 +281,7 @@ export function RequestFormScreen() {
         >
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Service / Field of Work</Text>
           <Text style={[styles.helperText, { color: theme.colors.textMuted }]}>
-            Optional — select the service or field of work you are interested in.
+            Select the service bundle you need. The request will reserve the full linked equipment set once approvals are complete.
           </Text>
 
           {labServicesQuery.isLoading ? (
@@ -289,24 +293,49 @@ export function RequestFormScreen() {
                 return (
                   <Pressable
                     key={service.id}
+                    disabled={service.is_bookable === false}
                     onPress={() => {
+                      if (service.is_bookable === false) {
+                        return;
+                      }
                       const isDeselect = service.id === form.service_id;
                       setForm((current) => ({
                         ...current,
                         service_id: isDeselect ? 0 : service.id,
-                        selected_assets: isDeselect ? '' : (service.equipment_models ?? ''),
+                        selected_assets: isDeselect ? '' : (service.bundle_summary || service.equipment_models || ''),
+                        preferred_start_time: '',
+                        preferred_end_time: '',
                       }));
                     }}
                     style={[
                       styles.choiceChip,
                       {
-                        backgroundColor: selected ? theme.colors.primarySoft : theme.colors.surfaceMuted,
+                        backgroundColor: service.is_bookable === false
+                          ? theme.colors.warningSoft
+                          : selected
+                            ? theme.colors.primarySoft
+                            : theme.colors.surfaceMuted,
+                        opacity: service.is_bookable === false ? 0.65 : 1,
                       },
                     ]}
                   >
-                    <Text style={[styles.choiceText, { color: selected ? theme.colors.primary : theme.colors.text }]}>
+                    <Text
+                      style={[
+                        styles.choiceText,
+                        {
+                          color: service.is_bookable === false
+                            ? theme.colors.warning
+                            : selected
+                              ? theme.colors.primary
+                              : theme.colors.text,
+                        },
+                      ]}
+                    >
                       {service.service_name}
                     </Text>
+                    {service.is_bookable === false ? (
+                      <Text style={[styles.helperText, { color: theme.colors.warning }]}>Unavailable</Text>
+                    ) : null}
                   </Pressable>
                 );
               })}
@@ -347,8 +376,7 @@ export function RequestFormScreen() {
         >
           <Text style={[styles.infoTitle, { color: theme.colors.primary }]}>Approval route</Text>
           <Text style={[styles.infoText, { color: theme.colors.text }]}>
-            External requests use the same configured booking slots as student bookings. Choosing a slot here does not
-            reserve it until PIC and Lab Manager approvals are complete.
+            External requests use the same service-based slot availability as student and staff bookings. Choosing a slot here does not reserve it until PIC and Lab Manager approvals are complete.
           </Text>
         </View>
 
@@ -548,6 +576,10 @@ export function RequestFormScreen() {
           disabled={saveMutation.isPending}
           onPress={() => {
             setErrorMessage(null);
+            if ((labServicesQuery.data?.services?.length ?? 0) > 0 && !form.service_id) {
+              setErrorMessage('Choose one of the configured service bundles before selecting a slot.');
+              return;
+            }
             if (!form.lab_id || !form.preferred_date || !form.preferred_start_time || !form.preferred_end_time) {
               setErrorMessage('Choose a laboratory, date, and one of the configured booking slots.');
               return;

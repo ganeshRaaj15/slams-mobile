@@ -214,7 +214,7 @@ class NativeExternalRequestReviewController extends WebExternalRequestsControlle
         $requesterName = trim((string) ($request['requester_full_name'] ?? '')) ?: (string) ($request['contact_name'] ?? $request['requester_username'] ?? '-');
         $reviewerName = trim((string) ($request['reviewer_full_name'] ?? '')) ?: (string) ($request['reviewer_username'] ?? '');
 
-        return [
+        $payload = [
             'id' => (int) $request['id'],
             'lab_id' => (int) ($request['lab_id'] ?? 0),
             'lab_name' => (string) ($request['lab_name'] ?? ''),
@@ -251,5 +251,14 @@ class NativeExternalRequestReviewController extends WebExternalRequestsControlle
             'created_at' => (string) ($request['created_at'] ?? ''),
             'updated_at' => (string) ($request['updated_at'] ?? ''),
         ];
+
+        if (db_connect()->fieldExists('service_id', 'external_requests')) {
+            $payload['service_id'] = isset($request['service_id']) ? (int) $request['service_id'] : null;
+        }
+        if (db_connect()->fieldExists('selected_assets', 'external_requests')) {
+            $payload['selected_assets'] = (string) ($request['selected_assets'] ?? '');
+        }
+
+        return $payload;
     }
 }

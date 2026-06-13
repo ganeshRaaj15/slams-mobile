@@ -9,6 +9,8 @@ $isEdit = $mode === 'edit';
 $actionUrl = $isEdit ? '/dashboard/external/request/update/' . (int) ($requestRecord['id'] ?? 0) : '/dashboard/external/request/store';
 $requestModel = $requestModel ?? null;
 $currentStatus = (string) ($requestRecord['status'] ?? 'pending_pic_approval');
+$selectedServiceId = (int) ($requestRecord['service_id'] ?? 0);
+$selectedAssets = (string) ($requestRecord['selected_assets'] ?? '');
 ?>
 
 <div class="dashboard-header">
@@ -38,6 +40,7 @@ $currentStatus = (string) ($requestRecord['status'] ?? 'pending_pic_approval');
     <div class="card-body p-4">
         <form action="<?= esc($actionUrl) ?>" method="post" class="row g-4" id="externalRequestForm">
             <?= csrf_field() ?>
+            <input type="hidden" name="selected_assets" id="externalSelectedAssets" value="<?= esc(old('selected_assets', $selectedAssets)) ?>">
 
             <div class="col-md-6">
                 <label class="form-label">Laboratory *</label>
@@ -100,6 +103,13 @@ $currentStatus = (string) ($requestRecord['status'] ?? 'pending_pic_approval');
             </div>
 
             <div class="col-12">
+                <label class="form-label">Service Bundle *</label>
+                <input type="hidden" name="service_id" id="externalServiceId" value="<?= esc((string) old('service_id', $selectedServiceId > 0 ? $selectedServiceId : '')) ?>">
+                <div id="externalServiceChoices" class="d-flex flex-wrap gap-2"></div>
+                <div id="externalServiceSummary" class="form-text mt-2">Choose a laboratory to load its available bundled services.</div>
+            </div>
+
+            <div class="col-12">
                 <label class="form-label">Purpose of Use *</label>
                 <textarea name="purpose" class="form-control" rows="5" required><?= esc(old('purpose', $requestRecord['purpose'] ?? '')) ?></textarea>
                 <div class="form-text">Explain what you need to do in the laboratory, why the lab is required, and any timing constraints.</div>
@@ -128,13 +138,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const summaryEl = document.getElementById("externalSlotSummary");
     const feedbackEl = document.getElementById("externalSlotFeedback");
     const slotChoicesEl = document.getElementById("externalSlotChoices");
+    const serviceIdField = document.getElementById("externalServiceId");
+    const selectedAssetsField = document.getElementById("externalSelectedAssets");
+    const serviceChoicesEl = document.getElementById("externalServiceChoices");
+    const serviceSummaryEl = document.getElementById("externalServiceSummary");
 
-    if (!labField || !dateField || !startField || !endField || !summaryEl || !feedbackEl || !slotChoicesEl) {
+    if (!labField || !dateField || !startField || !endField || !summaryEl || !feedbackEl || !slotChoicesEl || !serviceIdField || !selectedAssetsField || !serviceChoicesEl || !serviceSummaryEl) {
         return;
     }
 
     let selectedStart = startField.value || "";
     let selectedEnd = endField.value || "";
+    let selectedServiceId = serviceIdField.value || "";
+    let loadedServices = [];
 
     function renderFeedback(message, type = "info") {
         if (!message) {
@@ -148,6 +164,69 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function renderSummary(label) {
         summaryEl.textContent = label;
+    }
+
+    function activeService() {
+        return loadedServices.find((service) => String(service.id) === String(selectedServiceId)) || null;
+    }
+
+    function updateServiceSummary() {
+        const service = activeService();
+        if (!service) {
+            serviceSummaryEl.textContent = "Choose a laboratory to load its available bundled services.";
+            selectedAssetsField.value = "";
+            return;
+        }
+
+        selectedAssetsField.value = service.bundle_summary || service.equipment_models || "";
+        serviceSummaryEl.textContent = service.is_bookable === false
+            ? `Selected service bundle is currently unavailable. ${service.bundle_summary || service.equipment_models || ''}`.trim()
+            : `Selected bundle: ${service.bundle_summary || service.equipment_models || 'Configured service bundle'}`;
+    }
+
+    function renderServiceChoices(services) {
+        loadedServices = Array.isArray(services) ? services : [];
+        if (!loadedServices.length) {
+            serviceChoicesEl.innerHTML = '<div class="alert alert-warning small mb-0">No bundled services are configured for this laboratory.</div>';
+            selectedServiceId = "";
+            serviceIdField.value = "";
+            updateServiceSummary();
+            return;
+        }
+
+        serviceChoicesEl.innerHTML = loadedServices.map((service) => {
+            const selected = String(service.id) === String(selectedServiceId);
+            const unavailable = service.is_bookable === false;
+            const btnClass = unavailable ? 'btn-outline-secondary' : (selected ? 'btn-primary' : 'btn-outline-primary');
+            const disabled = unavailable ? 'disabled' : '';
+            const meta = service.bundle_summary || service.equipment_models || 'Configured service bundle';
+
+            return `
+                <button
+                    type="button"
+                    class="btn ${btnClass} text-start external-service-choice"
+                    data-service-id="${service.id}"
+                    ${disabled}
+                >
+                    <div class="fw-semibold">${service.service_name || 'Service'}</div>
+                    <div class="small">${meta}</div>
+                    ${unavailable ? '<div class="small text-warning">Currently unavailable</div>' : ''}
+                </button>
+            `;
+        }).join("");
+
+        const active = activeService();
+        if (!active || active.is_bookable === false) {
+            selectedServiceId = "";
+            serviceIdField.value = "";
+        }
+        updateServiceSummary();
+        if (loadedServices.length && !selectedServiceId) {
+            slotChoicesEl.innerHTML = "";
+            setSelectedSlot(null);
+            renderFeedback("Choose a bundled service before selecting a booking slot.", "info");
+            renderSummary("Choose a bundled service to load slot availability.");
+        }
     }
 
     function setSelectedSlot(slot) {
@@ -198,6 +277,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function loadSlots(preserveCurrentSelection = false) {
         const labId = labField.value;
         const preferredDate = dateField.value;
+        const serviceId = serviceIdField.value;
 
         if (!labId || !preferredDate) {
             slotChoicesEl.innerHTML = "";
@@ -209,6 +289,16 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        if (loadedServices.length && !serviceId) {
+            slotChoicesEl.innerHTML = "";
+            if (!preserveCurrentSelection) {
+                setSelectedSlot(null);
+            }
+            renderFeedback("Choose a bundled service before selecting a booking slot.", "info");
+            renderSummary("Choose a bundled service to load slot availability.");
+            return;
+        }
+
         if (!preserveCurrentSelection) {
             setSelectedSlot(null);
         }
@@ -217,7 +307,8 @@ document.addEventListener("DOMContentLoaded", () => {
         slotChoicesEl.innerHTML = "";
 
         try {
-            const response = await fetch(`/dashboard/external/request/slots/${encodeURIComponent(labId)}/${encodeURIComponent(preferredDate)}`);
+            const url = `/dashboard/external/request/slots/${encodeURIComponent(labId)}/${encodeURIComponent(preferredDate)}?service_id=${encodeURIComponent(serviceId || '')}`;
+            const response = await fetch(url);
             const data = await response.json();
             const slots = Array.isArray(data.slots) ? data.slots : [];
 
@@ -248,9 +339,39 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    async function loadServices() {
+        const labId = labField.value;
+        if (!labId) {
+            loadedServices = [];
+            serviceChoicesEl.innerHTML = "";
+            selectedServiceId = "";
+            serviceIdField.value = "";
+            updateServiceSummary();
+            return;
+        }
+
+        serviceChoicesEl.innerHTML = '<div class="alert alert-info small mb-0">Loading bundled services...</div>';
+
+        try {
+            const response = await fetch(`/dashboard/external/request/services/${encodeURIComponent(labId)}`);
+            const data = await response.json();
+            renderServiceChoices(Array.isArray(data.services) ? data.services : []);
+        } catch (_error) {
+            loadedServices = [];
+            serviceChoicesEl.innerHTML = '<div class="alert alert-warning small mb-0">Could not load services right now.</div>';
+            selectedServiceId = "";
+            serviceIdField.value = "";
+            updateServiceSummary();
+        }
+    }
+
     labField.addEventListener("change", () => {
         selectedStart = "";
         selectedEnd = "";
+        selectedServiceId = "";
+        serviceIdField.value = "";
+        selectedAssetsField.value = "";
+        loadServices();
         loadSlots();
     });
 
@@ -276,15 +397,35 @@ document.addEventListener("DOMContentLoaded", () => {
         loadSlots(true);
     });
 
+    serviceChoicesEl.addEventListener("click", (event) => {
+        const button = event.target.closest(".external-service-choice");
+        if (!button || button.disabled) {
+            return;
+        }
+
+        selectedServiceId = button.dataset.serviceId || "";
+        serviceIdField.value = selectedServiceId;
+        selectedStart = "";
+        selectedEnd = "";
+        startField.value = "";
+        endField.value = "";
+        renderServiceChoices(loadedServices);
+        loadSlots();
+    });
+
     if (selectedStart && selectedEnd && labField.value && dateField.value) {
         renderSummary("Validating the preselected booking slot...");
+        loadServices();
         loadSlots(true);
         return;
     }
 
     renderSummary("Choose a laboratory and date to load the configured booking slots.");
     if (labField.value && dateField.value) {
+        loadServices();
         loadSlots();
+    } else if (labField.value) {
+        loadServices();
     }
 });
 </script>

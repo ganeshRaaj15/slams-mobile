@@ -7,13 +7,25 @@ import { useAppTheme } from '../theme/use-app-theme';
 
 type ScreenProps = PropsWithChildren<{
   scroll?: boolean;
+  centerContent?: boolean;
+  maxWidth?: 'default' | 'wide';
 }>;
 
-export function Screen({ children, scroll = true }: ScreenProps) {
+export function Screen({
+  children,
+  scroll = true,
+  centerContent = false,
+  maxWidth = 'default',
+}: ScreenProps) {
   const theme = useAppTheme();
   const reduceMotion = useReducedMotion();
   const entering = reduceMotion ? undefined : FadeIn.duration(180);
   const exiting  = reduceMotion ? undefined : FadeOut.duration(140);
+  const contentLayout = [
+    styles.contentFrame,
+    centerContent ? styles.centerContent : null,
+    maxWidth === 'wide' ? styles.maxWidthWide : null,
+  ];
 
   if (!scroll) {
     return (
@@ -25,7 +37,9 @@ export function Screen({ children, scroll = true }: ScreenProps) {
         },
       ]}
       >
-        <Animated.View entering={entering} exiting={exiting} style={styles.fill}>{children}</Animated.View>
+        <Animated.View entering={entering} exiting={exiting} style={styles.fill}>
+          <View style={contentLayout}>{children}</View>
+        </Animated.View>
       </SafeAreaView>
     );
   }
@@ -47,6 +61,7 @@ export function Screen({ children, scroll = true }: ScreenProps) {
           <ScrollView
             contentContainerStyle={[
               styles.content,
+              centerContent ? styles.centerScrollContent : null,
               {
                 padding: theme.spacing.lg,
               },
@@ -54,7 +69,7 @@ export function Screen({ children, scroll = true }: ScreenProps) {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {children}
+            <View style={contentLayout}>{children}</View>
           </ScrollView>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -73,5 +88,20 @@ const styles = StyleSheet.create({
   content: {
     gap: 14,
     paddingBottom: 44,
+  },
+  centerScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  contentFrame: {
+    alignSelf: 'center',
+    width: '100%',
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  maxWidthWide: {
+    maxWidth: 1120,
   },
 });

@@ -8,6 +8,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'SLAMS Mobile',
   slug: 'slams-native',
   owner: 'ganeshraaj15',
+  scheme: 'slamsnative',
   version: '1.0.0',
   icon: './assets/icon.png',
   splash: {

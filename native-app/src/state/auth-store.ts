@@ -2,7 +2,15 @@ import * as Device from 'expo-device';
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
-import { loginRequest, logoutRequest, meRequest, registerRequest, verifyOtpRequest } from '../api/endpoints';
+import {
+  consumeMagicLinkRequest,
+  loginRequest,
+  logoutRequest,
+  meRequest,
+  registerRequest,
+  requestMagicLinkRequest,
+  verifyOtpRequest,
+} from '../api/endpoints';
 import {
   clearBiometricSession,
   getBiometricPreferenceEnabled,
@@ -21,7 +29,7 @@ import { readErrorMessage } from '../utils/error-message';
 
 const TOKEN_KEY = 'slams-native-access-token';
 
-type AuthStatus = 'booting' | 'authenticated' | 'unauthenticated' | 'otp_pending';
+type AuthStatus = 'booting' | 'authenticated' | 'unauthenticated' | 'otp_pending' | 'magic_link_pending';
 
 const defaultBiometricState: BiometricState = {
   isSupported: false,
@@ -40,6 +48,8 @@ type AuthState = {
   bootstrap: () => Promise<void>;
   replaceUser: (user: NativeUser) => void;
   signIn: (email: string, password: string) => Promise<void>;
+  requestMagicLink: (account: string) => Promise<string>;
+  signInWithMagicLink: (token: string) => Promise<void>;
   submitOtp: (otpCode: string) => Promise<void>;
   signInWithBiometrics: () => Promise<void>;
   signUp: (payload: {
@@ -193,6 +203,58 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     } catch (error: unknown) {
       const message = readErrorMessage(error, 'Unable to sign in with those credentials.');
+
+      set({
+        status: 'unauthenticated',
+        token: null,
+        user: null,
+        error: message,
+      });
+
+      throw error;
+    }
+  },
+  requestMagicLink: async (account) => {
+    set({ error: null });
+
+    try {
+      const response = await requestMagicLinkRequest({
+        account: account.trim(),
+      });
+      return response.message ?? 'If an account matches what you entered, we sent a secure sign-in link.';
+    } catch (error: unknown) {
+      const message = readErrorMessage(error, 'Unable to send a secure sign-in link right now.');
+      set({ error: message });
+      throw error;
+    }
+  },
+  signInWithMagicLink: async (token) => {
+    set({
+      status: 'magic_link_pending',
+      error: null,
+      otpToken: null,
+      otpDeviceName: null,
+    });
+
+    try {
+      const response = await consumeMagicLinkRequest({
+        token,
+        device_name: deviceName(),
+      });
+
+      const biometric = await persistSessionToken(response.token);
+      setApiAccessToken(response.token);
+
+      set({
+        status: 'authenticated',
+        token: response.token,
+        user: response.user,
+        error: null,
+        biometric,
+      });
+    } catch (error: unknown) {
+      const message = readErrorMessage(error, 'That secure sign-in link could not be used.');
+      setApiAccessToken(null);
 
       set({
         status: 'unauthenticated',

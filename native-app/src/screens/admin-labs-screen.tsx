@@ -10,6 +10,7 @@ import { LoadingState } from '../components/loading-state';
 import { Screen } from '../components/screen';
 import { SelectionModal } from '../components/selection-modal';
 import { StatCard } from '../components/stat-card';
+import { useAuthStore } from '../state/auth-store';
 import { TextField } from '../components/text-field';
 import { useAppTheme } from '../theme/use-app-theme';
 
@@ -22,6 +23,8 @@ const PIC_FILTER_OPTIONS = [
 export function AdminLabsScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
+  const role = useAuthStore((state) => state.user?.primary_role ?? 'student');
+  const canCreateLabs = role === 'admin';
   const [query, setQuery] = useState('');
   const [picFilter, setPicFilter] = useState('');
   const [filterModalOpen, setFilterModalOpen] = useState(false);
@@ -92,19 +95,21 @@ export function AdminLabsScreen() {
           >
             <Text style={[styles.filterText, { color: theme.colors.text }]}>{picFilterLabel}</Text>
           </Pressable>
-          <Pressable
-            onPress={() => {
-              navigation.navigate('AdminLabEditor', {});
-            }}
-            style={[
-              styles.primaryButtonCompact,
-              {
-                backgroundColor: theme.colors.primary,
-              },
-            ]}
-          >
-            <Text style={styles.primaryButtonText}>Create Lab</Text>
-          </Pressable>
+          {canCreateLabs ? (
+            <Pressable
+              onPress={() => {
+                navigation.navigate('AdminLabEditor', {});
+              }}
+              style={[
+                styles.primaryButtonCompact,
+                {
+                  backgroundColor: theme.colors.primary,
+                },
+              ]}
+            >
+              <Text style={styles.primaryButtonText}>Create Lab</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 

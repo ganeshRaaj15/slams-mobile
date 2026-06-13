@@ -10,7 +10,7 @@ export type NativeUser = {
   profile_photo: string;
   profile_photo_url: string;
   active: boolean;
-  twofa_enabled: boolean;
+  twofa_enabled?: boolean;
   roles: string[];
   primary_role: string;
   dashboard_path: string;
@@ -65,6 +65,16 @@ export type LabService = {
   acceptance_criteria: string;
   calibration_status: string;
   equipment_models: string;
+  bundle_summary: string;
+  is_bookable: boolean;
+  required_assets: Array<{
+    asset_id: number;
+    name: string;
+    status: string;
+    available_quantity: number;
+    quantity_required: number;
+    is_available: boolean;
+  }>;
 };
 
 export type FacultyReference = {
@@ -116,6 +126,7 @@ export type BookingApplicant = {
   email: string;
   phone: string;
   faculty: string;
+  faculty_id?: number | null;
 };
 
 export type BookingApplicantInput = {
@@ -280,6 +291,41 @@ export type ReportSnapshot = {
   reportTitle: string;
   scopeLabel: string;
   generatedAt: string;
+  roleDisplay?: string;
+  scopeDescription?: string;
+  uiProfile?: {
+    headline?: string;
+    subheadline?: string;
+    focusAreas?: string[];
+    highlights?: Array<{
+      label: string;
+      value: number | string;
+      tone: ToneKey;
+    }>;
+    mobileSections?: string[];
+    webCallout?: Array<{
+      label: string;
+      value: string;
+    }>;
+  };
+  filters?: {
+    date_from?: string;
+    date_to?: string;
+    lab_id?: string;
+    asset_id?: string;
+    booking_status?: string;
+    maintenance_status?: string;
+    asset_category?: string;
+    asset_status?: string;
+  };
+  availableFilters?: {
+    labs?: Array<{ value: string; label: string }>;
+    assets?: Array<{ value: string; label: string }>;
+    booking_statuses?: Array<{ value: string; label: string }>;
+    maintenance_statuses?: Array<{ value: string; label: string }>;
+    asset_categories?: Array<{ value: string; label: string }>;
+    asset_statuses?: Array<{ value: string; label: string }>;
+  };
   kpis: Record<string, number | null>;
   assetTotals: Record<string, number>;
   statusMap: Record<string, number>;
@@ -343,6 +389,10 @@ export type AuthResponse = {
 export type OtpChallengeResponse = {
   status: 'otp_required';
   otp_token: string;
+  message: string;
+};
+
+export type MagicLinkMessageResponse = {
   message: string;
 };
 
@@ -711,6 +761,11 @@ export type AdminLabListResponse = {
     assigned_pic: number;
     unassigned_pic: number;
   };
+  permissions?: {
+    can_create?: boolean;
+    can_delete?: boolean;
+    can_edit_pic_assignment?: boolean;
+  };
 };
 
 export type AdminLabDetailResponse = {
@@ -790,11 +845,125 @@ export type AdminAssetListResponse = {
     due_soon: number;
     predicted_actions: number;
   };
+  permissions?: {
+    scoped_to_pic_labs?: boolean;
+  };
 };
 
 export type AdminAssetDetailResponse = {
   asset: AdminAssetRecord;
   maintenance_history: AdminAssetMaintenanceSummary[];
+  labs: Array<{
+    id: number;
+    name: string;
+    room: string;
+    label: string;
+  }>;
+};
+
+export type AdminServiceRecord = {
+  id: number;
+  laboratory_id: number;
+  lab_name: string;
+  lab_room: string;
+  field_name: string;
+  service_name: string;
+  acceptance_criteria: string;
+  calibration_status: string;
+  service_notes: string;
+  is_active: boolean;
+  equipment_models: string;
+  bundle_summary: string;
+  is_bookable: boolean;
+  required_assets: Array<{
+    asset_id: number;
+    name: string;
+    asset_code: string;
+    category: string;
+    model: string;
+    status: string;
+    available_quantity: number;
+    total_quantity: number;
+    quantity_required: number;
+    is_available: boolean;
+  }>;
+};
+
+export type AdminServiceListResponse = {
+  services: AdminServiceRecord[];
+  labs: Array<{
+    id: number;
+    name: string;
+    room: string;
+    label: string;
+  }>;
+  filters: {
+    q: string;
+    lab_id: number;
+    active: string;
+  };
+  permissions?: {
+    scoped_to_pic_labs?: boolean;
+  };
+};
+
+export type AdminServiceDetailResponse = {
+  service: AdminServiceRecord;
+  labs: Array<{
+    id: number;
+    name: string;
+    room: string;
+    label: string;
+  }>;
+  assets: Array<{
+    id: number;
+    lab_id: number;
+    name: string;
+    asset_code: string;
+    model: string;
+    status: string;
+    quantity: number;
+    total_quantity: number;
+    lab_name: string;
+    lab_room: string;
+    label: string;
+  }>;
+};
+
+export type AdminLabReservationRecord = {
+  id: number;
+  lab_id: number;
+  lab_name: string;
+  lab_room: string;
+  title: string;
+  reservation_type: string;
+  start_at: string;
+  end_at: string;
+  notes: string;
+  status: string;
+  created_by: number | null;
+};
+
+export type AdminLabReservationListResponse = {
+  reservations: AdminLabReservationRecord[];
+  labs: Array<{
+    id: number;
+    name: string;
+    room: string;
+    label: string;
+  }>;
+  filters: {
+    lab_id: number;
+    status: string;
+    q: string;
+  };
+  permissions?: {
+    scoped_to_pic_labs?: boolean;
+  };
+};
+
+export type AdminLabReservationDetailResponse = {
+  reservation: AdminLabReservationRecord;
   labs: Array<{
     id: number;
     name: string;

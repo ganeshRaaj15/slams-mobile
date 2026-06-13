@@ -6,6 +6,7 @@ $isEdit = isset($lab) && !empty($lab);
 $title = $isEdit ? 'Edit Laboratory' : 'Add Laboratory';
 $action = $isEdit ? '/admin/labs/update/' . $lab['id'] : '/admin/labs/store';
 $errors = session()->getFlashdata('errors') ?? [];
+$canEditPicAssignment = $canEditPicAssignment ?? true;
 ?>
 
 <div class="container-fluid">
@@ -59,16 +60,18 @@ $errors = session()->getFlashdata('errors') ?? [];
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">PIC Name</label>
-                            <input type="text" name="pic_name" class="form-control" value="<?= esc(old('pic_name', $lab['pic_name'] ?? '')) ?>" required>
+                            <input type="text" name="pic_name" class="form-control" value="<?= esc(old('pic_name', $lab['pic_name'] ?? '')) ?>" <?= $canEditPicAssignment ? 'required' : 'readonly' ?>>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">PIC Email</label>
-                            <input type="email" name="pic_email" class="form-control" value="<?= esc(old('pic_email', $lab['pic_email'] ?? '')) ?>">
-                            <div class="form-text">Use the email address of an existing user with the PIC role so approvals and PIC dashboard scoping work correctly.</div>
+                            <input type="email" name="pic_email" class="form-control" value="<?= esc(old('pic_email', $lab['pic_email'] ?? '')) ?>" <?= $canEditPicAssignment ? '' : 'readonly' ?>>
+                            <div class="form-text">
+                                <?= $canEditPicAssignment ? 'Assigning a staff user here promotes that account to PIC access. A user already assigned as PIC for another laboratory must be reassigned first.' : 'PIC assignment is controlled by administrators. PIC users can update laboratory details but not reassign ownership.' ?>
+                            </div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">PIC Phone</label>
-                            <input type="text" name="pic_phone" class="form-control" value="<?= esc(old('pic_phone', $lab['pic_phone'] ?? '')) ?>">
+                            <input type="text" name="pic_phone" class="form-control" value="<?= esc(old('pic_phone', $lab['pic_phone'] ?? '')) ?>" <?= $canEditPicAssignment ? '' : 'readonly' ?>>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Laboratory Image</label>

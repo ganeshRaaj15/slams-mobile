@@ -13,20 +13,25 @@ import { ErrorState } from '../components/error-state';
 import { LoadingState } from '../components/loading-state';
 import { Screen } from '../components/screen';
 import { StatCard } from '../components/stat-card';
+import { useAuthStore } from '../state/auth-store';
 import { useAppTheme } from '../theme/use-app-theme';
 
 export function AdminWorkspaceScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation<any>();
+  const role = useAuthStore((state) => state.user?.primary_role ?? 'student');
+  const isAdmin = role === 'admin';
 
   const usersQuery = useQuery({
     queryKey: ['admin-users', 'summary'],
     queryFn: () => listAdminUsersRequest({ per_page: 10, page: 1 }),
+    enabled: isAdmin,
   });
 
   const settingsQuery = useQuery({
     queryKey: ['admin-settings'],
     queryFn: getAdminSettingsRequest,
+    enabled: isAdmin,
   });
 
   const labsQuery = useQuery({
@@ -36,14 +41,14 @@ export function AdminWorkspaceScreen() {
 
   const reportQuery = useQuery({
     queryKey: ['report-snapshot', 'admin-workspace'],
-    queryFn: getReportSnapshotRequest,
+    queryFn: () => getReportSnapshotRequest(),
   });
   const assetsQuery = useQuery({
     queryKey: ['admin-assets', 'summary'],
     queryFn: () => listAdminAssetsRequest(),
   });
 
-  if (usersQuery.isLoading || settingsQuery.isLoading || labsQuery.isLoading || reportQuery.isLoading || assetsQuery.isLoading) {
+  if ((isAdmin && (usersQuery.isLoading || settingsQuery.isLoading)) || labsQuery.isLoading || reportQuery.isLoading || assetsQuery.isLoading) {
     return (
       <Screen scroll={false}>
         <LoadingState label="Loading admin workspace..." />
@@ -52,13 +57,13 @@ export function AdminWorkspaceScreen() {
   }
 
   if (
-    usersQuery.isError ||
-    settingsQuery.isError ||
+    (isAdmin && usersQuery.isError) ||
+    (isAdmin && settingsQuery.isError) ||
     labsQuery.isError ||
     reportQuery.isError ||
     assetsQuery.isError ||
-    !usersQuery.data ||
-    !settingsQuery.data ||
+    (isAdmin && !usersQuery.data) ||
+    (isAdmin && !settingsQuery.data) ||
     !labsQuery.data ||
     !reportQuery.data ||
     !assetsQuery.data
@@ -79,13 +84,13 @@ export function AdminWorkspaceScreen() {
     );
   }
 
-  const users = usersQuery.data.users ?? [];
+  const users = usersQuery.data?.users ?? [];
   const labs = labsQuery.data.labs ?? [];
-  const managedSettingsCount = Object.keys(settingsQuery.data.settings ?? {}).length;
-  const bookingSlotsCount = settingsQuery.data.booking_slots?.length ?? 0;
+  const managedSettingsCount = Object.keys(settingsQuery.data?.settings ?? {}).length;
+  const bookingSlotsCount = settingsQuery.data?.booking_slots?.length ?? 0;
   const report = reportQuery.data.report;
   const assetStats = assetsQuery.data.stats;
-  const userStats = usersQuery.data.stats ?? {
+  const userStats = usersQuery.data?.stats ?? {
     total: users.length,
     active: users.filter((record) => record.active).length,
   };
@@ -106,40 +111,44 @@ export function AdminWorkspaceScreen() {
           },
         ]}
       >
-        <Text style={[styles.title, { color: theme.colors.text }]}>Admin Workspace</Text>
+        <Text style={[styles.title, { color: theme.colors.text }]}>{isAdmin ? 'Admin Workspace' : 'Lab Management'}</Text>
         <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
-          Manage users, laboratories, assets, settings, and reports from one workspace with predictive asset risk visibility.
+          {isAdmin
+            ? 'Manage users, laboratories, assets, settings, and reports from one workspace with predictive asset risk visibility.'
+            : 'Manage your assigned laboratories and assets, and monitor service readiness from one workspace.'}
         </Text>
       </View>
 
       <View style={styles.statsRow}>
-        <StatCard label="Users" tone="primary" value={userStats.total} />
-        <StatCard label="Active Users" tone="success" value={userStats.active} />
+        {isAdmin ? <StatCard label="Users" tone="primary" value={userStats.total} /> : null}
+        {isAdmin ? <StatCard label="Active Users" tone="success" value={userStats.active} /> : null}
         <StatCard label="Labs" tone="accent" value={labStats.total_labs} />
         <StatCard label="Assets" tone="warning" value={Number(report.kpis.total_assets ?? 0)} />
         <StatCard label="High Risk" tone="danger" value={assetStats.high_risk} />
         <StatCard label="Due Soon" tone="accent" value={assetStats.due_soon} />
-        <StatCard label="Settings" tone="accent" value={managedSettingsCount} />
-        <StatCard label="Booking Slots" tone="warning" value={bookingSlotsCount} />
+        {isAdmin ? <StatCard label="Settings" tone="accent" value={managedSettingsCount} /> : null}
+        {isAdmin ? <StatCard label="Booking Slots" tone="warning" value={bookingSlotsCount} /> : null}
       </View>
 
-      <Pressable
-        onPress={() => {
-          navigation.navigate('AdminUsers');
-        }}
-        style={[
-          styles.cardButton,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-          },
-        ]}
-      >
-        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Manage Users</Text>
-        <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
-          Search users, edit roles, trigger recovery links, and remove obsolete accounts.
-        </Text>
-      </Pressable>
+      {isAdmin ? (
+        <Pressable
+          onPress={() => {
+            navigation.navigate('AdminUsers');
+          }}
+          style={[
+            styles.cardButton,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Manage Users</Text>
+          <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
+            Search users, edit roles, trigger recovery links, and remove obsolete accounts.
+          </Text>
+        </Pressable>
+      ) : null}
 
       <Pressable
         onPress={() => {
@@ -155,7 +164,9 @@ export function AdminWorkspaceScreen() {
       >
         <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Manage Laboratories</Text>
         <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
-          Update rooms, PIC assignments, images, capacity, and approval-routing readiness.
+          {isAdmin
+            ? 'Update rooms, PIC assignments, images, capacity, and approval-routing readiness.'
+            : 'Update information for the laboratories assigned to you as PIC.'}
         </Text>
       </Pressable>
 
@@ -173,13 +184,13 @@ export function AdminWorkspaceScreen() {
       >
         <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Manage Assets</Text>
         <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
-          Maintain inventory, quantities, serials, images, maintenance traceability, and predictive maintenance risk.
+          Maintain inventory, quantities, serials, images, maintenance traceability, and predictive maintenance risk for your labs.
         </Text>
       </Pressable>
 
       <Pressable
         onPress={() => {
-          navigation.navigate('AdminSettings');
+          navigation.navigate('AdminServices');
         }}
         style={[
           styles.cardButton,
@@ -189,11 +200,49 @@ export function AdminWorkspaceScreen() {
           },
         ]}
       >
-        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>System Settings</Text>
+        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Manage Service Bundles</Text>
         <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
-          Maintain booking routing, reminders, email settings, and booking slots.
+          Combine multiple assets into one bookable service so applicants request a workflow instead of individual equipment.
         </Text>
       </Pressable>
+
+      <Pressable
+        onPress={() => {
+          navigation.navigate('AdminReservations');
+        }}
+        style={[
+          styles.cardButton,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Manage Lab Reservations</Text>
+        <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
+          Block a whole laboratory only for classes, walk-ins, events, or manual closures.
+        </Text>
+      </Pressable>
+
+      {isAdmin ? (
+        <Pressable
+          onPress={() => {
+            navigation.navigate('AdminSettings');
+          }}
+          style={[
+            styles.cardButton,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>System Settings</Text>
+          <Text style={[styles.cardText, { color: theme.colors.textMuted }]}>
+            Maintain booking routing, reminders, email settings, and booking slots.
+          </Text>
+        </Pressable>
+      ) : null}
 
       <Pressable
         onPress={() => {

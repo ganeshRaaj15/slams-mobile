@@ -301,6 +301,14 @@ if ($picPhone === '') {
                                 : ($serviceCalibration === 'expired' ? 'text-bg-warning' : 'text-bg-secondary');
                             $equipmentModels = trim((string) ($service['equipment_models'] ?? ''));
                             $criteriaText = trim((string) ($service['acceptance_criteria'] ?? ''));
+                            $requiredAssets = array_map(static function (array $asset): array {
+                                return [
+                                    'assetId' => (int) ($asset['asset_id'] ?? 0),
+                                    'name' => (string) ($asset['name'] ?? ''),
+                                    'quantityRequired' => (int) ($asset['quantity_required'] ?? 1),
+                                    'isAvailable' => (bool) ($asset['is_available'] ?? false),
+                                ];
+                            }, $service['required_assets'] ?? []);
                             ?>
                             <div class="list-group-item px-0 py-3 border-bottom">
                                 <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
@@ -335,16 +343,19 @@ if ($picPhone === '') {
                                 <div class="mt-3 d-flex justify-content-between align-items-center gap-2 flex-wrap">
                                     <button type="button"
                                             class="btn btn-outline-primary btn-sm select-service-btn"
+                                            <?= empty($service['is_bookable']) ? 'disabled' : '' ?>
                                             data-service-id="<?= esc((string) ($service['id'] ?? '')) ?>"
                                             data-service-name="<?= esc($service['service_name'] ?? '') ?>"
                                             data-service-calibration="<?= esc(ucfirst($serviceCalibration)) ?>"
                                             data-service-equipment="<?= esc(str_replace(' | ', ', ', $equipmentModels)) ?>"
-                                            data-service-criteria="<?= esc($criteriaText) ?>">
+                                            data-service-criteria="<?= esc($criteriaText) ?>"
+                                            data-service-assets="<?= esc(json_encode($requiredAssets), 'attr') ?>"
+                                            data-service-bookable="<?= !empty($service['is_bookable']) ? '1' : '0' ?>">
                                         <i class="bi bi-check2-square me-1"></i>
                                         Choose Service
                                     </button>
                                     <div class="small text-muted service-state-label">
-                                        This service will drive equipment and slot selection.
+                                        <?= empty($service['is_bookable']) ? 'This service is currently unavailable.' : 'This service will drive equipment and slot selection.' ?>
                                     </div>
                                 </div>
                             </div>
@@ -483,6 +494,8 @@ document.addEventListener("DOMContentLoaded", function () {
             calibrationStatus: button.dataset.serviceCalibration || "",
             equipmentModels: button.dataset.serviceEquipment || "",
             acceptanceCriteria: button.dataset.serviceCriteria || "",
+            requiredAssets: JSON.parse(button.dataset.serviceAssets || "[]"),
+            isBookable: button.dataset.serviceBookable === "1",
         };
     }
 
@@ -537,12 +550,13 @@ document.addEventListener("DOMContentLoaded", function () {
             meta.push(`Criteria: ${selectedService.acceptanceCriteria}`);
         }
 
-        const isReady = availableCount > 0;
+        const isReady = !!selectedService.isBookable;
         selectedServiceSummary.className = `alert ${isReady ? "alert-success" : "alert-warning"} small mb-3`;
         selectedServiceSummary.innerHTML = `
             <div class="fw-semibold mb-1">${selectedService.name}</div>
-            <div>${linkedCount} linked equipment item(s), ${availableCount} currently bookable.</div>
+            <div>${linkedCount} required equipment item(s), ${availableCount} currently available.</div>
             ${meta.length ? `<div class="mt-1 text-muted">${meta.join(" | ")}</div>` : ""}
+            ${!isReady ? `<div class="mt-1">This service cannot be booked right now because one or more required assets are unavailable.</div>` : ""}
         `;
     }
 
@@ -578,14 +592,16 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function filterAssetsForService(serviceId) {
+        const requirementMap = new Map((selectedService?.requiredAssets || []).map(asset => [String(asset.assetId), asset]));
         let linkedCount = 0;
         let availableCount = 0;
 
         document.querySelectorAll("tr[data-asset-id]").forEach(row => {
-            const rowServiceId = row.dataset.serviceId || "";
-            const matches = serviceId !== "" && rowServiceId === serviceId;
             const assetId = row.dataset.assetId || "";
-            const available = isEquipmentAvailable(assetId);
+            const requirement = requirementMap.get(assetId);
+            const matches = serviceId !== "" && !!requirement;
+            const available = !!requirement?.isAvailable;
+            const qtyInput = row.querySelector(".asset-qty");
 
             row.classList.toggle("d-none", serviceId !== "" && !matches);
 
@@ -599,7 +615,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 availableCount++;
             }
 
-            applyRowSelectionState(row, available, available);
+            applyRowSelectionState(row, false, available);
+            if (qtyInput) {
+                qtyInput.value = String(requirement?.quantityRequired || 1);
+            }
         });
 
         if (serviceId === "") {
@@ -638,25 +657,14 @@ document.addEventListener("DOMContentLoaded", function () {
     // Build asset selection string
     // -------------------------------
     function buildAssetSelectionString() {
-        const parts = [];
-        document.querySelectorAll(".asset-checkbox").forEach(cb => {
-            const id = cb.dataset.assetId;
-            
-            // Skip if equipment is not available
-            if (!isEquipmentAvailable(id)) return;
-            
-            // Skip if not checked
-            if (!cb.checked) return;
-            
-            const qtyInput = document.querySelector(`.asset-qty[data-asset-id="${id}"]`);
-            if (qtyInput && qtyInput.value) {
-                const qty = parseInt(qtyInput.value, 10);
-                if (!isNaN(qty) && qty > 0) {
-                    parts.push(`${id}:${qty}`);
-                }
-            }
-        });
-        return parts.join(",");
+        if (!selectedService || !selectedService.isBookable || !Array.isArray(selectedService.requiredAssets)) {
+            return "";
+        }
+
+        return selectedService.requiredAssets
+            .filter(asset => asset && asset.isAvailable && asset.assetId && asset.quantityRequired > 0)
+            .map(asset => `${asset.assetId}:${asset.quantityRequired}`)
+            .join(",");
     }
 
     function syncAssetSelectionToModal() {
@@ -669,14 +677,11 @@ document.addEventListener("DOMContentLoaded", function () {
     // Get available assets count
     // -------------------------------
     function getAvailableAssetsCount() {
-        let count = 0;
-        document.querySelectorAll(".asset-checkbox").forEach(cb => {
-            const id = cb.dataset.assetId;
-            if (isEquipmentAvailable(id) && cb.checked) {
-                count++;
-            }
-        });
-        return count;
+        if (!selectedService || !Array.isArray(selectedService.requiredAssets)) {
+            return 0;
+        }
+
+        return selectedService.requiredAssets.filter(asset => asset && asset.isAvailable).length;
     }
 
     // -------------------------------
@@ -691,12 +696,12 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!getSelectedServiceId()) {
                 openWizardBtn.disabled = true;
                 openWizardBtn.innerHTML = '<i class="bi bi-magic me-1"></i>Launch Booking Wizard (Select Service First)';
-            } else if (availableCount > 0) {
+            } else if (selectedService?.isBookable && availableCount === (selectedService.requiredAssets || []).length) {
                 openWizardBtn.disabled = false;
                 openWizardBtn.innerHTML = '<i class="bi bi-magic me-1"></i>Launch Booking Wizard';
             } else {
                 openWizardBtn.disabled = true;
-                openWizardBtn.innerHTML = '<i class="bi bi-magic me-1"></i>No Bookable Equipment for Selected Service';
+                openWizardBtn.innerHTML = '<i class="bi bi-magic me-1"></i>Selected Service Currently Unavailable';
             }
         }
     }

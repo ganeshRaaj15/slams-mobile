@@ -3,17 +3,24 @@
 namespace App\Libraries;
 
 use App\Models\BookingModel;
+use App\Models\LabReservationModel;
 use App\Models\SettingsModel;
 
 class BookingSlotService
 {
     protected BookingModel $bookingModel;
     protected SettingsModel $settingsModel;
+    protected LabReservationModel $reservationModel;
 
-    public function __construct(?BookingModel $bookingModel = null, ?SettingsModel $settingsModel = null)
+    public function __construct(
+        ?BookingModel $bookingModel = null,
+        ?SettingsModel $settingsModel = null,
+        ?LabReservationModel $reservationModel = null
+    )
     {
         $this->bookingModel = $bookingModel ?? new BookingModel();
         $this->settingsModel = $settingsModel ?? new SettingsModel();
+        $this->reservationModel = $reservationModel ?? new LabReservationModel();
     }
 
     public function getDefinitions(): array
@@ -176,10 +183,10 @@ class BookingSlotService
             ];
         }
 
-        if ($this->bookingModel->hasLabConflict($labId, $date, $start, $end, $ignoreBookingId)) {
+        if ($this->hasBlockingReservation($labId, $date, $start, $end, $ignoreBookingId)) {
             return [
                 'can_book' => false,
-                'reason' => 'Laboratory already booked for this slot.',
+                'reason' => 'Laboratory is reserved for this slot.',
             ];
         }
 
@@ -187,5 +194,30 @@ class BookingSlotService
             'can_book' => true,
             'reason' => null,
         ];
+    }
+
+    public function hasBlockingReservation(
+        int $labId,
+        string $date,
+        string $startTime,
+        string $endTime,
+        ?int $ignoreReservationId = null
+    ): bool {
+        if ($labId <= 0 || trim($date) === '') {
+            return false;
+        }
+
+        $start = $this->normalizeTime($startTime);
+        $end = $this->normalizeTime($endTime);
+        if ($start === '' || $end === '' || $start >= $end) {
+            return false;
+        }
+
+        return $this->reservationModel->overlaps(
+            $labId,
+            $date . ' ' . $start,
+            $date . ' ' . $end,
+            (int) ($ignoreReservationId ?? 0)
+        );
     }
 }

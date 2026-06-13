@@ -22,4 +22,8 @@ class LabServiceModel extends Model
         'created_at',
         'updated_at',
     ];
+
+    protected $useTimestamps = true;
+    protected $createdField = 'created_at';
+    protected $updatedField = 'updated_at';
 }

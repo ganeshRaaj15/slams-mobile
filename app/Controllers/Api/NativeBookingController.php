@@ -3,9 +3,12 @@
 namespace App\Controllers\Api;
 
 use App\Controllers\Public\BookingController as WebBookingController;
+use App\Libraries\ApprovalFlowResolver;
+use App\Libraries\NotificationService;
 use App\Models\BookingApplicantModel;
 use App\Models\BookingAssetModel;
 use App\Models\BookingModel;
+use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\Shield\Entities\User;
 
 class NativeBookingController extends WebBookingController
@@ -160,13 +163,15 @@ class NativeBookingController extends WebBookingController
                         ];
                     }, $assets),
                     'applicants' => array_map(static function (array $applicant): array {
+                        $facultyRaw = trim((string) ($applicant['faculty'] ?? ''));
                         return [
                             'id' => (int) $applicant['id'],
                             'name' => (string) ($applicant['name'] ?? ''),
                             'matric_id' => (string) ($applicant['matric_id'] ?? ''),
                             'email' => (string) ($applicant['email'] ?? ''),
                             'phone' => (string) ($applicant['phone'] ?? ''),
-                            'faculty' => (string) ($applicant['faculty'] ?? ''),
+                            'faculty' => $facultyRaw,
+                            'faculty_id' => ctype_digit($facultyRaw) ? (int) $facultyRaw : null,
                         ];
                     }, $applicants),
                 ]
@@ -242,7 +247,313 @@ class NativeBookingController extends WebBookingController
             'created_at' => (string) ($booking['created_at'] ?? ''),
             'updated_at' => (string) ($booking['updated_at'] ?? ''),
             'can_cancel' => (string) ($booking['status'] ?? '') === 'PENDING',
+            'can_edit' => (string) ($booking['status'] ?? '') === 'PENDING',
         ];
+    }
+
+    public function update(int $id): ResponseInterface
+    {
+        $user = auth()->user();
+        if (! $user instanceof User) {
+            return $this->response
+                ->setStatusCode(401)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'Unauthenticated.',
+                ]);
+        }
+
+        $bookingModel = new BookingModel();
+        $booking = $bookingModel
+            ->where('id', $id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (! $booking) {
+            return $this->response
+                ->setStatusCode(404)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'Booking not found.',
+                ]);
+        }
+
+        if ((string) ($booking['status'] ?? '') !== 'PENDING') {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'Only pending bookings can be edited.',
+                ]);
+        }
+
+        $rules = [
+            'date' => 'required|valid_date[Y-m-d]',
+            'start_time' => 'required',
+            'end_time' => 'required',
+            'activity' => 'required|string',
+            'pdf' => 'if_exist|mime_in[pdf,application/pdf]|max_size[pdf,8192]',
+        ];
+
+        if (! $this->validate($rules)) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'Validation failed.',
+                    'errors' => $this->validator->getErrors(),
+                ]);
+        }
+
+        $labId = (int) ($booking['lab_id'] ?? 0);
+        $serviceId = (int) ($booking['service_id'] ?? 0);
+        $date = (string) $this->request->getPost('date');
+        $startTime = $this->normalizeTime((string) $this->request->getPost('start_time'));
+        $endTime = $this->normalizeTime((string) $this->request->getPost('end_time'));
+        $activity = trim((string) $this->request->getPost('activity'));
+        $supervisorName = trim((string) $this->request->getPost('supervisor_name'));
+        $supervisorEmail = trim((string) $this->request->getPost('supervisor_email'));
+        $supervisorPhone = trim((string) $this->request->getPost('supervisor_phone'));
+
+        if ($this->findLabService($labId, $serviceId) === null) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'The original laboratory service is no longer available for this booking.',
+                ]);
+        }
+
+        if ($startTime >= $endTime) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'End time must be later than start time.',
+                ]);
+        }
+
+        if ($this->findMatchingSlotDefinition($startTime, $endTime) === null) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'Please choose one of the configured booking sessions for this laboratory.',
+                ]);
+        }
+
+        $names = $this->request->getPost('applicant_name') ?? [];
+        $ids = $this->request->getPost('applicant_id') ?? [];
+        $emails = $this->request->getPost('applicant_email') ?? [];
+        $phones = $this->request->getPost('applicant_phone') ?? [];
+        $faculties = $this->request->getPost('applicant_faculty') ?? [];
+
+        $rowCount = max(count((array) $names), count((array) $ids), count((array) $emails), count((array) $phones), count((array) $faculties));
+        $applicants = [];
+
+        for ($i = 0; $i < $rowCount; $i++) {
+            $name = trim((string) ($names[$i] ?? ''));
+            $matricId = trim((string) ($ids[$i] ?? ''));
+            $email = trim((string) ($emails[$i] ?? ''));
+            $phone = trim((string) ($phones[$i] ?? ''));
+            $facultyValue = trim((string) ($faculties[$i] ?? ''));
+
+            if ($name === '' && $matricId === '' && $email === '' && $phone === '' && $facultyValue === '') {
+                continue;
+            }
+
+            if ($name === '' || $matricId === '' || $email === '' || $phone === '' || $facultyValue === '') {
+                return $this->response
+                    ->setStatusCode(422)
+                    ->setJSON([
+                        'status' => 'error',
+                        'message' => 'Each applicant must include name, ID, email, phone, and faculty.',
+                    ]);
+            }
+
+            if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                return $this->response
+                    ->setStatusCode(422)
+                    ->setJSON([
+                        'status' => 'error',
+                        'message' => 'One or more applicant email addresses are invalid.',
+                    ]);
+            }
+
+            $applicants[] = [
+                'name' => $name,
+                'matric_id' => $matricId,
+                'email' => $email,
+                'phone' => $phone,
+                'faculty' => $facultyValue,
+            ];
+        }
+
+        if ($applicants === []) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'Please add at least one applicant before saving.',
+                ]);
+        }
+
+        $facultyId = (int) $applicants[0]['faculty'];
+        if ($facultyId <= 0) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'Please select a valid faculty for the primary applicant.',
+                ]);
+        }
+
+        $approvalFlow = (new ApprovalFlowResolver())->resolveForFacultyId($facultyId);
+        if ($approvalFlow === null) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'The selected faculty is not recognized. Please refresh and try again.',
+                ]);
+        }
+
+        $selectedAssets = [];
+        foreach ((new BookingAssetModel())->getForBooking($id) as $asset) {
+            $assetId = (int) ($asset['asset_id'] ?? 0);
+            $quantityUsed = (int) ($asset['quantity_used'] ?? 0);
+            if ($assetId > 0 && $quantityUsed > 0) {
+                $selectedAssets[$assetId] = $quantityUsed;
+            }
+        }
+
+        if ($selectedAssets === []) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'This booking no longer has any linked equipment. Please create a new booking instead.',
+                ]);
+        }
+
+        if ($this->slotService->hasBlockingReservation($labId, $date, $startTime, $endTime)) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => 'This laboratory is reserved for the selected date and time.',
+                ]);
+        }
+
+        $remaining = $this->computeRemainingForSlot($labId, $date, $startTime, $endTime, $selectedAssets, $id);
+        foreach ($selectedAssets as $assetId => $qtyNeeded) {
+            if (($remaining[$assetId] ?? 0) < $qtyNeeded) {
+                return $this->response
+                    ->setStatusCode(422)
+                    ->setJSON([
+                        'status' => 'error',
+                        'message' => 'Selected assets are not available for that slot.',
+                    ]);
+            }
+        }
+
+        $pdfFile = $this->request->getFile('pdf');
+        $oldPdfPath = (string) ($booking['pdf_path'] ?? '');
+        $newPdfPath = $oldPdfPath;
+        $storedPdfName = null;
+        $deleteOldPdf = false;
+
+        $bookingApplicantModel = new BookingApplicantModel();
+        $db = \Config\Database::connect();
+
+        $db->transBegin();
+
+        try {
+            if ($this->slotService->hasBlockingReservation($labId, $date, $startTime, $endTime)) {
+                throw new \DomainException('This laboratory slot is reserved. Please choose another time.');
+            }
+
+            $remaining = $this->computeRemainingForSlot($labId, $date, $startTime, $endTime, $selectedAssets, $id);
+            foreach ($selectedAssets as $assetId => $qtyNeeded) {
+                if (($remaining[$assetId] ?? 0) < $qtyNeeded) {
+                    throw new \DomainException('Selected assets are no longer available for that slot.');
+                }
+            }
+
+            if ($pdfFile && $pdfFile->isValid() && ! $pdfFile->hasMoved()) {
+                $uploadDir = WRITEPATH . 'uploads/pdfs';
+                if (! is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
+
+                $storedPdfName = $pdfFile->getRandomName();
+                if (! $pdfFile->move($uploadDir, $storedPdfName)) {
+                    throw new \RuntimeException('Unable to store uploaded PDF.');
+                }
+
+                $newPdfPath = '/uploads/pdfs/' . $storedPdfName;
+                $deleteOldPdf = $oldPdfPath !== '' && $oldPdfPath !== $newPdfPath;
+            }
+
+            $bookingModel->update($id, [
+                'faculty_id' => $facultyId,
+                'approval_flow' => $approvalFlow,
+                'approved_by_pic' => 0,
+                'approved_by_manager' => 0,
+                'date' => $date,
+                'start_time' => $startTime,
+                'end_time' => $endTime,
+                'activity' => $activity,
+                'supervisor_name' => $supervisorName ?: null,
+                'supervisor_email' => $supervisorEmail ?: null,
+                'supervisor_phone' => $supervisorPhone ?: null,
+                'pdf_path' => $newPdfPath ?: null,
+                'status' => 'PENDING',
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            $bookingApplicantModel->where('booking_id', $id)->delete();
+            $bookingApplicantModel->insertBatchApplicants($id, $applicants);
+
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException('Unable to update booking data.');
+            }
+
+            $db->transCommit();
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            if ($storedPdfName && is_file(WRITEPATH . 'uploads/pdfs/' . $storedPdfName)) {
+                @unlink(WRITEPATH . 'uploads/pdfs/' . $storedPdfName);
+            }
+
+            log_message('error', 'Booking update failed: ' . $e->getMessage());
+
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => $e instanceof \DomainException
+                        ? $e->getMessage()
+                        : 'Failed to update booking. Please try again.',
+                ]);
+        }
+
+        if ($deleteOldPdf) {
+            $oldFile = WRITEPATH . 'uploads/pdfs/' . basename($oldPdfPath);
+            if (is_file($oldFile)) {
+                @unlink($oldFile);
+            }
+        }
+
+        NotificationService::dispatchSafely(
+            fn(NotificationService $notifications) => $notifications->notifyBookingSubmitted($bookingModel->find($id) ?: []),
+            'booking updated'
+        );
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'message' => 'Booking updated successfully and resubmitted for approval.',
+        ]);
     }
 
     protected function mediaUrl(string $path): string

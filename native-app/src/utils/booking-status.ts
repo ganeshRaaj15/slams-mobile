@@ -8,7 +8,7 @@ export function getBookingDisplayStatus(booking: { status: string; approved_by_p
 export function getBookingStageSubtitle(booking: { status: string; approved_by_pic: boolean }): string | null {
   if (booking.status === 'PENDING') {
     return booking.approved_by_pic
-      ? 'PIC approved — waiting for Lab Manager'
+      ? 'PIC approved. Sent to the Lab Manager for final approval.'
       : 'Waiting for the lab PIC to review';
   }
   return null;

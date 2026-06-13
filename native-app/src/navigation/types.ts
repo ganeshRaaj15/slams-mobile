@@ -1,6 +1,7 @@
 export type RootStackParamList = {
   Auth: undefined;
   Register: undefined;
+  MagicLinkRequest: undefined;
   Main: undefined;
   LabDetail: { labId: number };
   BookingDetail: { bookingId: number };
@@ -34,6 +35,10 @@ export type RootStackParamList = {
   AdminLabEditor: { labId?: number };
   AdminAssets: undefined;
   AdminAssetEditor: { assetId?: number };
+  AdminServices: undefined;
+  AdminServiceEditor: { serviceId?: number };
+  AdminReservations: undefined;
+  AdminReservationEditor: { reservationId?: number };
 };
 
 export type MainTabParamList = {

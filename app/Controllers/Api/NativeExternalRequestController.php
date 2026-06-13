@@ -3,6 +3,7 @@
 namespace App\Controllers\Api;
 
 use App\Controllers\Dashboard\ExternalDashboard as WebExternalDashboard;
+use App\Libraries\ServiceBundleService;
 use App\Models\ExternalRequestModel;
 use CodeIgniter\Shield\Entities\User;
 
@@ -186,9 +187,67 @@ class NativeExternalRequestController extends WebExternalDashboard
             return $user;
         }
 
+        $serviceId = (int) $this->request->getGet('service_id');
+        if ($serviceId > 0) {
+            $selected = (new ServiceBundleService())->requirementMapForService($labId, $serviceId);
+            $bookingController = new \App\Controllers\Public\BookingController();
+
+            return $this->response->setJSON([
+                'status' => 'success',
+                'slots' => $bookingController->dayAssetsInternal($labId, $date, $selected),
+            ]);
+        }
+
         return $this->response->setJSON([
             'status' => 'success',
             'slots' => $this->externalDaySlotsInternal($labId, $date),
+        ]);
+    }
+
+    public function labServices(int $labId)
+    {
+        $user = $this->externalUser();
+        if ($user instanceof \CodeIgniter\HTTP\RedirectResponse || $user instanceof \CodeIgniter\HTTP\ResponseInterface) {
+            return $user;
+        }
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'services' => $this->servicesForLab($labId),
+        ]);
+    }
+
+    public function serviceAssets(int $serviceId)
+    {
+        $user = $this->externalUser();
+        if ($user instanceof \CodeIgniter\HTTP\RedirectResponse || $user instanceof \CodeIgniter\HTTP\ResponseInterface) {
+            return $user;
+        }
+
+        $serviceId = max($serviceId, 0);
+        if ($serviceId <= 0) {
+            return $this->response->setJSON([
+                'status' => 'success',
+                'assets' => [],
+            ]);
+        }
+
+        $assets = [];
+        $service = db_connect()->table('lab_services')->select('id, laboratory_id')->where('id', $serviceId)->get()->getRowArray();
+        if (is_array($service)) {
+            $assets = (new ServiceBundleService())->requirementsForService((int) $service['laboratory_id'], $serviceId);
+        }
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'assets' => array_map(static fn(array $asset): array => [
+                'id' => (int) ($asset['asset_id'] ?? 0),
+                'name' => (string) ($asset['name'] ?? ''),
+                'category' => (string) ($asset['category'] ?? ''),
+                'quantity' => (int) ($asset['available_quantity'] ?? 0),
+                'quantity_required' => (int) ($asset['quantity_required'] ?? 1),
+                'status' => (string) ($asset['status'] ?? ''),
+            ], $assets),
         ]);
     }
 
@@ -197,7 +256,7 @@ class NativeExternalRequestController extends WebExternalDashboard
         $json = $this->request->getJSON(true);
         $data = is_array($json) && $json !== [] ? $json : ($this->request->getPost() ?: []);
 
-        return [
+        $payload = [
             'lab_id' => (int) ($data['lab_id'] ?? 0),
             'organization_name' => trim((string) ($data['organization_name'] ?? '')),
             'contact_name' => trim((string) ($data['contact_name'] ?? '')),
@@ -210,11 +269,18 @@ class NativeExternalRequestController extends WebExternalDashboard
             'purpose' => trim((string) ($data['purpose'] ?? '')),
             'equipment_notes' => trim((string) ($data['equipment_notes'] ?? '')),
         ];
+
+        if ($this->supportsServiceSelectionFields()) {
+            $payload['service_id'] = ($data['service_id'] ?? null) ? (int) $data['service_id'] : null;
+            $payload['selected_assets'] = trim((string) ($data['selected_assets'] ?? '')) ?: null;
+        }
+
+        return $payload;
     }
 
     protected function serializeRequest(array $request): array
     {
-        return [
+        $payload = [
             'id' => (int) $request['id'],
             'lab_id' => (int) ($request['lab_id'] ?? 0),
             'lab_name' => (string) ($request['lab_name'] ?? ''),
@@ -249,6 +315,13 @@ class NativeExternalRequestController extends WebExternalDashboard
             'created_at' => (string) ($request['created_at'] ?? ''),
             'updated_at' => (string) ($request['updated_at'] ?? ''),
         ];
+
+        if ($this->supportsServiceSelectionFields()) {
+            $payload['service_id'] = isset($request['service_id']) ? (int) $request['service_id'] : null;
+            $payload['selected_assets'] = (string) ($request['selected_assets'] ?? '');
+        }
+
+        return $payload;
     }
 
     protected function externalUser()
@@ -273,5 +346,21 @@ class NativeExternalRequestController extends WebExternalDashboard
         }
 
         return $user;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function servicesForLab(int $labId): array
+    {
+        return (new ServiceBundleService())->serviceSummariesForLab($labId);
+    }
+
+    protected function supportsServiceSelectionFields(): bool
+    {
+        $db = db_connect();
+
+        return $db->fieldExists('service_id', 'external_requests')
+            && $db->fieldExists('selected_assets', 'external_requests');
     }
 }

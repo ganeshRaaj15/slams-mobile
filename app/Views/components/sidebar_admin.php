@@ -21,6 +21,14 @@
         <i class="bi bi-box-seam"></i> Manage Assets
     </a>
 
+    <a href="/admin/services" class="sidebar-link <?= url_is('admin/services*') ? 'active' : '' ?>">
+        <i class="bi bi-diagram-3"></i> Manage Services
+    </a>
+
+    <a href="/admin/reservations" class="sidebar-link <?= url_is('admin/reservations*') ? 'active' : '' ?>">
+        <i class="bi bi-calendar-range"></i> Lab Reservations
+    </a>
+
     <a href="/admin/users" class="sidebar-link <?= url_is('admin/users*') ? 'active' : '' ?>">
         <i class="bi bi-people"></i> User Management
     </a>

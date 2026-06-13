@@ -41,6 +41,9 @@ if (function_exists('auth') && auth()->loggedIn()) {
                     <?php elseif ($user->inGroup('pic') || $user->inGroup('manager')): ?>
                         <li class="nav-item me-2"><a class="nav-link position-relative" href="/dashboard/external-requests"><i class="bi bi-clipboard-data me-1"></i> External Requests<span class="nav-indicator"></span></a></li>
                     <?php endif; ?>
+                    <?php if ($user->inGroup('pic') || $user->inGroup('admin')): ?>
+                        <li class="nav-item me-2"><a class="nav-link position-relative" href="/admin/services"><i class="bi bi-diagram-3 me-1"></i> Lab Management<span class="nav-indicator"></span></a></li>
+                    <?php endif; ?>
                     <li class="nav-item me-2 dropdown notification-nav-item">
                         <a class="nav-link position-relative notification-nav-link" href="#" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-bell me-1"></i> Notifications

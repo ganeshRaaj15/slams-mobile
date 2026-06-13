@@ -3,6 +3,7 @@
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Libraries\NotificationService;
 use App\Models\LaboratoryModel;
 
 class LaboratoryAdminController extends BaseController
@@ -13,7 +14,7 @@ class LaboratoryAdminController extends BaseController
     {
         helper(['auth', 'filesystem']);
 
-        if (! auth()->loggedIn() || ! auth()->user()->inGroup('admin')) {
+        if (! auth()->loggedIn() || (! auth()->user()->inGroup('admin') && ! auth()->user()->inGroup('pic'))) {
             redirect()->to('/')->with('error', 'You are not authorized to access this page.')->send();
             exit;
         }
@@ -28,6 +29,7 @@ class LaboratoryAdminController extends BaseController
 
     public function index()
     {
+        $user = auth()->user();
         $filters = [
             'q' => trim((string) $this->request->getGet('q')),
             'pic' => trim((string) $this->request->getGet('pic')),
@@ -54,6 +56,10 @@ class LaboratoryAdminController extends BaseController
                 ->groupEnd();
         }
 
+        if ($user && $user->inGroup('pic') && ! $user->inGroup('admin')) {
+            $builder = $builder->where('LOWER(TRIM(pic_email)) =', strtolower(trim((string) $user->email)));
+        }
+
         $labs = $builder->orderBy('name', 'ASC')->findAll();
         $assetRows = $this->dbAssetSummary();
         $picAccountMap = $this->picAccountMap($labs);
@@ -75,11 +81,16 @@ class LaboratoryAdminController extends BaseController
             'labs' => $labs,
             'filters' => $filters,
             'totalLabs' => (new LaboratoryModel())->countAllResults(),
+            'canCreateLabs' => $this->isAdminUser(),
         ]);
     }
 
     public function create()
     {
+        if (! $this->isAdminUser()) {
+            return redirect()->to('/admin/labs')->with('error', 'Only administrators can create laboratories.');
+        }
+
         return view('admin/labs/form', ['lab' => null]);
     }
 
@@ -89,25 +100,36 @@ class LaboratoryAdminController extends BaseController
         if (! $lab) {
             return redirect()->to('/admin/labs')->with('error', 'Laboratory not found.');
         }
+        if (! $this->canManageLab($lab)) {
+            return redirect()->to('/admin/labs')->with('error', 'You are not allowed to edit this laboratory.');
+        }
 
         $lab['image_url'] = ! empty($lab['image']) ? base_url($lab['image']) : '';
         $lab['pic_image_url'] = ! empty($lab['pic_image']) ? base_url($lab['pic_image']) : '';
 
-        return view('admin/labs/form', ['lab' => $lab]);
+        return view('admin/labs/form', ['lab' => $lab, 'canEditPicAssignment' => $this->isAdminUser()]);
     }
 
     public function store()
     {
+        if (! $this->isAdminUser()) {
+            return redirect()->to('/admin/labs')->with('error', 'Only administrators can create laboratories.');
+        }
+
         if (! $this->validate($this->rules())) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
         $payload = $this->collectPayload();
+        if ($conflict = $this->picAssignmentConflict($payload['pic_email'])) {
+            return redirect()->back()->withInput()->with('errors', ['pic_email' => $conflict]);
+        }
         $picWarning = $this->picValidationWarning($payload['pic_email']);
         $payload['image'] = $this->handleUpload('image', 'images/labs');
         $payload['pic_image'] = $this->handleUpload('pic_image', 'images/pic');
 
-        $this->labModel->insert($payload);
+        $labId = (int) $this->labModel->insert($payload, true);
+        $this->syncPicAccountRoleAndNotify($labId, $payload['pic_email']);
         $redirect = redirect()->to('/admin/labs')->with('message', 'Laboratory created successfully.');
         return $picWarning ? $redirect->with('warning', $picWarning) : $redirect;
     }
@@ -118,23 +140,41 @@ class LaboratoryAdminController extends BaseController
         if (! $lab) {
             return redirect()->to('/admin/labs')->with('error', 'Laboratory not found.');
         }
+        if (! $this->canManageLab($lab)) {
+            return redirect()->to('/admin/labs')->with('error', 'You are not allowed to update this laboratory.');
+        }
 
         if (! $this->validate($this->rules())) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
         $payload = $this->collectPayload();
+        if (! $this->isAdminUser()) {
+            $payload['pic_name'] = (string) ($lab['pic_name'] ?? '');
+            $payload['pic_email'] = strtolower(trim((string) ($lab['pic_email'] ?? '')));
+            $payload['pic_phone'] = (string) ($lab['pic_phone'] ?? '');
+        }
+        if ($this->isAdminUser() && ($conflict = $this->picAssignmentConflict($payload['pic_email'], (int) $id))) {
+            return redirect()->back()->withInput()->with('errors', ['pic_email' => $conflict]);
+        }
         $picWarning = $this->picValidationWarning($payload['pic_email']);
         $payload['image'] = $this->handleUpload('image', 'images/labs', $lab['image'] ?? null, (bool) $this->request->getPost('remove_image'));
         $payload['pic_image'] = $this->handleUpload('pic_image', 'images/pic', $lab['pic_image'] ?? null, (bool) $this->request->getPost('remove_pic_image'));
 
         $this->labModel->update($id, $payload);
+        if ($this->isAdminUser()) {
+            $this->syncPicAccountRoleAndNotify((int) $id, $payload['pic_email']);
+        }
         $redirect = redirect()->to('/admin/labs')->with('message', 'Laboratory updated successfully.');
         return $picWarning ? $redirect->with('warning', $picWarning) : $redirect;
     }
 
     public function delete($id)
     {
+        if (! $this->isAdminUser()) {
+            return redirect()->to('/admin/labs')->with('error', 'Only administrators can delete laboratories.');
+        }
+
         $lab = $this->labModel->find($id);
         if (! $lab) {
             return redirect()->to('/admin/labs')->with('error', 'Laboratory not found.');
@@ -316,5 +356,80 @@ class LaboratoryAdminController extends BaseController
             'email' => strtolower(trim((string) $identity['secret'])),
             'roles' => array_column($roles, 'group'),
         ];
+    }
+
+    protected function isAdminUser(): bool
+    {
+        return auth()->loggedIn() && auth()->user()->inGroup('admin');
+    }
+
+    protected function canManageLab(array $lab): bool
+    {
+        if ($this->isAdminUser()) {
+            return true;
+        }
+
+        $email = strtolower(trim((string) auth()->user()->email));
+        return $email !== '' && $email === strtolower(trim((string) ($lab['pic_email'] ?? '')));
+    }
+
+    protected function picAssignmentConflict(string $email, int $ignoreLabId = 0): ?string
+    {
+        $email = strtolower(trim($email));
+        if ($email === '') {
+            return null;
+        }
+
+        $conflicts = $this->labModel
+            ->where('LOWER(TRIM(pic_email)) =', $email);
+
+        if ($ignoreLabId > 0) {
+            $conflicts->where('id !=', $ignoreLabId);
+        }
+
+        $labs = $conflicts->findAll();
+        if ($labs === []) {
+            return null;
+        }
+
+        $names = array_map(static fn(array $lab): string => trim(((string) ($lab['name'] ?? '')) . ' (' . ((string) ($lab['room'] ?? '-')) . ')'), $labs);
+        return 'This user is already assigned as PIC for ' . implode(', ', $names) . '. Reassign that laboratory first before using the same PIC here.';
+    }
+
+    protected function syncPicAccountRoleAndNotify(int $labId, string $email): void
+    {
+        $email = strtolower(trim($email));
+        if ($labId <= 0 || $email === '') {
+            return;
+        }
+
+        $account = $this->picAccountForEmail($email);
+        if ($account === null) {
+            return;
+        }
+
+        $db = db_connect();
+        $roles = $account['roles'] ?? [];
+        $promoted = false;
+        if (! in_array('pic', $roles, true)) {
+            $db->table('auth_groups_users')->insert([
+                'user_id' => (int) $account['user_id'],
+                'group' => 'pic',
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
+            $db->table('auth_groups_users')
+                ->where('user_id', (int) $account['user_id'])
+                ->where('group', 'staff')
+                ->delete();
+            $promoted = true;
+        }
+
+        $lab = $this->labModel->find($labId);
+        if (is_array($lab)) {
+            NotificationService::dispatchSafely(
+                fn(NotificationService $notifications) => $notifications->notifyPicAssignedToLab($lab, $email, $promoted),
+                'pic assigned to lab'
+            );
+        }
     }
 }

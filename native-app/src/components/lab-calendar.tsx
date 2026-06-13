@@ -37,7 +37,9 @@ function buildWeeks(year: number, month: number): (number | null)[][] {
   }
 
   if (week.length > 0) {
-    while (week.length < 7) week.push(null);
+    while (week.length < 7) {
+      week.push(null);
+    }
     weeks.push(week);
   }
 
@@ -68,7 +70,7 @@ export function LabCalendar({ labId, onSlotSelect }: Props) {
   const dayQuery = useQuery({
     queryKey: ['lab-day-slots', labId, selectedDate],
     queryFn: () => listDaySlotsRequest(labId, selectedDate!, { service_id: 0, assets: '' }),
-    enabled: !!selectedDate,
+    enabled: Boolean(selectedDate),
     staleTime: 60 * 1000,
   });
 
@@ -76,41 +78,50 @@ export function LabCalendar({ labId, onSlotSelect }: Props) {
   const weeks = buildWeeks(year, month);
 
   function prevMonth() {
-    if (month === 0) { setYear((y) => y - 1); setMonth(11); }
-    else { setMonth((m) => m - 1); }
+    if (month === 0) {
+      setYear((current) => current - 1);
+      setMonth(11);
+    } else {
+      setMonth((current) => current - 1);
+    }
+
     setSelectedDate(null);
     setSelectedSlot(null);
   }
 
   function nextMonth() {
-    if (month === 11) { setYear((y) => y + 1); setMonth(0); }
-    else { setMonth((m) => m + 1); }
+    if (month === 11) {
+      setYear((current) => current + 1);
+      setMonth(0);
+    } else {
+      setMonth((current) => current + 1);
+    }
+
     setSelectedDate(null);
     setSelectedSlot(null);
   }
 
-  function handleDayPress(ds: string, isPast: boolean, isUnavailable: boolean) {
-    if (isPast || isUnavailable) return;
-    setSelectedDate((prev) => (prev === ds ? null : ds));
+  function handleDayPress(dateValue: string, isPast: boolean, isUnavailable: boolean) {
+    if (isPast || isUnavailable) {
+      return;
+    }
+
+    setSelectedDate((current) => (current === dateValue ? null : dateValue));
     setSelectedSlot(null);
   }
 
   return (
     <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-      {/* Nav */}
       <View style={styles.navRow}>
         <Pressable hitSlop={8} onPress={prevMonth} style={styles.navBtn}>
-          <Text style={[styles.navBtnText, { color: theme.colors.primary }]}>‹ Prev</Text>
+          <Text style={[styles.navBtnText, { color: theme.colors.primary }]}>{'< Prev'}</Text>
         </Pressable>
-        <Text style={[styles.monthLabel, { color: theme.colors.text }]}>
-          {monthLabel(year, month)}
-        </Text>
+        <Text style={[styles.monthLabel, { color: theme.colors.text }]}>{monthLabel(year, month)}</Text>
         <Pressable hitSlop={8} onPress={nextMonth} style={styles.navBtn}>
-          <Text style={[styles.navBtnText, { color: theme.colors.primary }]}>Next ›</Text>
+          <Text style={[styles.navBtnText, { color: theme.colors.primary }]}>{'Next >'}</Text>
         </Pressable>
       </View>
 
-      {/* Day header row */}
       <View style={styles.weekRow}>
         {DAY_LABELS.map((label) => (
           <View key={label} style={styles.dayCell}>
@@ -119,55 +130,55 @@ export function LabCalendar({ labId, onSlotSelect }: Props) {
         ))}
       </View>
 
-      {/* Calendar body */}
       {calendarQuery.isLoading ? (
         <ActivityIndicator color={theme.colors.primary} style={styles.loader} />
       ) : (
-        weeks.map((week, wi) => (
-          <View key={wi} style={styles.weekRow}>
-            {week.map((d, di) => {
-              if (d === null) {
-                return <View key={di} style={styles.dayCell} />;
+        weeks.map((week, weekIndex) => (
+          <View key={weekIndex} style={styles.weekRow}>
+            {week.map((day, dayIndex) => {
+              if (day === null) {
+                return <View key={dayIndex} style={styles.dayCell} />;
               }
 
-              const ds = dateStr(year, month, d);
-              const cellDate = new Date(year, month, d);
+              const dateValue = dateStr(year, month, day);
+              const cellDate = new Date(year, month, day);
               cellDate.setHours(0, 0, 0, 0);
+
               const isPast = cellDate < today;
               const isToday = cellDate.getTime() === today.getTime();
-              const isUnavailable = !isPast && unavailableSet.has(ds);
-              const isSelected = selectedDate === ds;
+              const isUnavailable = !isPast && unavailableSet.has(dateValue);
+              const isSelected = selectedDate === dateValue;
 
-              let bg = 'transparent';
-              let textColor: string = isPast ? theme.colors.textMuted : theme.colors.text;
+              let backgroundColor = 'transparent';
+              let textColor = isPast ? theme.colors.textMuted : theme.colors.text;
               let borderColor = 'transparent';
               let borderWidth = 0;
 
               if (isSelected) {
-                bg = theme.colors.primary;
+                backgroundColor = theme.colors.primary;
                 textColor = '#ffffff';
               } else if (isToday) {
-                bg = theme.colors.primarySoft;
+                backgroundColor = theme.colors.primarySoft;
                 textColor = theme.colors.primary;
                 borderColor = theme.colors.primary;
                 borderWidth = 1;
               } else if (isUnavailable) {
-                bg = theme.colors.dangerSoft ?? '#ffe4e4';
+                backgroundColor = theme.colors.dangerSoft ?? '#ffe4e4';
                 textColor = theme.colors.danger;
               }
 
               return (
                 <Pressable
-                  key={ds}
+                  key={dateValue}
                   disabled={isPast || isUnavailable}
-                  onPress={() => handleDayPress(ds, isPast, isUnavailable)}
+                  onPress={() => handleDayPress(dateValue, isPast, isUnavailable)}
                   style={styles.dayCell}
                 >
                   <View
                     style={[
                       styles.dayInner,
                       {
-                        backgroundColor: bg,
+                        backgroundColor,
                         borderColor,
                         borderWidth,
                         borderRadius: 8,
@@ -183,7 +194,7 @@ export function LabCalendar({ labId, onSlotSelect }: Props) {
                         },
                       ]}
                     >
-                      {d}
+                      {day}
                     </Text>
                   </View>
                 </Pressable>
@@ -193,14 +204,31 @@ export function LabCalendar({ labId, onSlotSelect }: Props) {
         ))
       )}
 
-      {/* Legend */}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: theme.colors.primarySoft, borderColor: theme.colors.primary, borderWidth: 1 }]} />
+          <View
+            style={[
+              styles.legendDot,
+              {
+                backgroundColor: theme.colors.primarySoft,
+                borderColor: theme.colors.primary,
+                borderWidth: 1,
+              },
+            ]}
+          />
           <Text style={[styles.legendText, { color: theme.colors.textMuted }]}>Today</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]} />
+          <View
+            style={[
+              styles.legendDot,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+                borderWidth: 1,
+              },
+            ]}
+          />
           <Text style={[styles.legendText, { color: theme.colors.textMuted }]}>Open</Text>
         </View>
         <View style={styles.legendItem}>
@@ -209,32 +237,36 @@ export function LabCalendar({ labId, onSlotSelect }: Props) {
         </View>
       </View>
 
-      {/* Day slot panel */}
       {selectedDate ? (
         <View style={[styles.dayPanel, { borderTopColor: theme.colors.border }]}>
           <Text style={[styles.dayPanelTitle, { color: theme.colors.text }]}>
-            {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-MY', {
+            {new Date(`${selectedDate}T00:00:00`).toLocaleDateString('en-MY', {
               weekday: 'long',
               day: 'numeric',
               month: 'long',
               year: 'numeric',
             })}
           </Text>
+
           {dayQuery.isLoading ? (
             <ActivityIndicator color={theme.colors.primary} style={styles.loader} />
+          ) : dayQuery.isError ? (
+            <Text style={[styles.noSlots, { color: theme.colors.warning }]}>
+              Slot availability could not be loaded for this day.
+            </Text>
           ) : dayQuery.data?.slots && dayQuery.data.slots.length > 0 ? (
             <View style={styles.slotList}>
               {dayQuery.data.slots.map((slot) => {
                 const isSlotSelected =
-                  !!selectedSlot && selectedSlot.start === slot.start && selectedSlot.end === slot.end;
-                const tappable = slot.can_book && !!onSlotSelect;
+                  selectedSlot?.start === slot.start && selectedSlot?.end === slot.end;
+                const tappable = slot.can_book && Boolean(onSlotSelect);
 
-                let bg = slot.can_book ? theme.colors.successSoft : theme.colors.dangerSoft;
+                let backgroundColor = slot.can_book ? theme.colors.successSoft : theme.colors.dangerSoft;
                 let timeColor = theme.colors.text;
                 let statusColor = slot.can_book ? theme.colors.success : theme.colors.danger;
 
                 if (isSlotSelected) {
-                  bg = theme.colors.primary;
+                  backgroundColor = theme.colors.primary;
                   timeColor = '#ffffff';
                   statusColor = 'rgba(255,255,255,0.85)';
                 }
@@ -244,23 +276,27 @@ export function LabCalendar({ labId, onSlotSelect }: Props) {
                     key={`${slot.start}-${slot.end}`}
                     disabled={!tappable}
                     onPress={() => {
-                      if (!slot.can_book || !onSlotSelect) return;
+                      if (!slot.can_book || !onSlotSelect) {
+                        return;
+                      }
+
                       setSelectedSlot(isSlotSelected ? null : { start: slot.start, end: slot.end });
                     }}
-                    style={[styles.slotRow, { backgroundColor: bg }]}
+                    style={[styles.slotRow, { backgroundColor }]}
                   >
                     <Text style={[styles.slotTime, { color: timeColor }]}>
-                      {slot.label || `${slot.start} – ${slot.end}`}
+                      {slot.label || `${slot.start} - ${slot.end}`}
                     </Text>
                     <Text style={[styles.slotStatus, { color: statusColor }]}>
-                      {isSlotSelected ? 'Selected ✓' : slot.can_book ? 'Available' : (slot.reason ?? 'Unavailable')}
+                      {isSlotSelected ? 'Selected' : slot.can_book ? 'Available' : (slot.reason ?? 'Unavailable')}
                     </Text>
                   </Pressable>
                 );
               })}
+
               {selectedSlot && onSlotSelect ? (
                 <Pressable
-                  onPress={() => onSlotSelect(selectedDate!, selectedSlot.start, selectedSlot.end)}
+                  onPress={() => onSlotSelect(selectedDate, selectedSlot.start, selectedSlot.end)}
                   style={[styles.bookSlotButton, { backgroundColor: theme.colors.primary }]}
                 >
                   <Text style={styles.bookSlotButtonText}>Book this slot</Text>
@@ -269,7 +305,7 @@ export function LabCalendar({ labId, onSlotSelect }: Props) {
             </View>
           ) : (
             <Text style={[styles.noSlots, { color: theme.colors.textMuted }]}>
-              No time slots configured for this day.
+              No time slots are configured for this day.
             </Text>
           )}
         </View>

@@ -387,6 +387,43 @@ class NotificationService
         }
     }
 
+    public function notifyPicAssignedToLab(array $lab, string $email, bool $promoted = false): void
+    {
+        $email = strtolower(trim($email));
+        if ($email === '') {
+            return;
+        }
+
+        $labName = trim((string) ($lab['name'] ?? 'Laboratory'));
+        $labRoom = trim((string) ($lab['room'] ?? ''));
+        $descriptor = $labRoom !== '' ? ($labName . ' (' . $labRoom . ')') : $labName;
+        $message = 'You have been assigned as the PIC for ' . $descriptor . '.';
+        if ($promoted) {
+            $message .= ' Your account has been granted PIC access for approvals and laboratory management.';
+        }
+
+        $userId = $this->findUserIdByEmail($email);
+        $this->createUserNotifications(
+            $this->compactIds([$userId]),
+            'lab_assignment',
+            'Assigned As PIC',
+            $message,
+            '/dashboard/pic',
+            'lab',
+            (int) ($lab['id'] ?? 0)
+        );
+
+        $this->sendEmail(
+            [$email],
+            'FKMP Smart Lab: PIC Assignment Updated',
+            $this->emailTemplate('PIC Assignment Updated', [
+                $message,
+            ], site_url('/dashboard/pic'), 'Open PIC Dashboard'),
+            null,
+            ['entity_type' => 'lab', 'entity_id' => (int) ($lab['id'] ?? 0), 'notification_type' => 'lab_assignment']
+        );
+    }
+
     protected function reminderAlreadySent(int $bookingId): bool
     {
         return $this->notificationModel

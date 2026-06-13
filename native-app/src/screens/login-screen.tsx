@@ -3,11 +3,8 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { VideoView } from 'expo-video';
 
 import { Screen } from '../components/screen';
-import { useHeroVideo } from '../context/hero-video-context';
 import type { RootStackParamList } from '../navigation/types';
 import { TextField } from '../components/text-field';
 import { useAuthStore } from '../state/auth-store';
@@ -59,8 +56,6 @@ function LoginPhoneHeader() {
 function LoginHeroCard() {
   const theme = useAppTheme();
   const responsive = useResponsiveLayout();
-  const { dayPlayer, nightPlayer } = useHeroVideo();
-  const heroPlayer = theme.tone === 'dark' ? nightPlayer : dayPlayer;
   const cardShadow = {
     elevation: 5,
     shadowColor: theme.colors.shadow,
@@ -78,30 +73,15 @@ function LoginHeroCard() {
         {
           backgroundColor: theme.colors.surfaceAccent,
           borderColor: theme.colors.borderStrong,
-          overflow: 'hidden',
         },
       ]}
     >
-      <VideoView
-        style={StyleSheet.absoluteFillObject}
-        player={heroPlayer}
-        nativeControls={false}
-        contentFit="cover"
-        allowsFullscreen={false}
-        allowsPictureInPicture={false}
-      />
-      <BlurView
-        intensity={theme.tone === 'dark' ? 28 : 34}
-        tint={theme.tone === 'dark' ? 'dark' : 'light'}
+      <View
         style={[
           styles.glassPanel,
           {
-            borderColor: theme.tone === 'dark'
-              ? 'rgba(255,255,255,0.10)'
-              : 'rgba(255,255,255,0.65)',
-            backgroundColor: theme.tone === 'dark'
-              ? 'rgba(4,16,10,0.35)'
-              : 'rgba(232,248,240,0.30)',
+            borderColor: theme.tone === 'dark' ? 'rgba(255,255,255,0.10)' : 'rgba(13, 96, 77, 0.12)',
+            backgroundColor: theme.tone === 'dark' ? '#10261d' : '#e8f8f0',
           },
         ]}
       >
@@ -135,7 +115,7 @@ function LoginHeroCard() {
         >
           Use your SLAMS account to access bookings, approvals, requests, notifications, and operational dashboards.
         </Text>
-      </BlurView>
+      </View>
     </View>
   );
 }
@@ -150,6 +130,7 @@ export function LoginScreen() {
   const authError = useAuthStore((state) => state.error);
   const biometric = useAuthStore((state) => state.biometric);
   const isOtpPending = authStatus === 'otp_pending';
+  const isMagicLinkPending = authStatus === 'magic_link_pending';
   const responsive = useResponsiveLayout();
   const cardShadow = {
     elevation: 5,
@@ -254,6 +235,22 @@ export function LoginScreen() {
             <Image source={appLogo} style={styles.logoImage} resizeMode="contain" />
           </View>
         ) : null}
+        {isMagicLinkPending ? (
+          <>
+            <Text style={[styles.otpHeading, { color: theme.colors.heading }]}>
+              Finishing Secure Sign-In
+            </Text>
+            <Text style={[styles.otpHint, { color: theme.colors.textMuted }]}>
+              We are verifying your one-time sign-in link. Keep the app open for a moment.
+            </Text>
+            <View style={styles.pendingState}>
+              <ActivityIndicator color={theme.colors.primary} />
+            </View>
+            {!localError && authError ? (
+              <Text style={[styles.error, { color: theme.colors.danger }]}>{authError}</Text>
+            ) : null}
+          </>
+        ) : null}
         {isOtpPending ? (
           <>
             <Text style={[styles.otpHeading, { color: theme.colors.heading }]}>
@@ -291,7 +288,7 @@ export function LoginScreen() {
           </>
         ) : null}
 
-        {!isOtpPending && biometric.isReady ? (
+        {!isOtpPending && !isMagicLinkPending && biometric.isReady ? (
           <Pressable
             disabled={submitting || biometricSubmitting}
             onPress={onBiometricSubmit}
@@ -324,7 +321,7 @@ export function LoginScreen() {
           </Pressable>
         ) : null}
 
-        {!isOtpPending && biometric.isEnabled && !biometric.isReady ? (
+        {!isOtpPending && !isMagicLinkPending && biometric.isEnabled && !biometric.isReady ? (
           <Text
             style={[
               styles.hint,
@@ -337,7 +334,7 @@ export function LoginScreen() {
           </Text>
         ) : null}
 
-        {!isOtpPending ? (
+        {!isOtpPending && !isMagicLinkPending ? (
           <>
             <TextField
               autoCapitalize="none"
@@ -380,6 +377,17 @@ export function LoginScreen() {
             {!localError && authError ? (
               <Text style={[styles.error, { color: theme.colors.danger }]}>{authError}</Text>
             ) : null}
+
+            <Pressable
+              onPress={() => {
+                navigation.navigate('MagicLinkRequest');
+              }}
+              style={styles.inlineLinkWrap}
+            >
+              <Text style={[styles.inlineLink, { color: theme.colors.primary }]}>
+                Forgot your password? Email me a secure sign-in link
+              </Text>
+            </Pressable>
 
             <Pressable
               disabled={submitting}
@@ -531,6 +539,18 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: 12,
     lineHeight: 18,
+  },
+  inlineLink: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  inlineLinkWrap: {
+    alignSelf: 'center',
+  },
+  pendingState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
   },
   passwordToggle: {
     alignItems: 'center',

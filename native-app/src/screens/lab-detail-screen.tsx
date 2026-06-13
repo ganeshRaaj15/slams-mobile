@@ -247,9 +247,19 @@ export function LabDetailScreen() {
                     },
                   ]}
                 >
-                  Equipment: {service.equipment_models}
+                  Equipment: {service.bundle_summary || service.equipment_models}
                 </Text>
               ) : null}
+              <Text
+                style={[
+                  styles.innerText,
+                  {
+                    color: service.is_bookable ? theme.colors.success : theme.colors.warning,
+                  },
+                ]}
+              >
+                {service.is_bookable ? 'Bundle available for booking' : 'Bundle currently unavailable'}
+              </Text>
             </View>
           ))
         )}

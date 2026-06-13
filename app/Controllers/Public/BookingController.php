@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Libraries\ApprovalFlowResolver;
 use App\Libraries\BookingSlotService;
 use App\Libraries\NotificationService;
+use App\Libraries\ServiceBundleService;
 use App\Models\BookingModel;
 use App\Models\BookingApplicantModel;
 use App\Models\BookingAssetModel;
@@ -17,10 +18,12 @@ use Config\Services;
 class BookingController extends BaseController
 {
     protected BookingSlotService $slotService;
+    protected ServiceBundleService $bundleService;
 
     public function __construct()
     {
         $this->slotService = new BookingSlotService();
+        $this->bundleService = new ServiceBundleService();
     }
 
     /*
@@ -77,27 +80,6 @@ class BookingController extends BaseController
             ->first();
     }
 
-    protected function defaultServiceAssets(int $labId, int $serviceId): array
-    {
-        if ($this->findLabService($labId, $serviceId) === null) {
-            return [];
-        }
-
-        $rows = (new AssetModel())
-            ->select('id')
-            ->where('lab_id', $labId)
-            ->where('lab_service_id', $serviceId)
-            ->orderBy('id', 'ASC')
-            ->findAll();
-
-        $selected = [];
-        foreach ($rows as $row) {
-            $selected[(int) $row['id']] = 1;
-        }
-
-        return $selected;
-    }
-
     protected function resolveSelectedAssets(int $labId, int $serviceId, ?string $assetsRaw): array
     {
         $parsed = $this->parseAssetsString($assetsRaw);
@@ -106,19 +88,7 @@ class BookingController extends BaseController
             return $parsed;
         }
 
-        $serviceDefaults = $this->defaultServiceAssets($labId, $serviceId);
-        if ($serviceDefaults === []) {
-            return [];
-        }
-
-        if ($parsed === []) {
-            return $serviceDefaults;
-        }
-
-        $allowedIds = array_fill_keys(array_keys($serviceDefaults), true);
-        $filtered = array_intersect_key($parsed, $allowedIds);
-
-        return $filtered === [] ? $serviceDefaults : $filtered;
+        return $this->bundleService->requirementMapForService($labId, $serviceId);
     }
 
     /*
@@ -126,12 +96,13 @@ class BookingController extends BaseController
     | ASSET AVAILABILITY ENGINE
     |--------------------------------------------------------------------------
     */
-    protected function computeRemainingForSlot(
+    public function computeRemainingForSlot(
         int $labId,
         string $date,
         string $start,
         string $end,
-        array $selectedAssets
+        array $selectedAssets,
+        ?int $ignoreBookingId = null
     ): array {
 
         if (empty($selectedAssets)) return [];
@@ -159,7 +130,7 @@ class BookingController extends BaseController
         $end   = $this->normalizeTime($end);
 
         // Get used quantities for overlapping bookings
-        $rows = $db->table('booking_assets ba')
+        $rowsQuery = $db->table('booking_assets ba')
             ->select('ba.asset_id, SUM(ba.quantity_used) AS used_qty')
             ->join('bookings b', 'b.id = ba.booking_id')
             ->where('b.lab_id', $labId)
@@ -168,8 +139,13 @@ class BookingController extends BaseController
             ->where('b.start_time <', $end)   // overlap rules
             ->where('b.end_time >', $start)
             ->whereIn('ba.asset_id', array_keys($selectedAssets))
-            ->groupBy('ba.asset_id')
-            ->get()->getResultArray();
+            ->groupBy('ba.asset_id');
+
+        if ($ignoreBookingId !== null && $ignoreBookingId > 0) {
+            $rowsQuery->where('b.id !=', $ignoreBookingId);
+        }
+
+        $rows = $rowsQuery->get()->getResultArray();
 
         $used = [];
         foreach ($rows as $r) {
@@ -202,8 +178,6 @@ class BookingController extends BaseController
 
     protected function calendarAssetsInternal(int $labId, array $selected): array
     {
-        if (empty($selected)) return [];
-
         $db = \Config\Database::connect();
         $bookingModel = new BookingModel();
         $today = date('Y-m-d');
@@ -225,7 +199,7 @@ class BookingController extends BaseController
             $hasValidSlot = false;
 
             foreach ($slotDefs as $slot) {
-                if ($bookingModel->hasLabConflict($labId, $date, $slot['start'], $slot['end'])) {
+                if ($this->slotService->hasBlockingReservation($labId, $date, $slot['start'], $slot['end'])) {
                     continue;
                 }
 
@@ -265,13 +239,14 @@ class BookingController extends BaseController
     {
         $serviceId = (int) $this->request->getGet('service_id');
         $selected = $this->resolveSelectedAssets($labId, $serviceId, (string) $this->request->getGet('assets'));
+        $ignoreBookingId = max((int) $this->request->getGet('exclude_booking_id'), 0);
 
         return $this->response->setJSON([
-            'slots' => $this->dayAssetsInternal($labId, $date, $selected)
+            'slots' => $this->dayAssetsInternal($labId, $date, $selected, $ignoreBookingId > 0 ? $ignoreBookingId : null)
         ]);
     }
 
-    protected function dayAssetsInternal(int $labId, string $date, array $selected): array
+    public function dayAssetsInternal(int $labId, string $date, array $selected, ?int $ignoreBookingId = null): array
     {
         $slotDefs     = $this->getSlotDefinitions();
         $bookingModel = new BookingModel();
@@ -296,14 +271,14 @@ class BookingController extends BaseController
             $slotOK     = true;
             $reason     = null;
 
-            if ($bookingModel->hasLabConflict($labId, $date, $slot['start'], $slot['end'])) {
+            if ($this->slotService->hasBlockingReservation($labId, $date, $slot['start'], $slot['end'])) {
                 $slotOK = false;
-                $reason = 'Laboratory already booked for this slot.';
+                $reason = 'Laboratory is reserved for this slot.';
             }
 
             if (! empty($selected)) {
                 $remaining = $this->computeRemainingForSlot(
-                    $labId, $date, $slot['start'], $slot['end'], $selected
+                    $labId, $date, $slot['start'], $slot['end'], $selected, $ignoreBookingId
                 );
 
                 foreach ($selected as $assetId => $need) {
@@ -351,6 +326,7 @@ class BookingController extends BaseController
         $startTime = $this->request->getPost('start_time');
         $endTime   = $this->request->getPost('end_time');
         $assetsRaw = $this->request->getPost('asset_selection');
+        $ignoreBookingId = max((int) $this->request->getPost('exclude_booking_id'), 0);
 
         if ($serviceId <= 0 || $this->findLabService($labId, $serviceId) === null) {
             return $this->response->setJSON([
@@ -394,16 +370,15 @@ class BookingController extends BaseController
             ]);
         }
 
-        $bookingModel = new BookingModel();
-        if ($bookingModel->hasLabConflict($labId, $date, $start, $end)) {
+        if ($this->slotService->hasBlockingReservation($labId, $date, $start, $end)) {
             return $this->response->setJSON([
                 'conflict' => true,
-                'reason'   => 'This laboratory already has an active booking for that time.'
+                'reason'   => 'This laboratory is reserved for that time.'
             ]);
         }
 
         $remaining = $this->computeRemainingForSlot(
-            $labId, $date, $start, $end, $selected
+            $labId, $date, $start, $end, $selected, $ignoreBookingId > 0 ? $ignoreBookingId : null
         );
 
         foreach ($selected as $id => $need) {
@@ -570,10 +545,10 @@ class BookingController extends BaseController
         }
 
         $bookingModel = new BookingModel();
-        if ($bookingModel->hasLabConflict($labId, $date, $startTime, $endTime)) {
+        if ($this->slotService->hasBlockingReservation($labId, $date, $startTime, $endTime)) {
             return $this->response->setJSON([
                 'status'  => 'error',
-                'message' => 'This laboratory is already booked for the selected date and time.'
+                'message' => 'This laboratory is reserved for the selected date and time.'
             ]);
         }
 
@@ -599,9 +574,8 @@ class BookingController extends BaseController
         $db->transBegin();
 
         try {
-            $conflicts = $bookingModel->activeLabConflictsForUpdate($labId, $date, $startTime, $endTime);
-            if ($conflicts !== []) {
-                throw new \DomainException('This laboratory slot was just taken. Please choose another time.');
+            if ($this->slotService->hasBlockingReservation($labId, $date, $startTime, $endTime)) {
+                throw new \DomainException('This laboratory slot is reserved. Please choose another time.');
             }
 
             $remaining = $this->computeRemainingForSlot($labId, $date, $startTime, $endTime, $selectedAssets);
@@ -683,5 +657,3 @@ class BookingController extends BaseController
         ]);
     }
 }
-
-

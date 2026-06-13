@@ -3,6 +3,7 @@
 namespace App\Controllers\Approvals;
 
 use App\Controllers\BaseController;
+use App\Libraries\BookingSlotService;
 use App\Libraries\NotificationService;
 use App\Libraries\UserRoleResolver;
 use App\Models\BookingModel;
@@ -294,16 +295,15 @@ class BookingApprovalController extends BaseController
     protected function ensureAssetsStillAvailable(array $booking): ?string
     {
         $db = Database::connect();
-        $bookingModel = new BookingModel();
+        $slotService = new BookingSlotService();
 
-        if ($bookingModel->hasLabConflict(
+        if ($slotService->hasBlockingReservation(
             (int) $booking['lab_id'],
             (string) $booking['date'],
             (string) $booking['start_time'],
-            (string) $booking['end_time'],
-            (int) $booking['id']
+            (string) $booking['end_time']
         )) {
-            return 'This laboratory already has another active booking for the selected time slot.';
+            return 'This laboratory is reserved for the selected time slot.';
         }
 
         $assetRows = $db->table('booking_assets')

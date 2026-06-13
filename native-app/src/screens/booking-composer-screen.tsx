@@ -192,20 +192,25 @@ export function BookingComposerScreen() {
   }, [labQuery.data?.lab, preselectedServiceId]);
 
   const availableServiceAssets = useMemo(() => {
-    if (!labQuery.data?.lab || !selectedServiceId) {
+    if (!labQuery.data?.lab || !selectedService) {
       return [];
     }
 
-    return labQuery.data.lab.assets.filter((asset) => {
-      const status = asset.status.toLowerCase();
-      return (
-        asset.lab_service_id === selectedServiceId &&
-        asset.quantity > 0 &&
-        status !== 'maintenance' &&
-        status !== 'faulty'
-      );
+    return selectedService.required_assets.map((requiredAsset) => {
+      const asset = labQuery.data.lab.assets.find((item) => item.id === requiredAsset.asset_id);
+      return {
+        ...asset,
+        id: requiredAsset.asset_id,
+        name: asset?.name ?? requiredAsset.name,
+        status: asset?.status ?? requiredAsset.status,
+        quantity: asset?.quantity ?? requiredAsset.available_quantity,
+        total_quantity: asset?.total_quantity ?? requiredAsset.available_quantity,
+        model: asset?.model ?? '',
+        required_quantity: requiredAsset.quantity_required,
+        is_available: requiredAsset.is_available,
+      };
     });
-  }, [labQuery.data?.lab, selectedServiceId]);
+  }, [labQuery.data?.lab, selectedService]);
 
   useEffect(() => {
     if (!selectedServiceId) {
@@ -217,7 +222,7 @@ export function BookingComposerScreen() {
     availableServiceAssets.forEach((asset) => {
       nextState[asset.id] = {
         checked: true,
-        quantity: '1',
+        quantity: String(asset.required_quantity ?? 1),
       };
     });
 
@@ -244,7 +249,7 @@ export function BookingComposerScreen() {
       return;
     }
 
-    if ((selectedAsset.lab_service_id ?? 0) !== selectedServiceId) {
+    if (!availableServiceAssets.some((asset) => asset.id === selectedAsset.id)) {
       setErrorMessage('The equipment linked to this QR code is no longer attached to the selected service.');
       qrPrefillAppliedRef.current = true;
       return;
@@ -257,16 +262,9 @@ export function BookingComposerScreen() {
       return;
     }
 
-    setSelectedAssets((current) => ({
-      ...current,
-      [selectedAsset.id]: {
-        checked: true,
-        quantity: String(Math.min(preselectedAssetQty, selectedAsset.quantity)),
-      },
-    }));
-
     qrPrefillAppliedRef.current = true;
   }, [
+    availableServiceAssets,
     labQuery.data?.lab,
     preselectedAssetId,
     preselectedAssetQty,
@@ -276,7 +274,7 @@ export function BookingComposerScreen() {
 
   const assetSelectionString = useMemo(() => {
     return Object.entries(selectedAssets)
-      .filter(([, asset]) => asset.checked && Number(asset.quantity || 0) > 0)
+      .filter(([, asset]) => Number(asset.quantity || 0) > 0)
       .map(([assetId, asset]) => `${assetId}:${Math.max(Number(asset.quantity || 0), 1)}`)
       .join(',');
   }, [selectedAssets]);
@@ -394,6 +392,7 @@ export function BookingComposerScreen() {
     mutationFn: submitBookingRequest,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
       navigation.navigate('Main', { screen: isStudentRole(user?.primary_role ?? '') ? 'Bookings' : 'Home' });
     },
@@ -429,20 +428,11 @@ export function BookingComposerScreen() {
   const selectedFaculty =
     facultyModalIndex !== null ? applicants[facultyModalIndex]?.faculty_id?.toString() ?? null : null;
 
-  const serviceOptions = lab.services
-    .filter((service) =>
-      lab.assets.some(
-        (asset) =>
-          asset.lab_service_id === service.id &&
-          asset.quantity > 0 &&
-          asset.status.toLowerCase() !== 'maintenance' &&
-          asset.status.toLowerCase() !== 'faulty',
-      ),
-    )
-    .map((service) => ({
+  const serviceOptions = lab.services.map((service) => ({
       id: String(service.id),
       label: service.service_name,
-      subtitle: [service.field_name, service.equipment_models].filter(Boolean).join('  |  '),
+      subtitle: [service.field_name, service.bundle_summary || service.equipment_models].filter(Boolean).join('  |  '),
+      is_bookable: service.is_bookable,
     }));
   const slotLookupErrorMessage = selectedDaySlotsQuery.isError
     ? readSlotErrorMessage(selectedDaySlotsQuery.error)
@@ -487,33 +477,6 @@ export function BookingComposerScreen() {
     setApplicants((current) => (current.length > 1 ? current.filter((_, i) => i !== index) : current));
   }
 
-  function setAssetChecked(assetId: number, checked: boolean) {
-    setSelectedAssets((current) => ({
-      ...current,
-      [assetId]: {
-        checked,
-        quantity: current[assetId]?.quantity || '1',
-      },
-    }));
-  }
-
-  function setAssetQuantity(assetId: number, quantity: string) {
-    const asset = availableServiceAssets.find((item) => item.id === assetId);
-    const numeric = Number(quantity.replace(/[^0-9]/g, ''));
-    const normalized =
-      Number.isFinite(numeric) && numeric > 0
-        ? String(Math.min(numeric, asset?.quantity ?? numeric))
-        : '';
-
-    setSelectedAssets((current) => ({
-      ...current,
-      [assetId]: {
-        checked: current[assetId]?.checked ?? true,
-        quantity: normalized,
-      },
-    }));
-  }
-
   function selectBookingSession(dateValue: string, startValue: string, endValue: string) {
     setSelectedDate(dateValue);
     setStartTime(startValue);
@@ -554,7 +517,7 @@ export function BookingComposerScreen() {
       return;
     }
     if (!assetSelectionString) {
-      setErrorMessage('At least one linked asset must remain selected for the booking.');
+      setErrorMessage('The selected service does not have a valid equipment bundle.');
       return;
     }
     if (!selectedDate || !startTime || !endTime) {
@@ -652,7 +615,11 @@ export function BookingComposerScreen() {
                 return (
                   <Pressable
                     key={service.id}
+                    disabled={!service.is_bookable}
                     onPress={() => {
+                      if (!service.is_bookable) {
+                        return;
+                      }
                       setSelectedServiceId(Number(service.id));
                       setSelectedDate('');
                       setStartTime('');
@@ -662,7 +629,12 @@ export function BookingComposerScreen() {
                     style={[
                       styles.choiceChip,
                       {
-                        backgroundColor: selected ? theme.colors.primarySoft : theme.colors.surfaceMuted,
+                        backgroundColor: !service.is_bookable
+                          ? theme.colors.warningSoft
+                          : selected
+                            ? theme.colors.primarySoft
+                            : theme.colors.surfaceMuted,
+                        opacity: service.is_bookable ? 1 : 0.65,
                       },
                     ]}
                   >
@@ -670,7 +642,11 @@ export function BookingComposerScreen() {
                       style={[
                         styles.choiceText,
                         {
-                          color: selected ? theme.colors.primary : theme.colors.text,
+                          color: !service.is_bookable
+                            ? theme.colors.warning
+                            : selected
+                              ? theme.colors.primary
+                              : theme.colors.text,
                         },
                       ]}
                     >
@@ -692,12 +668,18 @@ export function BookingComposerScreen() {
                 <Text style={[styles.infoTitle, { color: theme.colors.primary }]}>{selectedService.service_name}</Text>
                 {selectedService.equipment_models ? (
                   <Text style={[styles.infoText, { color: theme.colors.text }]}>
-                    Equipment: {selectedService.equipment_models}
+                    Equipment: {selectedService.bundle_summary || selectedService.equipment_models}
                   </Text>
                 ) : null}
                 {selectedService.acceptance_criteria ? (
                   <Text style={[styles.infoText, { color: theme.colors.textMuted }]}>
                     Criteria: {selectedService.acceptance_criteria}
+                  </Text>
+                ) : null}
+                {!selectedService.is_bookable ? (
+                  <Text style={[styles.infoText, { color: theme.colors.warning }]}>
+                    This service is currently unavailable because one or more required assets are under maintenance,
+                    faulty, or fully allocated.
                   </Text>
                 ) : null}
               </View>
@@ -728,7 +710,7 @@ export function BookingComposerScreen() {
           />
         ) : (
           availableServiceAssets.map((asset) => {
-            const selected = selectedAssets[asset.id]?.checked ?? true;
+            const isAvailable = asset.is_available !== false;
             return (
               <View
                 key={asset.id}
@@ -742,6 +724,9 @@ export function BookingComposerScreen() {
                 <View style={styles.assetMeta}>
                   <Text style={[styles.assetName, { color: theme.colors.text }]}>{asset.name}</Text>
                   <Text style={[styles.assetDetail, { color: theme.colors.textMuted }]}>
+                    Required: {asset.required_quantity} unit(s)
+                  </Text>
+                  <Text style={[styles.assetDetail, { color: theme.colors.textMuted }]}>
                     Available: {asset.quantity} / {asset.total_quantity}
                   </Text>
                   {asset.model ? (
@@ -749,36 +734,14 @@ export function BookingComposerScreen() {
                       Model: {asset.model}
                     </Text>
                   ) : null}
-                </View>
-                <View style={styles.assetControls}>
-                  <Pressable
-                    onPress={() => setAssetChecked(asset.id, !selected)}
+                  <Text
                     style={[
-                      styles.toggleButton,
-                      {
-                        backgroundColor: selected ? theme.colors.primary : theme.colors.surface,
-                        borderColor: theme.colors.border,
-                      },
+                      styles.assetDetail,
+                      { color: isAvailable ? theme.colors.success : theme.colors.warning },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.toggleText,
-                        {
-                          color: selected ? '#ffffff' : theme.colors.text,
-                        },
-                      ]}
-                    >
-                      {selected ? 'Selected' : 'Select'}
-                    </Text>
-                  </Pressable>
-                  <TextField
-                    keyboardType="number-pad"
-                    label="Qty"
-                    onChangeText={(value) => setAssetQuantity(asset.id, value)}
-                    style={styles.qtyField}
-                    value={selectedAssets[asset.id]?.quantity ?? '1'}
-                  />
+                    {isAvailable ? 'Included in bundle' : 'Currently unavailable'}
+                  </Text>
                 </View>
               </View>
             );

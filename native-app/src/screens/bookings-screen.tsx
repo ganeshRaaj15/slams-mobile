@@ -31,6 +31,7 @@ export function BookingsScreen() {
     mutationFn: cancelBookingRequest,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },
   });

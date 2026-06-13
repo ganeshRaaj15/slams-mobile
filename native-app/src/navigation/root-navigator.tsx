@@ -30,6 +30,10 @@ import { AdminLabsScreen } from '../screens/admin-labs-screen';
 import { AdminLabEditorScreen } from '../screens/admin-lab-editor-screen';
 import { AdminAssetsScreen } from '../screens/admin-assets-screen';
 import { AdminAssetEditorScreen } from '../screens/admin-asset-editor-screen';
+import { AdminServicesScreen } from '../screens/admin-services-screen';
+import { AdminServiceEditorScreen } from '../screens/admin-service-editor-screen';
+import { AdminReservationsScreen } from '../screens/admin-reservations-screen';
+import { AdminReservationEditorScreen } from '../screens/admin-reservation-editor-screen';
 import { AdminUsersScreen } from '../screens/admin-users-screen';
 import { AdminUserEditorScreen } from '../screens/admin-user-editor-screen';
 import { AdminSettingsScreen } from '../screens/admin-settings-screen';
@@ -41,6 +45,7 @@ import { LoginScreen } from '../screens/login-screen';
 import { MaintenanceFormScreen } from '../screens/maintenance-form-screen';
 import { MaintenanceScreen } from '../screens/maintenance-screen';
 import { navigationRef } from './navigation-service';
+import { MagicLinkRequestScreen } from '../screens/magic-link-request-screen';
 import { NotificationsScreen } from '../screens/notifications-screen';
 import { ProfileScreen } from '../screens/profile-screen';
 import { RegisterScreen } from '../screens/register-screen';
@@ -128,6 +133,7 @@ function MainTabs() {
   const user = useAuthStore((state) => state.user);
   const theme = useAppTheme();
   const role = user?.primary_role ?? 'student';
+  const reportsTitle = role === 'pic' ? 'Lab Report' : role === 'manager' ? 'Lab Analytics' : 'System Analytics';
 
   return (
     <Tabs.Navigator
@@ -190,26 +196,26 @@ function MainTabs() {
       }}
     >
       <Tabs.Screen name="Home" component={HomeScreen} />
-      {role !== 'admin' ? <Tabs.Screen name="Labs" component={LabsScreen} /> : null}
+      <Tabs.Screen name="Labs" component={LabsScreen} />
       {isStudentRole(role) ? <Tabs.Screen name="Bookings" component={BookingsScreen} /> : null}
       {role === 'student' || role === 'staff' || role === 'pic' ? (
         <Tabs.Screen name="Issues" component={IssuesScreen} />
       ) : null}
       {role === 'pic' ? <Tabs.Screen name="Maintenance" component={MaintenanceScreen} /> : null}
-      {isOperationalRole(role) && role !== 'admin' ? (
+      {isOperationalRole(role) ? (
         <Tabs.Screen name="Approvals" component={ApprovalsScreen} options={{ title: 'Approvals' }} />
       ) : null}
-      {(isExternalRole(role) || role === 'pic' || role === 'manager') ? (
+      {(isExternalRole(role) || role === 'pic' || role === 'manager' || role === 'admin') ? (
         <Tabs.Screen
           name="Requests"
           component={RequestsScreen}
           options={{ title: isExternalRole(role) ? 'My Requests' : 'External Requests' }}
         />
       ) : null}
-      {role === 'admin' ? (
-        <Tabs.Screen name="Reports" component={ReportsScreen} options={{ title: 'Reports' }} />
+      {isOperationalRole(role) ? (
+        <Tabs.Screen name="Reports" component={ReportsScreen} options={{ title: reportsTitle }} />
       ) : null}
-      {role === 'admin' ? (
+      {role === 'admin' || role === 'pic' ? (
         <Tabs.Screen name="AdminWorkspace" component={AdminWorkspaceScreen} options={{ title: 'Admin Workspace' }} />
       ) : null}
       <Tabs.Screen name="Notifications" component={NotificationsScreen} />
@@ -224,7 +230,10 @@ type RootNavigatorProps = {
 
 export function RootNavigator({ onReady }: RootNavigatorProps) {
   const status = useAuthStore((state) => state.status);
+  const user = useAuthStore((state) => state.user);
   const theme = useAppTheme();
+  const role = user?.primary_role ?? 'student';
+  const reportsTitle = role === 'pic' ? 'Lab Report' : role === 'manager' ? 'Lab Analytics' : 'System Analytics';
 
   const navigationTheme = {
     ...(theme.tone === 'dark' ? NavigationDarkTheme : NavigationDefaultTheme),
@@ -265,7 +274,7 @@ export function RootNavigator({ onReady }: RootNavigatorProps) {
           <Stack.Screen name="BookingEdit" component={BookingEditScreen} options={{ title: 'Edit Booking' }} />
           <Stack.Screen name="BookingComposer" component={BookingComposerScreen} options={{ title: 'New Booking' }} />
           <Stack.Screen name="ApprovalDetail" component={ApprovalDetailScreen} options={{ title: 'Approval Review' }} />
-          <Stack.Screen name="Reports" component={ReportsScreen} options={{ title: 'Reports' }} />
+          <Stack.Screen name="Reports" component={ReportsScreen} options={{ title: reportsTitle }} />
           <Stack.Screen name="AdminWorkspace" component={AdminWorkspaceScreen} options={{ title: 'Admin Workspace' }} />
           <Stack.Screen name="AdminLabs" component={AdminLabsScreen} options={{ title: 'Laboratories' }} />
           <Stack.Screen
@@ -281,6 +290,22 @@ export function RootNavigator({ onReady }: RootNavigatorProps) {
             component={AdminAssetEditorScreen}
             options={({ route }) => ({
               title: route.params?.assetId ? 'Asset Details' : 'New Asset',
+            })}
+          />
+          <Stack.Screen name="AdminServices" component={AdminServicesScreen} options={{ title: 'Service Bundles' }} />
+          <Stack.Screen
+            name="AdminServiceEditor"
+            component={AdminServiceEditorScreen}
+            options={({ route }) => ({
+              title: route.params?.serviceId ? 'Service Bundle' : 'New Service Bundle',
+            })}
+          />
+          <Stack.Screen name="AdminReservations" component={AdminReservationsScreen} options={{ title: 'Lab Reservations' }} />
+          <Stack.Screen
+            name="AdminReservationEditor"
+            component={AdminReservationEditorScreen}
+            options={({ route }) => ({
+              title: route.params?.reservationId ? 'Reservation Details' : 'New Reservation',
             })}
           />
           <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ title: 'User Management' }} />
@@ -309,6 +334,7 @@ export function RootNavigator({ onReady }: RootNavigatorProps) {
       ) : (
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade', animationDuration: 220 }}>
           <Stack.Screen name="Auth" component={LoginScreen} />
+          <Stack.Screen name="MagicLinkRequest" component={MagicLinkRequestScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
         </Stack.Navigator>
       )}

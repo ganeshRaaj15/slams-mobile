@@ -2,8 +2,10 @@
 
 namespace App\Controllers\Api;
 
+use App\Libraries\AssetIntelligenceService;
 use App\Controllers\BaseController;
 use App\Libraries\MaintenanceForecastService;
+use App\Libraries\MaintenancePredictionService;
 use App\Libraries\NotificationService;
 use App\Libraries\StudentRoleService;
 use App\Models\SettingsModel;
@@ -248,6 +250,37 @@ class NativeAdminSettingsController extends BaseController
             'maintenance_due_reminders' => $maintenanceSent,
             'errors' => $errors,
         ]);
+    }
+
+    public function trainMaintenanceModel()
+    {
+        $user = $this->authorizedAdmin();
+        if (! $user instanceof User) {
+            return $user;
+        }
+
+        try {
+            $predictionService = new MaintenancePredictionService();
+            $predictionService->trainAndPersist();
+            $modelSummary = $predictionService->getModelSummary();
+            $assetStats = (new AssetIntelligenceService())->stats((new AssetIntelligenceService())->mapForAssets());
+
+            return $this->response->setJSON([
+                'status' => 'success',
+                'message' => 'Maintenance prediction model retrained successfully.',
+                'model_summary' => $modelSummary,
+                'asset_stats' => $assetStats,
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', 'Maintenance model training failed: ' . $e->getMessage());
+
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON([
+                    'status' => 'error',
+                    'message' => $e->getMessage(),
+                ]);
+        }
     }
 
     protected function authorizedAdmin()

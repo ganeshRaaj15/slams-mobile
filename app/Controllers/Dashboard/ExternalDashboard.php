@@ -5,6 +5,7 @@ namespace App\Controllers\Dashboard;
 use App\Controllers\BaseController;
 use App\Libraries\BookingSlotService;
 use App\Libraries\ExternalRequestNotificationService;
+use App\Libraries\ServiceBundleService;
 use App\Models\ExternalRequestModel;
 use App\Models\LaboratoryModel;
 
@@ -13,6 +14,7 @@ class ExternalDashboard extends BaseController
     protected ExternalRequestModel $requestModel;
     protected LaboratoryModel $labModel;
     protected BookingSlotService $slotService;
+    protected ServiceBundleService $bundleService;
 
     public function __construct()
     {
@@ -20,6 +22,7 @@ class ExternalDashboard extends BaseController
         $this->requestModel = new ExternalRequestModel();
         $this->labModel = new LaboratoryModel();
         $this->slotService = new BookingSlotService();
+        $this->bundleService = new ServiceBundleService();
     }
 
     public function index()
@@ -79,6 +82,8 @@ class ExternalDashboard extends BaseController
                 'preferred_end_time' => $this->normalizeTimeForDisplay((string) $this->request->getGet('preferred_end_time')),
                 'purpose' => '',
                 'equipment_notes' => '',
+                'service_id' => ($this->request->getGet('service_id') ?: null) ? (int) $this->request->getGet('service_id') : null,
+                'selected_assets' => trim((string) $this->request->getGet('selected_assets')) ?: null,
                 'status' => 'pending_pic_approval',
                 'current_approval_stage' => 'pic',
                 'information_requested_by' => null,
@@ -206,9 +211,32 @@ class ExternalDashboard extends BaseController
             return $redirect;
         }
 
+        $serviceId = (int) $this->request->getGet('service_id');
+        if ($serviceId > 0) {
+            $selected = $this->bundleService->requirementMapForService($labId, $serviceId);
+            $bookingController = new \App\Controllers\Public\BookingController();
+
+            return $this->response->setJSON([
+                'status' => 'success',
+                'slots' => $bookingController->dayAssetsInternal($labId, $date, $selected),
+            ]);
+        }
+
         return $this->response->setJSON([
             'status' => 'success',
             'slots' => $this->externalDaySlotsInternal($labId, $date),
+        ]);
+    }
+
+    public function services(int $labId)
+    {
+        if ($redirect = $this->ensureExternal()) {
+            return $redirect;
+        }
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'services' => $this->bundleService->serviceSummariesForLab($labId),
         ]);
     }
 
@@ -285,7 +313,7 @@ class ExternalDashboard extends BaseController
 
     protected function requestPayload(): array
     {
-        return [
+        $payload = [
             'lab_id' => (int) $this->request->getPost('lab_id'),
             'organization_name' => trim((string) $this->request->getPost('organization_name')),
             'contact_name' => trim((string) $this->request->getPost('contact_name')),
@@ -298,6 +326,15 @@ class ExternalDashboard extends BaseController
             'purpose' => trim((string) $this->request->getPost('purpose')),
             'equipment_notes' => trim((string) $this->request->getPost('equipment_notes')),
         ];
+
+        if (db_connect()->fieldExists('service_id', 'external_requests')) {
+            $payload['service_id'] = ($this->request->getPost('service_id') ?: null) ? (int) $this->request->getPost('service_id') : null;
+        }
+        if (db_connect()->fieldExists('selected_assets', 'external_requests')) {
+            $payload['selected_assets'] = trim((string) $this->request->getPost('selected_assets')) ?: null;
+        }
+
+        return $payload;
     }
 
     protected function validateRequestPayload(array $payload): ?string
@@ -325,6 +362,11 @@ class ExternalDashboard extends BaseController
             return 'Selected laboratory was not found.';
         }
 
+        $services = $this->bundleService->serviceSummariesForLab((int) $payload['lab_id']);
+        if ($services !== [] && (int) ($payload['service_id'] ?? 0) <= 0) {
+            return 'Please choose one of the configured laboratory services.';
+        }
+
         if ($payload['preferred_date'] < date('Y-m-d')) {
             return 'Preferred date cannot be in the past.';
         }
@@ -342,6 +384,31 @@ class ExternalDashboard extends BaseController
 
         if (! ($availability['can_book'] ?? false)) {
             return (string) ($availability['reason'] ?? 'Selected booking slot is no longer available.');
+        }
+
+        $serviceId = (int) ($payload['service_id'] ?? 0);
+        if ($serviceId > 0) {
+            $requirements = $this->bundleService->requirementMapForService((int) $payload['lab_id'], $serviceId);
+            if ($requirements === []) {
+                return 'The selected service is not linked to a valid equipment bundle.';
+            }
+
+            $bookingController = new \App\Controllers\Public\BookingController();
+            $remaining = (function () use ($bookingController, $payload, $requirements) {
+                return $bookingController->computeRemainingForSlot(
+                    (int) $payload['lab_id'],
+                    (string) $payload['preferred_date'],
+                    (string) $payload['preferred_start_time'],
+                    (string) $payload['preferred_end_time'],
+                    $requirements
+                );
+            })();
+
+            foreach ($requirements as $assetId => $quantityRequired) {
+                if (($remaining[$assetId] ?? 0) < $quantityRequired) {
+                    return 'The selected service is not fully available for this slot.';
+                }
+            }
         }
 
         return null;

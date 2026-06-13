@@ -34,6 +34,7 @@ export function BookingDetailScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['bookings'] });
       await queryClient.invalidateQueries({ queryKey: ['booking', route.params.bookingId] });
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },
   });
