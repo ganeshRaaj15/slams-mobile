@@ -38,7 +38,11 @@ export function Screen({
           },
         ]}
       >
-        <AvoidSoftInputView style={styles.fill}>
+        <AvoidSoftInputView
+          hideAnimationDuration={120}
+          showAnimationDuration={200}
+          style={styles.fill}
+        >
           <Animated.View entering={entering} exiting={exiting} style={styles.fill}>
             <View style={contentLayout}>{children}</View>
           </Animated.View>
@@ -56,7 +60,11 @@ export function Screen({
         },
       ]}
     >
-      <AvoidSoftInputView style={styles.fill}>
+      <AvoidSoftInputView
+        hideAnimationDuration={120}
+        showAnimationDuration={200}
+        style={styles.fill}
+      >
         <Animated.View entering={entering} exiting={exiting} style={styles.fill}>
           <ScrollView
             contentContainerStyle={[
