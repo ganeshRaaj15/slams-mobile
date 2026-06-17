@@ -427,14 +427,14 @@ export function LoginScreen() {
 
   if (responsive.isTablet) {
     return (
-      <Screen scroll={false} maxWidth="wide" centerContent>
+      <Screen maxWidth="wide" centerContent>
         {layout}
       </Screen>
     );
   }
 
   return (
-    <Screen scroll={false} maxWidth="wide" centerContent>
+    <Screen maxWidth="wide" centerContent>
       {layout}
     </Screen>
   );

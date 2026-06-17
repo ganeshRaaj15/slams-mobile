@@ -43,7 +43,7 @@ export function MagicLinkRequestScreen() {
   };
 
   return (
-    <Screen scroll={false} centerContent>
+    <Screen centerContent>
       <View
         style={[
           styles.card,
