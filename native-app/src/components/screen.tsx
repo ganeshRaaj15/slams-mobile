@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AvoidSoftInputView } from 'react-native-avoid-softinput';
 
 import { useAppTheme } from '../theme/use-app-theme';
 
@@ -37,9 +38,11 @@ export function Screen({
           },
         ]}
       >
-        <Animated.View entering={entering} exiting={exiting} style={styles.fill}>
-          <View style={contentLayout}>{children}</View>
-        </Animated.View>
+        <AvoidSoftInputView style={styles.fill}>
+          <Animated.View entering={entering} exiting={exiting} style={styles.fill}>
+            <View style={contentLayout}>{children}</View>
+          </Animated.View>
+        </AvoidSoftInputView>
       </SafeAreaView>
     );
   }
@@ -53,22 +56,23 @@ export function Screen({
         },
       ]}
     >
-      <Animated.View entering={entering} exiting={exiting} style={styles.fill}>
-        <ScrollView
-          automaticallyAdjustKeyboardInsets
-          contentContainerStyle={[
-            styles.content,
-            centerContent ? styles.centerScrollContent : null,
-            {
-              padding: theme.spacing.lg,
-            },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={contentLayout}>{children}</View>
-        </ScrollView>
-      </Animated.View>
+      <AvoidSoftInputView style={styles.fill}>
+        <Animated.View entering={entering} exiting={exiting} style={styles.fill}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              centerContent ? styles.centerScrollContent : null,
+              {
+                padding: theme.spacing.lg,
+              },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={contentLayout}>{children}</View>
+          </ScrollView>
+        </Animated.View>
+      </AvoidSoftInputView>
     </SafeAreaView>
   );
 }
