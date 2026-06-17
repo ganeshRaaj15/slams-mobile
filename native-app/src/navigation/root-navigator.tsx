@@ -201,7 +201,6 @@ function MainTabs() {
       {role === 'student' || role === 'staff' || role === 'pic' ? (
         <Tabs.Screen name="Issues" component={IssuesScreen} />
       ) : null}
-      {role === 'pic' ? <Tabs.Screen name="Maintenance" component={MaintenanceScreen} /> : null}
       {isOperationalRole(role) ? (
         <Tabs.Screen name="Approvals" component={ApprovalsScreen} options={{ title: 'Approvals' }} />
       ) : null}
